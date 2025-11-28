@@ -28,19 +28,19 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        release {
-            storeFile file("/keys/my-release-key.jks")
-            storePassword "paasword"
-            keyAlias "KuudereAndroid"
-            keyPassword "password"
-        }
-    }
+    // signingConfigs {
+    //     release {
+    //         storeFile file("/keys/my-release-key.jks")
+    //         storePassword "paasword"
+    //         keyAlias "KuudereAndroid"
+    //         keyPassword "password"
+    //     }
+    // }
 
     buildTypes {
         release {
             // Use your release signing configuration
-            signingConfig signingConfigs.release
+            // signingConfig signingConfigs.release
             minifyEnabled false // or true if you want to enable minification
             shrinkResources false
         }
