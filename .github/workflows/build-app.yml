@@ -1,11 +1,22 @@
-name: Build All Platforms
+name: Build and Release App
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # Allow manual triggers
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'App Version (e.g. 1.0.0)'
+        required: true
+      build_number:
+        description: 'Build Number (e.g. 1)'
+        required: true
+      type:
+        description: 'Release Type'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - latest
+          - beta
 
 jobs:
   # ==================== ANDROID BUILD ====================
@@ -15,6 +26,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -57,6 +72,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -91,6 +110,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
 
       - name: Install Linux dependencies
         run: |
@@ -131,6 +154,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Update version in pubspec.yaml
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version: .*', 'version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}' | Set-Content pubspec.yaml
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -163,6 +190,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -198,6 +229,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -224,12 +259,13 @@ jobs:
           name: web-build
           path: kuudere-web.tar.gz
 
-  # ==================== CREATE RELEASE (Optional) ====================
+  # ==================== CREATE RELEASE ====================
   create-release:
     name: Create Release
     needs: [build-android, build-ios, build-linux, build-windows, build-macos, build-web]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -239,23 +275,18 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Create Release Notes
-        run: |
-          echo "# Kuudere - Build Artifacts" > release_notes.md
-          echo "" >> release_notes.md
-          echo "## Platform Builds" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "- ✅ Android APK & AAB" >> release_notes.md
-          echo "- ✅ iOS IPA (unsigned)" >> release_notes.md
-          echo "- ✅ Linux x64" >> release_notes.md
-          echo "- ✅ Windows x64" >> release_notes.md
-          echo "- ✅ macOS (unsigned)" >> release_notes.md
-          echo "- ✅ Web build" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "Built on: $(date)" >> release_notes.md
-
-      - name: Upload release notes
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: release-notes
-          path: release_notes.md
+          tag_name: v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
+          name: Release v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
+          prerelease: ${{ github.event.inputs.type == 'beta' }}
+          generate_release_notes: true
+          files: |
+            artifacts/android-apk/app-release.apk
+            artifacts/android-aab/app-release.aab
+            artifacts/ios-ipa/kuudere-ios-unsigned.ipa
+            artifacts/linux-x64/kuudere-linux-x64.tar.gz
+            artifacts/windows-x64/kuudere-windows-x64.zip
+            artifacts/macos-app/kuudere-macos.zip
+            artifacts/web-build/kuudere-web.tar.gz
