@@ -137,12 +137,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   Future<void> _loadPreferredLang() async {
     String? storedLang = await _secureStorage.read(key: "preferredLang");
-    if (storedLang != null) {
-      setState(() {
-        _preferredLang = storedLang;
-      });
+    setState(() {
+      _preferredLang = storedLang;
+    });
     }
-  }
 
   void fetchDefaultEpisodeNumber() async {
     final String url = 'https://kuudere.to/watch/${widget.id}';

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
   final authService = AuthService();
   final httpService = HttpService();
   final RealtimeService _realtimeService = RealtimeService();
-  
+
   @override
   void initState() {
     super.initState();
@@ -40,8 +40,6 @@ class _SplashScreenState extends State<SplashScreen> {
     // await _checkVersion();
     await _checkSession();
   }
-
-
 
   Future<void> _checkVersion() async {
     try {
@@ -77,7 +75,8 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  void _showUpdateDialog({Map<String, dynamic>? data, bool isServerOffline = false}) {
+  void _showUpdateDialog(
+      {Map<String, dynamic>? data, bool isServerOffline = false}) {
     showModalBottomSheet(
       context: context,
       isDismissible: false,
@@ -120,7 +119,9 @@ class _SplashScreenState extends State<SplashScreen> {
                             ),
                             child: Center(
                               child: Icon(
-                                isServerOffline ? Icons.cloud_off : Icons.system_update,
+                                isServerOffline
+                                    ? Icons.cloud_off
+                                    : Icons.system_update,
                                 color: const Color.fromARGB(255, 255, 0, 0),
                                 size: 24,
                               ),
@@ -128,7 +129,9 @@ class _SplashScreenState extends State<SplashScreen> {
                           ),
                           const SizedBox(width: 16),
                           Text(
-                            isServerOffline ? 'System Failure' : 'New Update Is Available',
+                            isServerOffline
+                                ? 'System Failure'
+                                : 'New Update Is Available',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -153,11 +156,12 @@ class _SplashScreenState extends State<SplashScreen> {
                         future: PackageInfo.fromPlatform(),
                         builder: (context, snapshot) {
                           final version = snapshot.data?.version ?? 'Unknown';
-                          final buildNumber = snapshot.data?.buildNumber ?? 'Unknown';
+                          final buildNumber =
+                              snapshot.data?.buildNumber ?? 'Unknown';
                           return Text(
-                            isServerOffline 
-                              ? 'Version $version Build $buildNumber' 
-                              : 'Version ${data?['version'] ?? version} Build ${data?['build'] ?? buildNumber}',
+                            isServerOffline
+                                ? 'Version $version Build $buildNumber'
+                                : 'Version ${data?['version'] ?? version} Build ${data?['build'] ?? buildNumber}',
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 16,
@@ -168,7 +172,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       const SizedBox(height: 16),
                       if (isServerOffline)
-                        _buildBulletPoint('The server is currently unavailable.')
+                        _buildBulletPoint(
+                            'The server is currently unavailable.')
                       else if (data != null && data['Message'] != null)
                         ...List<Widget>.from(
                           (data['Message'] as List).map(
@@ -269,7 +274,9 @@ class _SplashScreenState extends State<SplashScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isPrimary ? const Color.fromARGB(255, 255, 30, 0) : Colors.transparent,
+          color: isPrimary
+              ? const Color.fromARGB(255, 255, 30, 0)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: !isPrimary
               ? Border.all(color: Colors.white.withOpacity(0.1), width: 1)
@@ -279,7 +286,9 @@ class _SplashScreenState extends State<SplashScreen> {
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isPrimary ? const Color.fromARGB(255, 255, 255, 255) : Colors.white,
+            color: isPrimary
+                ? const Color.fromARGB(255, 255, 255, 255)
+                : Colors.white,
             fontSize: 16,
             fontWeight: FontWeight.w600,
             fontFamily: 'Inter',
@@ -294,7 +303,8 @@ class _SplashScreenState extends State<SplashScreen> {
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
         // Check session using new SvelteKit endpoint with cookie-based auth
-        final response = await httpService.get('/api/user/current', requireAuth: true);
+        final response =
+            await httpService.get('/api/user/current', requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -303,7 +313,7 @@ class _SplashScreenState extends State<SplashScreen> {
             return;
           }
         }
-        
+
         if (authService.isSessionExpired(sessionInfo)) {
           _navigateToAuth();
           return;
@@ -349,8 +359,8 @@ class _SplashScreenState extends State<SplashScreen> {
                   alignment: AlignmentDirectional.center,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: CachedNetworkImage(
-                      imageUrl: 'https://kuudere.to/static/favicon.png',
+                    child: Image.asset(
+                      'assets/splash.png',
                       width: 150,
                       height: 150,
                       fit: BoxFit.fill,
@@ -360,7 +370,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Kuudere Official',
+                'AniSurge powered by kuudere',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   color: Colors.white,

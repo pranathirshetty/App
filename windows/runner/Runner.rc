@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "kuudere.to" "\0"
-            VALUE "FileDescription", "kuudere" "\0"
+            VALUE "FileDescription", "AniSurge" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "kuudere" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 kuudere.to. All rights reserved." "\0"
-            VALUE "OriginalFilename", "kuudere.exe" "\0"
-            VALUE "ProductName", "kuudere" "\0"
+            VALUE "InternalName", "AniSurge" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
+            VALUE "OriginalFilename", "AniSurge.exe" "\0"
+            VALUE "ProductName", "AniSurge" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

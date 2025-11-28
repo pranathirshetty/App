@@ -25,12 +25,10 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _obscurePassword = true;
   final RealtimeService _realtimeService = RealtimeService();
 
-
   @override
   void initState() {
     _realtimeService.joinRoom('home');
   }
-
 
   @override
   void dispose() {
@@ -57,7 +55,7 @@ class _AuthScreenState extends State<AuthScreen> {
             _displayNameController.text,
           );
         }
-        
+
         if (sessionInfo != null && mounted) {
           // Navigate to home screen and remove all previous routes
           Navigator.of(context).pushAndRemoveUntil(
@@ -101,9 +99,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999), // Adjust the radius as needed
-                    child: Image.network(
-                      'https://kuudere.to/static/favicon.png',
+                    borderRadius: BorderRadius.circular(
+                        999), // Adjust the radius as needed
+                    child: Image.asset(
+                      'assets/splash.png',
                       height: 32,
                     ),
                   ),
@@ -126,82 +125,93 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Column(
                     children: [
                       if (!_isLogin) ...[
+                        TextFormField(
+                          controller: _displayNameController,
+                          decoration: const InputDecoration(
+                            labelText:
+                                'Username', // Label moves to border when focused
+                            labelStyle: TextStyle(
+                                color: Color.fromARGB(183, 255, 255, 255)),
+                            border: OutlineInputBorder(),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                  color: Color.fromARGB(255, 243, 33, 33),
+                                  width: 1),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value?.isEmpty ?? true) {
+                              return 'Please enter your username';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       TextFormField(
-                        controller: _displayNameController,
+                        controller: _emailController,
                         decoration: const InputDecoration(
-                          labelText: 'Username', // Label moves to border when focused
-                          labelStyle: TextStyle(color: Color.fromARGB(183, 255, 255, 255)),
+                          labelText: 'Your email', // Label instead of hint
+                          labelStyle: TextStyle(
+                              color: Color.fromARGB(183, 255, 255, 255)),
                           border: OutlineInputBorder(),
                           enabledBorder: OutlineInputBorder(
                             borderSide: BorderSide(color: Colors.grey),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Color.fromARGB(255, 243, 33, 33), width: 1),
+                            borderSide: BorderSide(
+                                color: Color.fromARGB(255, 243, 33, 33),
+                                width: 1),
                           ),
                         ),
+                        keyboardType: TextInputType.emailAddress,
                         validator: (value) {
                           if (value?.isEmpty ?? true) {
-                            return 'Please enter your username';
+                            return 'Please enter your email';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-                    ],
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Your email', // Label instead of hint
-                        labelStyle: TextStyle(color: Color.fromARGB(183, 255, 255, 255)),
-                        border: OutlineInputBorder(),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color.fromARGB(255, 243, 33, 33), width: 1),
-                        ),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password', // Label instead of hint
-                        labelStyle: TextStyle(color: Color.fromARGB(183, 255, 255, 255)),
-                        border: const OutlineInputBorder(),
-                        enabledBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Color.fromARGB(255, 243, 33, 33), width: 1),
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: Colors.white54,
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Password', // Label instead of hint
+                          labelStyle: TextStyle(
+                              color: Color.fromARGB(183, 255, 255, 255)),
+                          border: const OutlineInputBorder(),
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey),
                           ),
-                          onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
-                          },
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(
+                                color: Color.fromARGB(255, 243, 33, 33),
+                                width: 1),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              color: Colors.white54,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => _obscurePassword = !_obscurePassword);
+                            },
+                          ),
                         ),
+                        obscureText: _obscurePassword,
+                        validator: (value) {
+                          if (value?.isEmpty ?? true) {
+                            return 'Please enter your password';
+                          }
+                          return null;
+                        },
                       ),
-                      obscureText: _obscurePassword,
-                      validator: (value) {
-                        if (value?.isEmpty ?? true) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
-                    ),
                       if (_isLogin) ...[
                         const SizedBox(height: 8),
                         Align(
@@ -231,18 +241,16 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ),
                           child: _isLoading
-                            ? LoadingAnimationWidget.threeArchedCircle(
-                                color: Colors.white, 
-                                size: 24
-                              )
-                            : Text(
-                                _isLogin ? 'Login now' : 'Register Now',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              ? LoadingAnimationWidget.threeArchedCircle(
+                                  color: Colors.white, size: 24)
+                              : Text(
+                                  _isLogin ? 'Login now' : 'Register Now',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -313,7 +321,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ],
                         ),
-                      ]else...[
+                      ] else ...[
                         const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -352,4 +360,3 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
-
