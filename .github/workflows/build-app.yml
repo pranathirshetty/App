@@ -118,7 +118,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -213,7 +213,7 @@ jobs:
       - name: Package macOS build
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../kuudere-macos.zip kuudere.app
+          zip -r ../../../../../kuudere-macos.zip *.app
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
@@ -246,7 +246,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Web
-        run: flutter build web --release --web-renderer canvaskit
+        run: flutter build web --release
 
       - name: Package Web build
         run: |
