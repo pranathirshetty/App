@@ -412,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   CarouselSlider(
                     options: CarouselOptions(
-                      height: MediaQuery.of(context).size.height * 0.75,
+                      height: MediaQuery.of(context).size.height * 0.5,
                       viewportFraction: 1.0,
                       enlargeCenterPage: false,
                       autoPlay: true,
@@ -476,9 +476,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       20,
                                       MediaQuery.of(context).padding.top +
                                           kToolbarHeight +
-                                          40,
+                                          10,
                                       20,
-                                      20,
+                                      10,
                                     ),
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.end,
@@ -498,20 +498,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ],
                                         ),
 
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         // Title
                                         Text(
                                           item.title,
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontSize: 28,
+                                            fontSize: 22,
                                             fontWeight: FontWeight.bold,
                                             height: 1.2,
                                           ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         // Description
                                         Text(
                                           _stripHtmlTags(item.description),
@@ -521,10 +521,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             fontSize: 14,
                                             height: 1.5,
                                           ),
-                                          maxLines: 3,
+                                          maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 20),
+                                        const SizedBox(height: 8),
                                         // Watch button
                                         Row(
                                           children: [

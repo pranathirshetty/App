@@ -457,23 +457,27 @@ class AnimeCard extends StatelessWidget {
                 right: 8,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        _buildTag(item.type),
-                        _buildTag(
-                          '${item.subbed}',
-                          icon:
-                              _buildSvgIcon(_episodesSvg, color: Colors.yellow),
-                        ),
-                        _buildTag(
-                          '${item.dubbed}',
-                          icon: _buildSvgIcon(_audioSvg, color: Colors.blue),
-                        ),
-                      ],
+                    Expanded(
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          _buildTag(item.type),
+                          _buildTag(
+                            '${item.subbed}',
+                            icon: _buildSvgIcon(_episodesSvg,
+                                color: Colors.yellow),
+                          ),
+                          _buildTag(
+                            '${item.dubbed}',
+                            icon: _buildSvgIcon(_audioSvg, color: Colors.blue),
+                          ),
+                        ],
+                      ),
                     ),
+                    SizedBox(width: 4),
                     _buildMoreOptionsButton(context),
                   ],
                 ),
