@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'package:kuudere/services/http_service.dart';
+import 'package:kuudere/theme/app_theme.dart';
 
 class WatchListTab extends StatefulWidget {
   const WatchListTab({super.key});
@@ -130,7 +131,7 @@ class _WatchListTabState extends State<WatchListTab>
         children: [
           Row(
             children: [
-              Icon(Icons.favorite, color: Colors.red, size: 28),
+              Icon(Icons.favorite, color: AppTheme.primary, size: 28),
               SizedBox(width: 8),
               Text(
                 'Watch List',
@@ -152,7 +153,7 @@ class _WatchListTabState extends State<WatchListTab>
               Switch(
                 value: isPublic,
                 onChanged: (value) => setState(() => isPublic = value),
-                activeThumbColor: Colors.red,
+                activeThumbColor: AppTheme.primary,
               ),
             ],
           ),
@@ -185,7 +186,7 @@ class _WatchListTabState extends State<WatchListTab>
                 fetchWatchList(page: 1);
               },
               backgroundColor: Colors.grey[900],
-              selectedColor: Colors.red,
+              selectedColor: AppTheme.primary,
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.grey,
               ),
@@ -248,7 +249,7 @@ class _WatchListTabState extends State<WatchListTab>
               } else {
                 return Center(
                   child: LoadingAnimationWidget.threeArchedCircle(
-                    color: Colors.red,
+                    color: AppTheme.primary,
                     size: 50,
                   ),
                 );
@@ -457,23 +458,27 @@ class AnimeCard extends StatelessWidget {
                 right: 8,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        _buildTag(item.type),
-                        _buildTag(
-                          '${item.subbed}',
-                          icon:
-                              _buildSvgIcon(_episodesSvg, color: Colors.yellow),
-                        ),
-                        _buildTag(
-                          '${item.dubbed}',
-                          icon: _buildSvgIcon(_audioSvg, color: Colors.blue),
-                        ),
-                      ],
+                    Expanded(
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          _buildTag(item.type),
+                          _buildTag(
+                            '${item.subbed}',
+                            icon: _buildSvgIcon(_episodesSvg,
+                                color: Colors.yellow),
+                          ),
+                          _buildTag(
+                            '${item.dubbed}',
+                            icon: _buildSvgIcon(_audioSvg, color: Colors.blue),
+                          ),
+                        ],
+                      ),
                     ),
+                    SizedBox(width: 4),
                     _buildMoreOptionsButton(context),
                   ],
                 ),

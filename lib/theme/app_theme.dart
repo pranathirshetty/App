@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const primary = Color.fromARGB(255, 255, 0, 0);
-  static const background = Color(0xFF1A1A1A);
-  static const surface = Color(0xFF2A2A2A);
+  static const primary = Color(0xFF8B5CF6);
+  static const background = Color(0xFF0B0B0B);
+  static const surface = Color(0xFF1E1E1E);
   static const text = Color(0xFFFFFFFF);
   static const textSecondary = Color(0xFF9E9E9E);
 
   static final ThemeData darkTheme = ThemeData(
-    primaryColor: const Color.fromARGB(255, 255, 0, 0),
+    primaryColor: const Color(0xFF8B5CF6),
     scaffoldBackgroundColor: background,
     textTheme: TextTheme(
       headlineLarge: GoogleFonts.inter(
@@ -48,8 +48,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            const BorderSide(color: Color.fromARGB(255, 255, 0, 0), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
       ),
       contentPadding: const EdgeInsets.all(16),
     ),

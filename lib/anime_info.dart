@@ -7,6 +7,7 @@ import 'watch_anime.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
 class AnimeDetails {
   final String id;
@@ -485,9 +486,9 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    Text(
+                    HtmlWidget(
                       anime.description,
-                      style: const TextStyle(
+                      textStyle: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         height: 1.5,
@@ -701,9 +702,9 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            Text(
+                            HtmlWidget(
                               anime.description,
-                              style: const TextStyle(
+                              textStyle: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,
                                 height: 1.5,

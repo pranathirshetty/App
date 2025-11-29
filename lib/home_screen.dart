@@ -16,6 +16,7 @@ import 'watch_list_tab.dart';
 import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
+import 'package:kuudere/theme/app_theme.dart';
 
 // Model class for anime data
 class AnimeItem {
@@ -331,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.red,
+        selectedItemColor: AppTheme.primary,
         unselectedItemColor: Colors.grey,
         currentIndex: _currentIndex,
         items: const [
@@ -369,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isLoading) {
       return Center(
         child: LoadingAnimationWidget.threeArchedCircle(
-          color: Colors.red,
+          color: AppTheme.primary,
           size: 50,
         ),
       );
@@ -377,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return RefreshIndicator(
       onRefresh: fetchData,
-      color: Colors.red,
+      color: AppTheme.primary,
       child: SingleChildScrollView(
         controller: _scrollController,
         child: Column(
@@ -412,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   CarouselSlider(
                     options: CarouselOptions(
-                      height: MediaQuery.of(context).size.height * 0.75,
+                      height: MediaQuery.of(context).size.height * 0.5,
                       viewportFraction: 1.0,
                       enlargeCenterPage: false,
                       autoPlay: true,
@@ -476,9 +477,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       20,
                                       MediaQuery.of(context).padding.top +
                                           kToolbarHeight +
-                                          40,
+                                          10,
                                       20,
-                                      20,
+                                      10,
                                     ),
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.end,
@@ -498,33 +499,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ],
                                         ),
 
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         // Title
                                         Text(
                                           item.title,
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontSize: 28,
+                                            fontSize: 22,
                                             fontWeight: FontWeight.bold,
                                             height: 1.2,
                                           ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         // Description
                                         Text(
-                                          item.description,
+                                          _stripHtmlTags(item.description),
                                           style: TextStyle(
                                             color: Colors.white
                                                 .withValues(alpha: 0.9),
                                             fontSize: 14,
                                             height: 1.5,
                                           ),
-                                          maxLines: 3,
+                                          maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 20),
+                                        const SizedBox(height: 8),
                                         // Watch button
                                         Row(
                                           children: [
@@ -542,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
-                                                      Colors.redAccent,
+                                                      AppTheme.primary,
                                                   padding: EdgeInsets.symmetric(
                                                     vertical: 16,
                                                     horizontal: 24,
@@ -736,6 +737,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  String _stripHtmlTags(String htmlString) {
+    String text = htmlString
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n')
+        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n');
+    return text.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 }
 
