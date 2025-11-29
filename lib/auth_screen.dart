@@ -465,6 +465,7 @@ class _AuthScreenState extends State<AuthScreen>
                             controller: _displayNameController,
                             label: 'Full name',
                             hint: 'Enter your full name',
+                            textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -475,6 +476,7 @@ class _AuthScreenState extends State<AuthScreen>
                 label: 'Email',
                 hint: 'Enter your email address',
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 16),
               _CleanTextField(
@@ -485,6 +487,8 @@ class _AuthScreenState extends State<AuthScreen>
                 obscurePassword: _obscurePassword,
                 onTogglePassword: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submitForm(),
               ),
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
@@ -606,6 +610,8 @@ class _CleanTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final bool obscurePassword;
   final VoidCallback? onTogglePassword;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
 
   const _CleanTextField({
     required this.controller,
@@ -615,6 +621,8 @@ class _CleanTextField extends StatefulWidget {
     this.keyboardType,
     this.obscurePassword = false,
     this.onTogglePassword,
+    this.onSubmitted,
+    this.textInputAction,
   });
 
   @override
@@ -659,6 +667,8 @@ class _CleanTextFieldState extends State<_CleanTextField> {
         TextFormField(
           controller: widget.controller,
           focusNode: _focusNode,
+          onFieldSubmitted: widget.onSubmitted,
+          textInputAction: widget.textInputAction,
           obscureText: widget.isPassword ? widget.obscurePassword : false,
           keyboardType: widget.keyboardType,
           style: const TextStyle(
