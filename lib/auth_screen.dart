@@ -273,6 +273,22 @@ class _AuthScreenState extends State<AuthScreen>
                               year: '2025',
                               eps: '12',
                             ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://cdn.myanimelist.net/images/anime/1286/141636.jpg',
+                              title: 'Sakamoto Days',
+                              year: '2025',
+                              eps: '24',
+                            ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://cdn.myanimelist.net/images/anime/1693/138042.jpg',
+                              title: 'Solo Leveling S2',
+                              year: '2025',
+                              eps: '13',
+                            ),
                           ],
                         ),
                       ),
