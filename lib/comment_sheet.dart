@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+
 import 'package:kuudere/services/auth_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kuudere/services/http_service.dart';
@@ -14,14 +14,14 @@ class CommentBottomSheet extends StatefulWidget {
   final Function(List<Comment>) updateComments;
 
   const CommentBottomSheet({
-    Key? key,
+    super.key,
     required this.commentCount,
     required this.episodeData,
     required this.epNumber,
     required this.animeId,
     required this.comments,
     required this.updateComments,
-  }) : super(key: key);
+  });
 
   @override
   State<CommentBottomSheet> createState() => _CommentBottomSheetState();
@@ -39,10 +39,10 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
   @override
   void initState() {
     super.initState();
-    print('Episode Number: ${widget.epNumber}');
-    print('Anime ID: ${widget.animeId}');
+    // print('Episode Number: ${widget.epNumber}');
+    // print('Anime ID: ${widget.animeId}');
     comments = widget.comments;
-  
+
     for (var comment in comments) {
       showReplyForms[comment.id] = false;
       expandedReplies[comment.id] = false;
@@ -65,7 +65,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     final sessionInfo = await authService.getStoredSession();
 
     if (sessionInfo == null) {
-      print('No session information found.');
+      // print('No session information found.');
       return;
     }
 
@@ -110,16 +110,17 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
           }
         });
       } else {
-        print('Failed to $type comment: ${response.statusCode}');
+        // print('Failed to $type comment: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error ${type}ing comment: $e');
+      // print('Error ${type}ing comment: $e');
     }
   }
 
   Widget _buildCommentForm({bool isReply = false, String? commentId}) {
-    final controller = isReply ? _replyControllers[commentId]! : _commentController;
-    
+    final controller =
+        isReply ? _replyControllers[commentId]! : _commentController;
+
     return Column(
       children: [
         Row(
@@ -151,7 +152,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                 Checkbox(
                   value: isSpoiler,
                   onChanged: (value) => setState(() => isSpoiler = value!),
-                  fillColor: MaterialStateProperty.all(Colors.grey[800]),
+                  fillColor: WidgetStateProperty.all(Colors.grey[800]),
                 ),
                 Text(
                   'Spoiler?',
@@ -160,38 +161,41 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
               ],
             ),
             TextButton(
-              onPressed: _isSubmitting ? null : () async {
-                if (controller.text.isNotEmpty) {
-                  setState(() {
-                    _isSubmitting = true;
-                  });
-                  if (isReply) {
-                    await _handleReplySubmit(commentId!);
-                  } else {
-                    await _handleCommentSubmit();
-                  }
-                  setState(() {
-                    _isSubmitting = false;
-                  });
-                }
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () async {
+                      if (controller.text.isNotEmpty) {
+                        setState(() {
+                          _isSubmitting = true;
+                        });
+                        if (isReply) {
+                          await _handleReplySubmit(commentId!);
+                        } else {
+                          await _handleCommentSubmit();
+                        }
+                        setState(() {
+                          _isSubmitting = false;
+                        });
+                      }
+                    },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: _isSubmitting
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: LoadingAnimationWidget.threeArchedCircle(
-                      color: Colors.white,
-                      size: 24,
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: LoadingAnimationWidget.threeArchedCircle(
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    )
+                  : Text(
+                      isReply ? 'Reply' : 'Comment',
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  )
-                : Text(
-                    isReply ? 'Reply' : 'Comment',
-                    style: const TextStyle(color: Colors.white),
-                  ),
             ),
           ],
         ),
@@ -204,18 +208,16 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     final sessionInfo = await authService.getStoredSession();
 
     if (sessionInfo == null) {
-      print('No session information found.');
+      // print('No session information found.');
       return;
     }
 
     final httpService = HttpService();
-    
+
     try {
       final response = await httpService.post(
         '/api/anime/comments/${widget.animeId}/${widget.epNumber}',
-        body: {
-          'content': _commentController.text
-        },
+        body: {'content': _commentController.text},
         requireAuth: true,
       );
 
@@ -223,30 +225,32 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         final responseData = json.decode(response.body);
         if (responseData['success'] == true) {
           setState(() {
-            comments.insert(0, Comment(
-              id: responseData['data']['commentId'],
-              author: responseData['data']['username'],
-              content: _commentController.text,
-              time: 'Just now',
-              likes: 0,
-              dislikes: 0,
-              isLiked: false,
-              isDisliked: false,
-              isSpoiler: isSpoiler,
-              replies: [],
-            ));
+            comments.insert(
+                0,
+                Comment(
+                  id: responseData['data']['commentId'],
+                  author: responseData['data']['username'],
+                  content: _commentController.text,
+                  time: 'Just now',
+                  likes: 0,
+                  dislikes: 0,
+                  isLiked: false,
+                  isDisliked: false,
+                  isSpoiler: isSpoiler,
+                  replies: [],
+                ));
             _commentController.clear();
             isSpoiler = false;
           });
           widget.updateComments(comments);
         } else {
-          print('Failed to add comment: ${responseData['message']}');
+          // print('Failed to add comment: ${responseData['message']}');
         }
       } else {
-        print('Failed to add comment: ${response.statusCode}');
+        // print('Failed to add comment: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error adding comment: $e');
+      // print('Error adding comment: $e');
     }
   }
 
@@ -255,7 +259,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     final sessionInfo = await authService.getStoredSession();
 
     if (sessionInfo == null) {
-      print('No session information found.');
+      // print('No session information found.');
       return;
     }
 
@@ -276,14 +280,15 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
         setState(() {
-          final commentIndex = comments.indexWhere((comment) => comment.id == commentId);
+          final commentIndex =
+              comments.indexWhere((comment) => comment.id == commentId);
           if (commentIndex != -1) {
             comments[commentIndex].replies.add(Reply(
-              id: responseData['id'],
-              author: responseData['author'],
-              content: responseData['content'],
-              time: responseData['time'],
-            ));
+                  id: responseData['id'],
+                  author: responseData['author'],
+                  content: responseData['content'],
+                  time: responseData['time'],
+                ));
             _replyControllers[commentId]!.clear();
             showReplyForms[commentId] = false;
             expandedReplies[commentId] = true;
@@ -292,11 +297,11 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         });
         widget.updateComments(comments);
       } else {
-        print('Failed to submit reply: ${response.statusCode}');
+        // print('Failed to submit reply: ${response.statusCode}');
         // You might want to show an error message to the user here
       }
     } catch (e) {
-      print('Error submitting reply: $e');
+      // print('Error submitting reply: $e');
       // You might want to show an error message to the user here
     }
   }
@@ -354,7 +359,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                   if (comment.isSpoiler)
                     Container(
                       margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(4),
@@ -430,7 +436,9 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                     TextButton(
                       onPressed: () => toggleReplies(comment.id),
                       child: Text(
-                        (expandedReplies[comment.id] ?? false) ? 'Hide Replies' : 'Show Replies (${comment.replies.length})',
+                        (expandedReplies[comment.id] ?? false)
+                            ? 'Hide Replies'
+                            : 'Show Replies (${comment.replies.length})',
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ),
@@ -455,11 +463,14 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
               padding: const EdgeInsets.only(left: 40, top: 12),
               child: _buildCommentForm(isReply: true, commentId: comment.id),
             ),
-          if (comment.replies.isNotEmpty && (expandedReplies[comment.id] ?? false))
+          if (comment.replies.isNotEmpty &&
+              (expandedReplies[comment.id] ?? false))
             Padding(
               padding: const EdgeInsets.only(left: 40, top: 12),
               child: Column(
-                children: comment.replies.map((reply) => _buildReplyContent(reply)).toList(),
+                children: comment.replies
+                    .map((reply) => _buildReplyContent(reply))
+                    .toList(),
               ),
             ),
         ],
@@ -610,7 +621,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                     color: Color(0xFF2A2A2A),
                     height: 1,
                   ),
-                  itemBuilder: (context, index) => _buildCommentItem(comments[index]),
+                  itemBuilder: (context, index) =>
+                      _buildCommentItem(comments[index]),
                 ),
               ),
             ],
@@ -660,4 +672,3 @@ class Reply {
     required this.time,
   });
 }
-

@@ -37,12 +37,12 @@ class CommentItem extends StatelessWidget {
   final Function(String, bool) onVote;
 
   const CommentItem({
-    Key? key,
+    super.key,
     required this.comment,
     required this.onReply,
     required this.onToggleReplies,
     required this.onVote,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

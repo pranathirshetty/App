@@ -40,15 +40,16 @@ class AppTheme {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: text.withOpacity(0.3), width: 1),
+        borderSide: BorderSide(color: text.withValues(alpha: 0.3), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: text.withOpacity(0.3), width: 1),
+        borderSide: BorderSide(color: text.withValues(alpha: 0.3), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color.fromARGB(255, 255, 0, 0), width: 2),
+        borderSide:
+            const BorderSide(color: Color.fromARGB(255, 255, 0, 0), width: 2),
       ),
       contentPadding: const EdgeInsets.all(16),
     ),

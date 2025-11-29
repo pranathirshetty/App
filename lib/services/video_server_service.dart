@@ -7,7 +7,7 @@ class VideoServerService {
   VideoServerService._internal();
 
   final Map<String, String?> _extractedUrls = {};
-  
+
   Future<String?> extractM3U8Url(String serverName, String dataLink) async {
     try {
       // Return cached URL if already extracted
@@ -16,7 +16,7 @@ class VideoServerService {
       }
 
       String? extractedM3U8;
-      
+
       final HeadlessInAppWebView headlessWebView = HeadlessInAppWebView(
         initialUrlRequest: URLRequest(url: WebUri(dataLink)),
         onLoadStop: (controller, url) {
@@ -24,7 +24,8 @@ class VideoServerService {
             handlerName: "interceptRequest",
             callback: (args) {
               String requestUrl = args[0];
-              if (requestUrl.contains(".m3u8") && requestUrl.contains("master")) {
+              if (requestUrl.contains(".m3u8") &&
+                  requestUrl.contains("master")) {
                 extractedM3U8 = requestUrl;
               }
             },
@@ -40,7 +41,7 @@ class VideoServerService {
       );
 
       await headlessWebView.run();
-      
+
       // Wait for URL extraction with timeout
       int attempts = 0;
       while (extractedM3U8 == null && attempts < 30) {
@@ -54,10 +55,10 @@ class VideoServerService {
       if (extractedM3U8 != null) {
         _extractedUrls[dataLink] = extractedM3U8;
       }
-      
+
       return extractedM3U8;
     } catch (e) {
-      print('Error extracting M3U8 for $serverName: $e');
+      // print('Error extracting M3U8 for $serverName: $e');
       return null;
     }
   }

@@ -1,13 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:kuudere/history_tab.dart';
-import 'package:kuudere/notification_page.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/watch_anime.dart';
 import 'schedule_tab.dart';
@@ -15,9 +11,9 @@ import 'search_tab.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
-import 'profile.dart';
 import 'settings_tab.dart';
 import 'watch_list_tab.dart';
+import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 
@@ -60,7 +56,8 @@ class AnimeItem {
       subbedCount: json['subbedCount'] ?? 0,
       dubbedCount: json['dubbedCount'] ?? 0,
       imageUrl: json['cover'] ?? '',
-      bannerUrl: json['carouselBanner'] ?? json['banner'], // Prioritize carouselBanner from carousel collection
+      bannerUrl: json['carouselBanner'] ??
+          json['banner'], // Prioritize carouselBanner from carousel collection
       description: json['description'] ?? '',
       malScore: json['malScore']?.toDouble(),
       genres: List<String>.from(json['genres'] ?? []),
@@ -99,15 +96,15 @@ class ContinueWatchingItem {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 1;
-  ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
   double _scrollProgress = 0.0;
   List<ContinueWatchingItem> continueWatching = [];
   List<AnimeItem> topAiring = [];
@@ -141,20 +138,6 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Color get _appBarColor {
-    // Interpolate between transparent and solid color
-    return Color.lerp(
-      Colors.transparent,
-      const Color(0xFF0B0B0B),
-      _scrollProgress
-    )!;
-  }
-
-    double get _appBarElevation {
-    // Smoothly increase elevation
-      return lerpDouble(0, 4, _scrollProgress)!;
-    }
-
   Future<void> fetchData() async {
     setState(() {
       isLoading = true;
@@ -163,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
-      
+
       // Fetch home data (no auth required for public data, but auth needed for user-specific data)
       // Use /?type=api to get the same data as the SvelteKit frontend
       // Pass cookies when user is logged in to get user-specific data (continue watching count, etc.)
@@ -171,30 +154,36 @@ class _HomeScreenState extends State<HomeScreen> {
         '/',
         queryParams: {'type': 'api'},
         requireAuth: sessionInfo != null,
-        );
+      );
 
       // Fetch continue watching data (requires auth)
       http.Response? continueWatchingResponse;
       if (sessionInfo != null) {
         // Use correct endpoint path: /api/continue-watching/home (not /api/continue-watching-home)
-        continueWatchingResponse = await httpService.get('/api/continue-watching/home', requireAuth: true);
+        continueWatchingResponse = await httpService
+            .get('/api/continue-watching/home', requireAuth: true);
       }
 
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
         // SvelteKit returns { success: true, data: {...} }
         final homeData = responseData['data'] ?? responseData;
-        
+
         // Parse home data - adjust field names based on SvelteKit response
         final topAired = homeData['topAired'] ?? homeData['top_airing'] ?? [];
-        final latestEps = homeData['latestEps'] ?? homeData['latest_episodes'] ?? [];
-        final lastUpdated = homeData['lastUpdated'] ?? homeData['last_updated'] ?? [];
-        final topUpcomingData = homeData['topUpcoming'] ?? homeData['top_upcoming'] ?? [];
-        
+        final latestEps =
+            homeData['latestEps'] ?? homeData['latest_episodes'] ?? [];
+        final lastUpdated =
+            homeData['lastUpdated'] ?? homeData['last_updated'] ?? [];
+        final topUpcomingData =
+            homeData['topUpcoming'] ?? homeData['top_upcoming'] ?? [];
+
         List<ContinueWatchingItem> continueWatchingList = [];
-        if (continueWatchingResponse != null && continueWatchingResponse.statusCode == 200) {
+        if (continueWatchingResponse != null &&
+            continueWatchingResponse.statusCode == 200) {
           try {
-          final continueWatchingData = json.decode(continueWatchingResponse.body);
+            final continueWatchingData =
+                json.decode(continueWatchingResponse.body);
             // Backend returns array directly when successful, or error object on failure
             if (continueWatchingData is List) {
               continueWatchingList = continueWatchingData
@@ -202,8 +191,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   .toList();
             } else if (continueWatchingData is Map) {
               // Check if it's an error response
-              if (continueWatchingData['success'] == false || continueWatchingData['message'] != null) {
-                print('Continue watching error: ${continueWatchingData['message']}');
+              if (continueWatchingData['success'] == false ||
+                  continueWatchingData['message'] != null) {
+                // print('Continue watching error: ${continueWatchingData['message']}');
               } else if (continueWatchingData['data'] != null) {
                 // Handle wrapped response if backend changes format
                 continueWatchingList = (continueWatchingData['data'] as List)
@@ -212,40 +202,40 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             }
           } catch (e) {
-            print('Error parsing continue watching data: $e');
+            // print('Error parsing continue watching data: $e');
           }
         } else if (continueWatchingResponse != null) {
-          print('Continue watching request failed: status ${continueWatchingResponse.statusCode}, body: ${continueWatchingResponse.body}');
+          // print('Continue watching request failed: status ${continueWatchingResponse.statusCode}, body: ${continueWatchingResponse.body}');
         }
 
-          setState(() {
-            // For carousel (topAired), use the carousel data which is already sorted by rank
-            // The carousel items come from a separate carousel collection and are ordered correctly
-            topAiring = (topAired as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList();
-            // Preserve the order from the API (already sorted by carousel rank)
+        setState(() {
+          // For carousel (topAired), use the carousel data which is already sorted by rank
+          // The carousel items come from a separate carousel collection and are ordered correctly
+          topAiring = (topAired as List)
+              .map((item) => AnimeItem.fromJson(item))
+              .toList();
+          // Preserve the order from the API (already sorted by carousel rank)
 
-            latestEpisodes = (latestEps as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList();
+          latestEpisodes = (latestEps as List)
+              .map((item) => AnimeItem.fromJson(item))
+              .toList();
 
-            newOnSite = (lastUpdated as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList();
+          newOnSite = (lastUpdated as List)
+              .map((item) => AnimeItem.fromJson(item))
+              .toList();
 
-            topUpcoming = (topUpcomingData as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList();
+          topUpcoming = (topUpcomingData as List)
+              .map((item) => AnimeItem.fromJson(item))
+              .toList();
 
-            continueWatching = continueWatchingList;
+          continueWatching = continueWatchingList;
 
-            ctotal = continueWatching.length;
-            isLoading = false;
-          });
+          ctotal = continueWatching.length;
+          isLoading = false;
+        });
       }
     } catch (e) {
-      print('Error fetching data: $e');
+      // print('Error fetching data: $e');
       setState(() {
         isLoading = false;
       });
@@ -401,16 +391,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: MediaQuery.of(context).padding.top + kToolbarHeight + 40,
+                    height: MediaQuery.of(context).padding.top +
+                        kToolbarHeight +
+                        40,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black.withOpacity(0.8),
-                            Colors.black.withOpacity(0.6),
-                            Colors.black.withOpacity(0.4),
+                            Colors.black.withValues(alpha: 0.8),
+                            Colors.black.withValues(alpha: 0.6),
+                            Colors.black.withValues(alpha: 0.4),
                             Colors.transparent,
                           ],
                           stops: [0.0, 0.3, 0.6, 1.0],
@@ -434,19 +426,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (BuildContext context) {
                           // Use covers for small screens, banners for larger screens
                           final screenWidth = MediaQuery.of(context).size.width;
-                          final isSmallScreen = screenWidth < 600; // Use covers on screens < 600px
-                          final imageUrl = isSmallScreen 
-                              ? (item.imageUrl ?? item.bannerUrl ?? '') // Prefer cover on small screens
-                              : (item.bannerUrl ?? item.imageUrl ?? ''); // Prefer banner on larger screens
-                          
+                          final isSmallScreen = screenWidth <
+                              600; // Use covers on screens < 600px
+                          final imageUrl = isSmallScreen
+                              ? (item.imageUrl.isNotEmpty
+                                  ? item.imageUrl
+                                  : (item.bannerUrl ??
+                                      '')) // Prefer cover on small screens
+                              : (item.bannerUrl ??
+                                  (item.imageUrl.isNotEmpty
+                                      ? item.imageUrl
+                                      : '')); // Prefer banner on larger screens
+
                           return GestureDetector(
-                            onTap: () {
-                            },
+                            onTap: () {},
                             child: Container(
                               width: MediaQuery.of(context).size.width,
                               decoration: BoxDecoration(
                                 image: DecorationImage(
-                                  image: NetworkImage(imageUrl.isNotEmpty ? imageUrl : 'https://via.placeholder.com/800x400'),
+                                  image: NetworkImage(imageUrl.isNotEmpty
+                                      ? imageUrl
+                                      : 'https://via.placeholder.com/800x400'),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -459,11 +459,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
                                         colors: [
-                                          Colors.black.withOpacity(0.6),
+                                          Colors.black.withValues(alpha: 0.6),
                                           Colors.transparent,
-                                          Colors.black.withOpacity(0.3),
-                                          Colors.black.withOpacity(0.7),
-                                          Colors.black.withOpacity(0.9),
+                                          Colors.black.withValues(alpha: 0.3),
+                                          Colors.black.withValues(alpha: 0.7),
+                                          Colors.black.withValues(alpha: 0.9),
                                           Colors.black,
                                         ],
                                         stops: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
@@ -474,13 +474,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Padding(
                                     padding: EdgeInsets.fromLTRB(
                                       20,
-                                      MediaQuery.of(context).padding.top + kToolbarHeight + 40,
+                                      MediaQuery.of(context).padding.top +
+                                          kToolbarHeight +
+                                          40,
                                       20,
                                       20,
                                     ),
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.end,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // Age rating and type tags
                                         Row(
@@ -513,7 +516,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text(
                                           item.description,
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.9),
+                                            color: Colors.white
+                                                .withValues(alpha: 0.9),
                                             fontSize: 14,
                                             height: 1.5,
                                           ),
@@ -530,21 +534,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   Navigator.push(
                                                     context,
                                                     MaterialPageRoute(
-                                                      builder: (context) => WatchAnimeScreen(id: item.id),
+                                                      builder: (context) =>
+                                                          WatchAnimeScreen(
+                                                              id: item.id),
                                                     ),
-                                                  );                                                 
+                                                  );
                                                 },
                                                 style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.redAccent,
+                                                  backgroundColor:
+                                                      Colors.redAccent,
                                                   padding: EdgeInsets.symmetric(
                                                     vertical: 16,
                                                     horizontal: 24,
                                                   ),
                                                   shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
                                                   ),
                                                 ),
-                                                icon: Icon(Icons.play_arrow, color: Colors.white),
+                                                icon: Icon(Icons.play_arrow,
+                                                    color: Colors.white),
                                                 label: Text(
                                                   'Watch Now',
                                                   style: TextStyle(
@@ -558,17 +568,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                             const SizedBox(width: 12),
                                             Container(
                                               decoration: BoxDecoration(
-                                                border: Border.all(color: Colors.white),
-                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color: Colors.white),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: IconButton(
                                                 onPressed: () {
                                                   Navigator.push(
                                                     context,
                                                     MaterialPageRoute(
-                                                      builder: (context) => AnimeInfoScreen(animeId: item.id),
+                                                      builder: (context) =>
+                                                          AnimeInfoScreen(
+                                                              animeId: item.id),
                                                     ),
-                                                  );                                                  
+                                                  );
                                                 },
                                                 icon: Icon(
                                                   Icons.info_outline,
@@ -643,7 +657,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                    color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold),
               ),
               TextButton(
                 onPressed: () {},
@@ -674,7 +690,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           builder: (context) => WatchAnimeScreen(
                             id: items[index].id,
                             episodeNumber: items[index].epCount,
-                            lang: 'sub', // You may need to adjust this based on your data
+                            lang:
+                                'sub', // You may need to adjust this based on your data
                           ),
                         ),
                       );
@@ -682,7 +699,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AnimeInfoScreen(animeId: items[index].id),
+                          builder: (context) =>
+                              AnimeInfoScreen(animeId: items[index].id),
                         ),
                       );
                     }
@@ -702,10 +720,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
+        color: Colors.black.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 0.5,
         ),
       ),
@@ -730,17 +748,17 @@ class ContinueWatchingCard extends StatefulWidget {
   final String link;
 
   const ContinueWatchingCard({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.title,
     required this.episodeNumber,
     required this.currentTime,
     required this.totalDuration,
     required this.link,
-  }) : super(key: key);
+  });
 
   @override
-  _ContinueWatchingCardState createState() => _ContinueWatchingCardState();
+  State<ContinueWatchingCard> createState() => _ContinueWatchingCardState();
 }
 
 class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
@@ -766,7 +784,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
             ),
           );
         },
-        child: Container(
+        child: SizedBox(
           width: 280,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -784,8 +802,11 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
-                        transform: Matrix4.identity()
-                          ..scale(_isHovered ? 1.05 : 1.0),
+                        transform: Matrix4.diagonal3Values(
+                          _isHovered ? 1.05 : 1.0,
+                          _isHovered ? 1.05 : 1.0,
+                          1.0,
+                        ),
                         child: Image.network(
                           widget.imageUrl,
                           fit: BoxFit.cover,
@@ -799,7 +820,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                         duration: const Duration(milliseconds: 300),
                         opacity: _isHovered ? 1.0 : 0.0,
                         child: Container(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           child: Center(
                             child: Container(
                               padding: const EdgeInsets.all(12),
@@ -825,7 +846,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                           duration: const Duration(milliseconds: 300),
                           opacity: _isHovered ? 1.0 : 0.0,
                           child: Material(
-                            color: Colors.black.withOpacity(0.7),
+                            color: Colors.black.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(8),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(8),
@@ -855,7 +876,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
+                            color: Colors.black.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -873,7 +894,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        child: Container(
+                        child: SizedBox(
                           height: 4,
                           child: ClipRRect(
                             borderRadius: const BorderRadius.only(
@@ -883,7 +904,8 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                             child: LinearProgressIndicator(
                               value: _calculateProgress(),
                               backgroundColor: Colors.grey[600],
-                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Colors.red),
                             ),
                           ),
                         ),
@@ -899,7 +921,7 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
+                            color: Colors.black.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -938,12 +960,14 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
       List<String> currentParts = widget.currentTime.split(':');
       List<String> totalParts = widget.totalDuration.split(':');
 
-      double currentSeconds = double.parse(currentParts[0]) * 60 + double.parse(currentParts[1]);
-      double totalSeconds = double.parse(totalParts[0]) * 60 + double.parse(totalParts[1]);
+      double currentSeconds =
+          double.parse(currentParts[0]) * 60 + double.parse(currentParts[1]);
+      double totalSeconds =
+          double.parse(totalParts[0]) * 60 + double.parse(totalParts[1]);
 
       return currentSeconds / totalSeconds;
     } catch (e) {
-      print('Error calculating progress: $e');
+      // print('Error calculating progress: $e');
       return 0.0;
     }
   }
@@ -952,10 +976,10 @@ class _ContinueWatchingCardState extends State<ContinueWatchingCard> {
 class AnimeCard extends StatefulWidget {
   final AnimeItem item;
 
-  const AnimeCard({Key? key, required this.item}) : super(key: key);
+  const AnimeCard({super.key, required this.item});
 
   @override
-  _AnimeCardState createState() => _AnimeCardState();
+  State<AnimeCard> createState() => _AnimeCardState();
 }
 
 class _AnimeCardState extends State<AnimeCard> {
@@ -969,7 +993,11 @@ class _AnimeCardState extends State<AnimeCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        transform: Matrix4.identity()..scale(_isHovered ? 1.05 : 1.0),
+        transform: Matrix4.diagonal3Values(
+          _isHovered ? 1.05 : 1.0,
+          _isHovered ? 1.05 : 1.0,
+          1.0,
+        ),
         child: AspectRatio(
           aspectRatio: 3 / 4,
           child: Container(
@@ -977,7 +1005,7 @@ class _AnimeCardState extends State<AnimeCard> {
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -999,8 +1027,8 @@ class _AnimeCardState extends State<AnimeCard> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.5),
-                          Colors.black.withOpacity(0.8),
+                          Colors.black.withValues(alpha: 0.5),
+                          Colors.black.withValues(alpha: 0.8),
                         ],
                         stops: const [0.0, 0.5, 1.0],
                       ),
@@ -1068,7 +1096,7 @@ class _AnimeCardState extends State<AnimeCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' show ImageFilter, lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kuudere/notification_page.dart';
@@ -24,7 +24,7 @@ class AppHeader extends StatefulWidget implements PreferredSizeWidget {
   final double? elevation;
 
   const AppHeader({
-    Key? key,
+    super.key,
     this.style = HeaderStyle.solid,
     this.showBackButton = false,
     this.title,
@@ -33,7 +33,7 @@ class AppHeader extends StatefulWidget implements PreferredSizeWidget {
     this.scrollProgress,
     this.backgroundColor,
     this.elevation,
-  }) : super(key: key);
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -59,21 +59,24 @@ class _AppHeaderState extends State<AppHeader> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/notifications/count', requireAuth: true);
+        final response = await httpService.get('/api/notifications/count',
+            requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['success'] ?? true) {
             if (mounted) {
               setState(() {
-                notificationCount = data['total']?.toString() ?? data['count']?.toString() ?? '0';
+                notificationCount = data['total']?.toString() ??
+                    data['count']?.toString() ??
+                    '0';
               });
             }
           }
         }
       }
     } catch (e) {
-      print('Error fetching notification count: $e');
+      // print('Error fetching notification count: $e');
     }
   }
 
@@ -82,7 +85,8 @@ class _AppHeaderState extends State<AppHeader> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/user/current', requireAuth: true);
+        final response =
+            await httpService.get('/api/user/current', requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -97,7 +101,7 @@ class _AppHeaderState extends State<AppHeader> {
         }
       }
     } catch (e) {
-      print('Error fetching user avatar: $e');
+      // print('Error fetching user avatar: $e');
     }
   }
 
@@ -108,7 +112,7 @@ class _AppHeaderState extends State<AppHeader> {
 
     switch (widget.style) {
       case HeaderStyle.transparent:
-        return Colors.black.withOpacity(0.2);
+        return Colors.black.withValues(alpha: 0.2);
       case HeaderStyle.gradient:
         final progress = widget.scrollProgress ?? 0.0;
         return Color.lerp(
@@ -117,7 +121,6 @@ class _AppHeaderState extends State<AppHeader> {
           progress,
         )!;
       case HeaderStyle.solid:
-      default:
         return const Color(0xFF0B0B0B);
     }
   }
@@ -134,7 +137,6 @@ class _AppHeaderState extends State<AppHeader> {
       case HeaderStyle.transparent:
         return 0;
       case HeaderStyle.solid:
-      default:
         return 4;
     }
   }
@@ -151,11 +153,11 @@ class _AppHeaderState extends State<AppHeader> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.8 * (1 - progress)),
-                Colors.black.withOpacity(0.7 * (1 - progress)),
-                Colors.black.withOpacity(0.5 * (1 - progress)),
-                Colors.black.withOpacity(0.4 * (1 - progress)),
-                Colors.black.withOpacity(0.2 * (1 - progress)),
+                Colors.black.withValues(alpha: 0.8 * (1 - progress)),
+                Colors.black.withValues(alpha: 0.7 * (1 - progress)),
+                Colors.black.withValues(alpha: 0.5 * (1 - progress)),
+                Colors.black.withValues(alpha: 0.4 * (1 - progress)),
+                Colors.black.withValues(alpha: 0.2 * (1 - progress)),
                 Colors.transparent,
               ],
               stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
@@ -207,7 +209,8 @@ class _AppHeaderState extends State<AppHeader> {
           alignment: Alignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 30),
+              icon: const Icon(Icons.notifications_outlined,
+                  color: Colors.white, size: 30),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -275,7 +278,7 @@ class _AppHeaderState extends State<AppHeader> {
                   backgroundImage: NetworkImage(
                     userAvatarUrl!.startsWith('http')
                         ? userAvatarUrl!
-                        : 'https://kuudere.to${userAvatarUrl}',
+                        : 'https://kuudere.to$userAvatarUrl',
                   ),
                   onBackgroundImageError: (exception, stackTrace) {
                     // Fallback to default icon if image fails to load
@@ -286,7 +289,8 @@ class _AppHeaderState extends State<AppHeader> {
                     }
                   },
                   child: userAvatarUrl == null
-                      ? const Icon(Icons.account_circle, color: Colors.white, size: 30)
+                      ? const Icon(Icons.account_circle,
+                          color: Colors.white, size: 30)
                       : null,
                 )
               : const Icon(Icons.account_circle, color: Colors.white, size: 30),
@@ -303,7 +307,8 @@ class _AppHeaderState extends State<AppHeader> {
       backgroundColor: _appBarColor,
       elevation: _appBarElevation,
       systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: widget.style == HeaderStyle.gradient && widget.scrollProgress != null
+        statusBarColor: widget.style == HeaderStyle.gradient &&
+                widget.scrollProgress != null
             ? Color.lerp(
                 Colors.transparent,
                 const Color(0xFF0B0B0B),
@@ -335,4 +340,3 @@ class _AppHeaderState extends State<AppHeader> {
     return appBar;
   }
 }
-

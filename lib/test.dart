@@ -7,8 +7,10 @@ void main() {
 }
 
 class VideoPage extends StatefulWidget {
+  const VideoPage({super.key});
+
   @override
-  _VideoPageState createState() => _VideoPageState();
+  State<VideoPage> createState() => _VideoPageState();
 }
 
 class _VideoPageState extends State<VideoPage> {
@@ -20,12 +22,14 @@ class _VideoPageState extends State<VideoPage> {
   Future<void> copyToClipboard() async {
     if (extractedM3U8 != null) {
       await Clipboard.setData(ClipboardData(text: extractedM3U8!));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('URL copied to clipboard'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('URL copied to clipboard'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -46,7 +50,7 @@ class _VideoPageState extends State<VideoPage> {
                 ),
                 onWebViewCreated: (controller) {
                   webViewController = controller;
-                  
+
                   controller.addJavaScriptHandler(
                     handlerName: 'interceptRequest',
                     callback: (args) {
@@ -58,7 +62,7 @@ class _VideoPageState extends State<VideoPage> {
                           isLoading = false;
                           urlFound = true;
                         });
-                        print("Extracted M3U8: $extractedM3U8");
+                        // print("Extracted M3U8: $extractedM3U8");
                         // Stop further extraction attempts
                         controller.stopLoading();
                       }
@@ -161,7 +165,7 @@ class _VideoPageState extends State<VideoPage> {
                 },
                 shouldInterceptRequest: (controller, request) async {
                   if (urlFound) return null;
-                  
+
                   String requestUrl = request.url.toString();
                   if (requestUrl.contains(".m3u8")) {
                     setState(() {
@@ -175,7 +179,8 @@ class _VideoPageState extends State<VideoPage> {
                 },
                 shouldOverrideUrlLoading: (controller, navigationAction) async {
                   String url = navigationAction.request.url.toString();
-                  if (!url.contains(".m3u8") && url != "https://hlswish.com/e/erd0w0owgxjp") {
+                  if (!url.contains(".m3u8") &&
+                      url != "https://hlswish.com/e/erd0w0owgxjp") {
                     return NavigationActionPolicy.CANCEL;
                   }
                   return NavigationActionPolicy.ALLOW;
@@ -196,7 +201,8 @@ class _VideoPageState extends State<VideoPage> {
                         style: TextStyle(fontSize: 16))
                   ] else if (extractedM3U8 != null) ...[
                     Text("M3U8 URL Found:",
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     SizedBox(height: 10),
                     SelectableText(
                       extractedM3U8!,

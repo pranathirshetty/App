@@ -1,10 +1,10 @@
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 
 class RealtimeService {
   static final RealtimeService _instance = RealtimeService._internal();
   factory RealtimeService() => _instance;
 
-  IO.Socket? socket;
+  socket_io.Socket? socket;
   String? currentRoom;
 
   RealtimeService._internal() {
@@ -12,13 +12,15 @@ class RealtimeService {
   }
 
   void initializeSocket() {
-    socket = IO.io('https://kuudere.to', IO.OptionBuilder()
-        .setTransports(['websocket'])
-        .disableAutoConnect() // Prevents auto connection
-        .build());
+    socket = socket_io.io(
+        'https://kuudere.to',
+        socket_io.OptionBuilder()
+            .setTransports(['websocket'])
+            .disableAutoConnect() // Prevents auto connection
+            .build());
 
     socket!.onConnect((_) {
-      print('Connected to server');
+      // print('Connected to server');
     });
 
     socket!.connect();
@@ -33,6 +35,6 @@ class RealtimeService {
     socket!.emit('join', {'other_id': currentRoom});
     socket!.emit('get_current_room_count', {'room': currentRoom});
 
-    print("Joined room: $currentRoom");
+    // print("Joined room: $currentRoom");
   }
 }

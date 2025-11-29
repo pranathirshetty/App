@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'package:kuudere/history_tab.dart';
 import 'package:kuudere/profile.dart';
 import 'package:kuudere/contact_page.dart';
@@ -14,10 +14,10 @@ import 'package:kuudere/services/http_service.dart';
 class SettingsTab extends StatefulWidget {
   final VoidCallback onWatchlistTap;
 
-  const SettingsTab({Key? key, required this.onWatchlistTap}) : super(key: key);
+  const SettingsTab({super.key, required this.onWatchlistTap});
 
   @override
-  _SettingsTabState createState() => _SettingsTabState();
+  State<SettingsTab> createState() => _SettingsTabState();
 }
 
 class _SettingsTabState extends State<SettingsTab> {
@@ -48,7 +48,8 @@ class _SettingsTabState extends State<SettingsTab> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/user/current', requireAuth: true);
+        final response =
+            await httpService.get('/api/user/current', requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -67,7 +68,7 @@ class _SettingsTabState extends State<SettingsTab> {
         }
       }
     } catch (e) {
-      print('Error fetching profile data: $e');
+      // print('Error fetching profile data: $e');
       setState(() {
         isLoading = false;
       });
@@ -93,19 +94,23 @@ class _SettingsTabState extends State<SettingsTab> {
           await storage.deleteAll();
 
           // Navigate to AuthScreen
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => AuthScreen()),
-            (Route<dynamic> route) => false,
-          );
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => AuthScreen()),
+              (Route<dynamic> route) => false,
+            );
+          }
         } else {
           throw Exception('Failed to logout');
         }
       }
     } catch (e) {
-      print('Error logging out: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to logout. Please try again.')),
-      );
+      // print('Error logging out: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to logout. Please try again.')),
+        );
+      }
     } finally {
       setState(() {
         isLoggingOut = false;
@@ -181,16 +186,17 @@ class _SettingsTabState extends State<SettingsTab> {
                         ],
                       ),
                     ),
-                    userAvatarUrl != null && 
-                    userAvatarUrl!.isNotEmpty && 
-                    userAvatarUrl != '/placeholder.svg?height=32&width=32'
+                    userAvatarUrl != null &&
+                            userAvatarUrl!.isNotEmpty &&
+                            userAvatarUrl !=
+                                '/placeholder.svg?height=32&width=32'
                         ? CircleAvatar(
                             radius: 30,
                             backgroundColor: Colors.purple[100],
                             backgroundImage: NetworkImage(
                               userAvatarUrl!.startsWith('http')
                                   ? userAvatarUrl!
-                                  : 'https://kuudere.to${userAvatarUrl}',
+                                  : 'https://kuudere.to$userAvatarUrl',
                             ),
                             onBackgroundImageError: (exception, stackTrace) {
                               // Fallback to default icon if image fails to load
@@ -200,14 +206,14 @@ class _SettingsTabState extends State<SettingsTab> {
                             },
                           )
                         : CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.purple[100],
-                      child: const Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Colors.black54,
-                      ),
-                    ),
+                            radius: 30,
+                            backgroundColor: Colors.purple[100],
+                            child: const Icon(
+                              Icons.person,
+                              size: 30,
+                              color: Colors.black54,
+                            ),
+                          ),
                   ],
                 ),
         ],
@@ -222,12 +228,22 @@ class _SettingsTabState extends State<SettingsTab> {
     try {
       final date = DateTime.parse(dateString);
       final month = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
       ][date.month - 1];
       return '$month ${date.day}, ${date.year}';
     } catch (e) {
-      print('Error parsing date: $dateString, error: $e');
+      // print('Error parsing date: $dateString, error: $e');
       return 'Unknown';
     }
   }
@@ -245,8 +261,8 @@ class _SettingsTabState extends State<SettingsTab> {
             onTap: () async {
               // Navigate to profile page and refresh avatar when returning
               await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ProfileEditPage()),
+                context,
+                MaterialPageRoute(builder: (context) => ProfileEditPage()),
               );
               // Refresh profile data in case user updated their profile picture
               _fetchProfileData();
@@ -260,14 +276,15 @@ class _SettingsTabState extends State<SettingsTab> {
             onTap: widget.onWatchlistTap,
           ),
           const SizedBox(width: 8),
-          _buildActionButton(context,
-           Icons.history,
-           'History',
+          _buildActionButton(
+            context,
+            Icons.history,
+            'History',
             onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => HistoryTab()),
+              context,
+              MaterialPageRoute(builder: (context) => HistoryTab()),
             ),
-           ),
+          ),
         ],
       ),
     );
@@ -310,7 +327,8 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, {bool comingSoon = false}) {
+  Widget _buildMenuItem(IconData icon, String title,
+      {bool comingSoon = false}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -351,7 +369,8 @@ class _SettingsTabState extends State<SettingsTab> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ContactPage(buildMenuItem: _buildMenuItem),
+                builder: (context) =>
+                    ContactPage(buildMenuItem: _buildMenuItem),
               ),
             );
           } else if (!comingSoon) {
@@ -367,7 +386,7 @@ class _SettingsTabState extends State<SettingsTab> {
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Colors.red.withOpacity(0.5),
+          color: Colors.red.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(12),
@@ -423,4 +442,3 @@ class _SettingsTabState extends State<SettingsTab> {
     );
   }
 }
-

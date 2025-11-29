@@ -4,7 +4,7 @@ import 'dart:math' as math;
 class AnimatedBackground extends StatefulWidget {
   final Widget child;
 
-  const AnimatedBackground({Key? key, required this.child}) : super(key: key);
+  const AnimatedBackground({super.key, required this.child});
 
   @override
   State<AnimatedBackground> createState() => _AnimatedBackgroundState();
@@ -69,7 +69,7 @@ class ParticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red.withOpacity(0.1)
+      ..color = Colors.red.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     for (var particle in particles) {

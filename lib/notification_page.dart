@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'dart:convert';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
@@ -9,10 +9,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:kuudere/services/http_service.dart';
 
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({Key? key}) : super(key: key);
+  const NotificationPage({super.key});
 
   @override
-  _NotificationPageState createState() => _NotificationPageState();
+  State<NotificationPage> createState() => _NotificationPageState();
 }
 
 class _NotificationPageState extends State<NotificationPage> {
@@ -91,7 +91,7 @@ class _NotificationPageState extends State<NotificationPage> {
         }
       }
     } catch (e) {
-      print('Error loading more notifications: $e');
+      // print('Error loading more notifications: $e');
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
@@ -138,7 +138,7 @@ class _NotificationPageState extends State<NotificationPage> {
         }
       }
     } catch (e) {
-      print('Error fetching notifications: $e');
+      // print('Error fetching notifications: $e');
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -258,7 +258,8 @@ class _NotificationPageState extends State<NotificationPage> {
           SizedBox(height: 16),
           Text(
             'No Notifications',
-            style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
           Text(
@@ -278,12 +279,12 @@ class NotificationList extends StatelessWidget {
   final ScrollController scrollController;
 
   const NotificationList({
-    Key? key,
+    super.key,
     required this.notifications,
     required this.isLoading,
     required this.hasMore,
     required this.scrollController,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -321,13 +322,13 @@ class NotificationList extends StatelessWidget {
 
 class NotificationTile extends StatelessWidget {
   final NotificationItem notification;
-  static const String HOST = 'https://kuudere.to';
+  static const String host = 'https://kuudere.to';
 
-  const NotificationTile({Key? key, required this.notification}) : super(key: key);
+  const NotificationTile({super.key, required this.notification});
 
   String _getImageUrl(String image) {
     if (image.startsWith('/static/')) {
-      return '$HOST$image';
+      return '$host$image';
     }
     return image;
   }
@@ -360,14 +361,15 @@ class NotificationTile extends StatelessWidget {
       }
     } else {
       // Handle other types of notifications here
-      print('Tapped on notification: ${notification.id}');
+      // print('Tapped on notification: ${notification.id}');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final textColor = notification.isRead ? Colors.grey[500]! : Colors.white;
-    final subtitleColor = notification.isRead ? Colors.grey[500]! : Colors.grey[400]!;
+    final subtitleColor =
+        notification.isRead ? Colors.grey[500]! : Colors.grey[400]!;
 
     return Container(
       decoration: BoxDecoration(

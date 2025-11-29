@@ -1,35 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import 'package:kuudere/notification_page.dart';
-import 'package:kuudere/profile.dart';
+
 import 'package:kuudere/services/auth_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'comment_sheet.dart';
 import 'package:kuudere/services/http_service.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
-  int? episodeNumber; // Now nullable
-  String? nid;
-  String? lang;
-  String? ntype;
+  final int? episodeNumber; // Now nullable
+  final String? nid;
+  final String? lang;
+  final String? ntype;
 
-  WatchAnimeScreen({
+  const WatchAnimeScreen({
     super.key,
     required this.id,
     this.episodeNumber, // Nullable now
@@ -39,16 +35,16 @@ class WatchAnimeScreen extends StatefulWidget {
   });
 
   @override
-  _WatchAnimeScreenState createState() => _WatchAnimeScreenState();
+  State<WatchAnimeScreen> createState() => _WatchAnimeScreenState();
 }
 
 class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   bool isLoading = true;
   bool isLoadingVideo = false;
   int _currentPageStart = 1;
-  int _episodesPerPage = 100;
-  TextEditingController _searchController = TextEditingController();
-  ScrollController _episodeScrollController = ScrollController();
+  final int _episodesPerPage = 100;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _episodeScrollController = ScrollController();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   String? _preferredLang;
   String _searchQuery = '';
@@ -56,7 +52,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   bool isLoadingEpisodes = true;
   Map<String, dynamic> episodeData = {};
   Map<String, dynamic>? currentSelectedServer;
-  late IO.Socket socket;
+  late socket_io.Socket socket;
   String currentRoom = '';
   int roomCount = 0;
   int previousRoomCount = 0;
@@ -66,9 +62,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   List<Comment> comments = [];
   Timer? _progressTimer;
   String? _selectedEpisodeId;
-  String? _selectedCategory;
-  String? _selectedServerName;
-  
+  int? _currentEpisodeNumber; // Introduced _currentEpisodeNumber
+
   // Media Kit player
   late final Player _player;
   late final VideoController _videoController;
@@ -87,25 +82,30 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   @override
   void initState() {
     super.initState();
+    _currentEpisodeNumber =
+        widget.episodeNumber; // Initialize _currentEpisodeNumber
+
+    _initializePlayer(); // Extracted player initialization
+    _loadPreferredLang().then((_) {
+      if (_currentEpisodeNumber == null || _currentEpisodeNumber == 0) {
+        fetchDefaultEpisodeNumber();
+      } else {
+        initializeScreen(_currentEpisodeNumber!);
+      }
+    });
+  }
+
+  void _initializePlayer() {
     final bool isLinux = Platform.isLinux;
-    
-    // Initialize media_kit player
     _player = Player();
     _videoController = VideoController(
       _player,
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: !isLinux,
-        androidAttachSurfaceAfterVideoParameters: Platform.isAndroid ? false : true,
+        androidAttachSurfaceAfterVideoParameters:
+            Platform.isAndroid ? false : true,
       ),
     );
-    
-    _loadPreferredLang().then((_) {
-      if (widget.episodeNumber == null || widget.episodeNumber == 0) {
-        fetchDefaultEpisodeNumber();
-      } else {
-        initializeScreen(widget.episodeNumber!);
-      }
-    });
   }
 
   Future<String?> _getUserId() async {
@@ -117,13 +117,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Future<void> _shareAnime() async {
     try {
       String? userId = await _getUserId();
-      if (userId == null) {
-        print("User ID not found, sharing without referral.");
-        userId = "guest"; // Fallback if user ID is unavailable
-      }
+      userId ??= "guest"; // Fallback if user ID is unavailable
 
       String animeTitle = animeData['anime_info']['english'] ?? "Unknown Anime";
-      String episodeNumber = widget.episodeNumber?.toString() ?? "1";
+      String episodeNumber =
+          _currentEpisodeNumber?.toString() ?? "1"; // Use _currentEpisodeNumber
       String shareUrl =
           "https://kuudere.to/watch/${widget.id}/$episodeNumber?ref=$userId";
 
@@ -131,7 +129,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
       await Share.share(message);
     } catch (e) {
-      print("Error sharing anime: $e");
+      // print("Error sharing anime: $e");
     }
   }
 
@@ -140,7 +138,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     setState(() {
       _preferredLang = storedLang;
     });
-    }
+  }
 
   void fetchDefaultEpisodeNumber() async {
     final String url = 'https://kuudere.to/watch/${widget.id}';
@@ -153,7 +151,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       }
 
       final httpService = HttpService();
-      final response = await httpService.get(url.replaceFirst('https://kuudere.to', ''), requireAuth: true);
+      final response = await httpService
+          .get(url.replaceFirst('https://kuudere.to', ''), requireAuth: true);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -162,7 +161,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           int defaultEpisode = data['anime_info']['ep'];
 
           setState(() {
-            widget.episodeNumber = defaultEpisode;
+            _currentEpisodeNumber = defaultEpisode;
           });
 
           initializeScreen(defaultEpisode);
@@ -171,7 +170,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         throw Exception('Failed to fetch default episode number');
       }
     } catch (e) {
-      print('Error fetching default episode: $e');
+      // print('Error fetching default episode: $e');
     }
   }
 
@@ -185,8 +184,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           setState(() {
             currentSelectedServer = selectedServer;
           });
-          print(
-              'Initial selected server dataLink: ${selectedServer['dataLink']}');
+          // print('Initial selected server dataLink: ${selectedServer['dataLink']}');
           await _loadVideo(selectedServer['dataLink']);
         }
       }
@@ -198,9 +196,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     });
   }
 
-
   void _connectSocket() {
-    socket = IO.io('https://kuudere.to', <String, dynamic>{
+    socket = socket_io.io('https://api.kuudere.to', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': true,
       'reconnection': true,
@@ -210,20 +207,20 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     });
 
     socket.onConnect((_) {
-      print('Connected to socket server');
+      // print('Connected to socket server');
       _joinRoom();
     });
 
     socket.onDisconnect((_) {
-      print('Disconnected from socket server');
+      // print('Disconnected from socket server');
     });
 
     // Debug socket connection status
-    socket.onConnectError((error) => print('Connect Error: $error'));
-    socket.onError((error) => print('Socket Error: $error'));
+    socket.onConnectError((error) => null); // print('Connect Error: $error')
+    socket.onError((error) => null); // print('Socket Error: $error')
 
     socket.on('current_room_count', (data) {
-      print('Received room count: $data'); // Debug print
+      // print('Received room count: $data'); // Debug print
       if (mounted) {
         setState(() {
           if (data is Map &&
@@ -237,7 +234,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             } else if (roomCount < previousRoomCount) {
               _animateCountChange('down');
             }
-            print('Updated room count: $roomCount'); // Debug print
+            // print('Updated room count: $roomCount'); // Debug print
           }
         });
       }
@@ -246,7 +243,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   void _joinRoom() {
     if (currentRoom.isNotEmpty) {
-      print('Leaving room: $currentRoom'); // Debug print
+      // print('Leaving room: $currentRoom'); // Debug print
       socket.emit('leave', {'room': currentRoom});
     }
 
@@ -254,7 +251,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       currentRoom = '/watch/${widget.id}/';
     });
 
-    print('Joining room: $currentRoom'); // Debug print
+    // print('Joining room: $currentRoom'); // Debug print
     socket.emit('join', {'other_id': currentRoom});
     socket.emit('get_current_room_count', {'room': currentRoom});
   }
@@ -298,8 +295,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       final response = await httpService.post(
         '/api/anime/like',
         body: {
-          "animeId": widget.id,  // Backend expects animeId in body, not in URL
-          "type": type,  // 'like' or 'dislike'
+          "animeId": widget.id, // Backend expects animeId in body, not in URL
+          "type": type, // 'like' or 'dislike'
         },
         requireAuth: true,
       );
@@ -342,7 +339,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         throw Exception('Failed to update response');
       }
     } catch (e) {
-      print('Error updating response: $e');
+      // print('Error updating response: $e');
       // You might want to show an error message to the user here
     }
   }
@@ -462,7 +459,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                   style: GoogleFonts.poppins(
                     color: isSelected ? Colors.white : Colors.grey[300],
                     fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 if (isUpdating)
@@ -492,8 +490,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       final response = await httpService.post(
         '/api/anime/watchlist',
         body: {
-          'animeId': widget.id,  // Backend expects camelCase
-          'folder': newStatus,  // Backend expects 'folder' not 'status'
+          'animeId': widget.id, // Backend expects camelCase
+          'folder': newStatus, // Backend expects 'folder' not 'status'
         },
         requireAuth: true,
       );
@@ -505,11 +503,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               newStatus != 'Remove' ? newStatus : null;
         });
       } else {
-        print(
-            'Failed to update watchlist. Status code: ${response.statusCode}');
+        // print('Failed to update watchlist. Status code: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error updating watchlist: $e');
+      // print('Error updating watchlist: $e');
     }
   }
 
@@ -521,7 +518,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             ? Colors.green
             : isCountDecreasing
                 ? Colors.red
-                : Colors.white.withOpacity(0.7),
+                : Colors.white.withValues(alpha: 0.7),
         fontSize: 14,
       ),
       child: Text(
@@ -529,7 +526,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       ),
     );
   }
-
 
   Future<void> fetchEpisodeData(int episodeNumber) async {
     final authService = AuthService();
@@ -541,7 +537,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     try {
       final httpService = HttpService();
       final response = await httpService.get(
-        '/api/watch/${widget.id}/${episodeNumber}',
+        '/api/watch/${widget.id}/$episodeNumber',
         requireAuth: sessionInfo != null,
       );
 
@@ -549,6 +545,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         setState(() {
           episodeData = json.decode(response.body);
           isLoadingEpisodes = false;
+          _currentEpisodeNumber =
+              episodeNumber; // Update _currentEpisodeNumber here
 
           if (episodeData['all_episodes'] != null) {
             // Store episode ID for tracking
@@ -558,9 +556,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               orElse: () => null,
             );
 
-            if (currentEpisode != null) {
-              _selectedEpisodeId = currentEpisode['id'];
-            }
+            _selectedEpisodeId =
+                currentEpisode?['id'] ?? episodeData['episode_id'];
           }
 
           if (episodeData['current'] != null && episodeData['current'] != 0) {
@@ -572,7 +569,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               }
             });
           }
-
         });
 
         // Scroll to the selected episode
@@ -583,7 +579,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         throw Exception('Failed to load episode data');
       }
     } catch (e) {
-      print('Error loading episode data: $e');
+      // print('Error loading episode data: $e');
       setState(() {
         isLoadingEpisodes = false;
       });
@@ -591,8 +587,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   void _scrollToCurrentEpisode(int episodeNumber) {
-    if (!mounted || _episodeScrollController.positions.isEmpty)
+    if (!mounted || _episodeScrollController.positions.isEmpty) {
       return; // Prevent crashes
+    }
 
     final index = episodeData['all_episodes']
         ?.indexWhere((episode) => episode['number'] == episodeNumber);
@@ -600,7 +597,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     if (index != null && index >= 0 && _episodeScrollController.hasClients) {
       _episodeScrollController.animateTo(
         index * 80.0, // Adjust based on item height
-        duration: Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     }
@@ -608,8 +605,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   Future<void> fetchAnimeData(String? nid) async {
     final String url = nid != null
-        ? 'https://kuudere.to/watch/${widget.id}/${widget.episodeNumber}?nid=$nid'
-        : 'https://kuudere.to/watch/${widget.id}/${widget.episodeNumber}';
+        ? 'https://kuudere.to/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}?nid=$nid' // Use _currentEpisodeNumber
+        : 'https://kuudere.to/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}'; // Use _currentEpisodeNumber
 
     final httpService = HttpService();
     final authService = AuthService();
@@ -630,7 +627,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         throw Exception('Failed to load anime data');
       }
     } catch (e) {
-      print('Error: $e');
+      // print('Error: $e');
       setState(() {
         isLoading = false;
       });
@@ -638,17 +635,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   void _showReportBottomSheet() {
-    String? _selectedIssue;
-    TextEditingController _feedbackController = TextEditingController();
-    bool _isSubmitting = false;
+    String? selectedIssue;
+    TextEditingController feedbackController = TextEditingController();
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setStateBottomSheet) {
+          builder: (sbContext, setStateBottomSheet) {
             return DraggableScrollableSheet(
               initialChildSize: 0.6, // Start at 60% of screen height
               minChildSize: 0.3, // Allow to be dragged down to 30%
@@ -657,19 +654,22 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 return Container(
                   decoration: BoxDecoration(
                     color: Colors.grey[900],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   child: Column(
                     children: [
                       // Drag handle and close button
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: Icon(Icons.close, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
+                              onPressed: () => Navigator.pop(sheetContext),
                             ),
                             Container(
                               width: 50,
@@ -679,7 +679,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                 borderRadius: BorderRadius.circular(2.5),
                               ),
                             ),
-                            SizedBox(width: 48), // Balance the close button
+                            const SizedBox(
+                                width: 48), // Balance the close button
                           ],
                         ),
                       ),
@@ -716,38 +717,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
                                   decoration: BoxDecoration(
-                                    color: _selectedIssue == issue ? Colors.red.withOpacity(0.1) : Colors.transparent,
+                                    color: selectedIssue == issue
+                                        ? Colors.white.withValues(alpha: 0.5)
+                                        : Colors.transparent,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: RadioListTile<String>(
-                                    title: Text(issue, style: const TextStyle(color: Colors.white)),
+                                    title: Text(issue,
+                                        style: const TextStyle(
+                                            color: Colors.white)),
                                     value: issue,
-                                    groupValue: _selectedIssue,
+                                    // ignore: deprecated_member_use
+                                    groupValue: selectedIssue,
                                     activeColor: Colors.red,
+                                    // ignore: deprecated_member_use
                                     onChanged: (value) {
                                       setStateBottomSheet(() {
-                                        _selectedIssue = value;
+                                        selectedIssue = value;
                                       });
                                     },
                                   ),
                                 ),
                               );
-                            }).toList(),
+                            }),
 
                             // If "Other" is selected, show text field for feedback
-                            if (_selectedIssue == "Other") ...[
+                            if (selectedIssue == "Other") ...[
                               const SizedBox(height: 16),
                               AnimatedOpacity(
-                                opacity: _selectedIssue == "Other" ? 1.0 : 0.0,
+                                opacity: selectedIssue == "Other" ? 1.0 : 0.0,
                                 duration: const Duration(milliseconds: 300),
                                 child: TextField(
-                                  controller: _feedbackController,
+                                  controller: feedbackController,
                                   maxLength: 250,
                                   maxLines: 3,
                                   style: const TextStyle(color: Colors.white),
                                   decoration: InputDecoration(
                                     hintText: "Describe your issue...",
-                                    hintStyle: TextStyle(color: Colors.white70),
+                                    hintStyle:
+                                        const TextStyle(color: Colors.white70),
                                     filled: true,
                                     fillColor: Colors.grey[800],
                                     border: OutlineInputBorder(
@@ -756,7 +764,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(color: Colors.red),
+                                      borderSide:
+                                          const BorderSide(color: Colors.red),
                                     ),
                                   ),
                                 ),
@@ -764,12 +773,16 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                             ],
 
                             // Show the notice if episode released less than 1 hour ago
-                            if (_getEpisodeTimeInMinutes(widget.episodeNumber!) < 60) ...[
+                            if (_currentEpisodeNumber != null &&
+                                _getEpisodeTimeInMinutes(
+                                        _currentEpisodeNumber!) <
+                                    60) ...[
+                              // Use _currentEpisodeNumber
                               const SizedBox(height: 24),
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withOpacity(0.1),
+                                  color: Colors.amber.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Column(
@@ -777,24 +790,34 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                   children: [
                                     const Text(
                                       "New Episode Notice",
-                                      style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: TextStyle(
+                                          color: Colors.amber,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
+                                    const Text(
                                       "This episode was recently released. It may take some time to become available here. In the meantime, you can watch it on our website.",
-                                      style: TextStyle(color: Colors.white, fontSize: 14),
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 14),
                                     ),
                                     const SizedBox(height: 16),
                                     ElevatedButton.icon(
-                                      icon: Icon(Icons.open_in_new, color: Colors.black),
-                                      label: Text("Watch on our site", style: TextStyle(color: Colors.black)),
+                                      icon: const Icon(Icons.open_in_new,
+                                          color: Colors.black),
+                                      label: const Text("Watch on our site",
+                                          style:
+                                              TextStyle(color: Colors.black)),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.amber,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                       ),
                                       onPressed: () {
-                                        final url = "https://kuudere.to/watch/${widget.id}/${widget.episodeNumber}";
-                                        launch(url);
+                                        final url =
+                                            "https://kuudere.to/watch/${widget.id}/$_currentEpisodeNumber";
+                                        launchUrl(Uri.parse(url));
                                       },
                                     ),
                                   ],
@@ -812,7 +835,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                 height: 50,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: _isSubmitting ? [Colors.grey, Colors.grey] : [Colors.red, Colors.redAccent],
+                                    colors: isSubmitting
+                                        ? [Colors.grey, Colors.grey]
+                                        : [Colors.red, Colors.redAccent],
                                   ),
                                   borderRadius: BorderRadius.circular(25),
                                 ),
@@ -820,27 +845,37 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.transparent,
                                     shadowColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(25)),
                                   ),
-                                  onPressed: _isSubmitting
+                                  onPressed: isSubmitting
                                       ? null
                                       : () async {
                                           setStateBottomSheet(() {
-                                            _isSubmitting = true;
+                                            isSubmitting = true;
                                           });
 
-                                          await _submitReport(_selectedIssue, _feedbackController.text);
+                                          await _submitReport(selectedIssue,
+                                              feedbackController.text);
 
-                                          Navigator.pop(context); // Close the bottom sheet
+                                          if (sheetContext.mounted) {
+                                            Navigator.pop(
+                                                sheetContext); // Close the bottom sheet
+                                          }
                                         },
-                                  child: _isSubmitting
-                                      ? LoadingAnimationWidget.threeArchedCircle(
+                                  child: isSubmitting
+                                      ? LoadingAnimationWidget
+                                          .threeArchedCircle(
                                           color: Colors.white,
                                           size: 30,
                                         )
                                       : const Text(
                                           "Submit Report",
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
                                         ),
                                 ),
                               ),
@@ -858,9 +893,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       },
     );
   }
+
   int _getEpisodeTimeInMinutes(int episodeNumber) {
     // Get the 'ago' string for the episode
-    String ago = _getEpisodeAgo(episodeNumber);  // _getEpisodeAgo() returns the time in string format
+    String ago = _getEpisodeAgo(
+        episodeNumber); // _getEpisodeAgo() returns the time in string format
 
     int minutesAgo = 0;
 
@@ -877,9 +914,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   Future<void> _submitReport(String? category, String feedback) async {
     if (category == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select an issue category")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select an issue category")),
+        );
+      }
       return;
     }
 
@@ -894,10 +933,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       final response = await httpService.post(
         '/api/report',
         body: {
-          "animeId": widget.id,  // Backend expects camelCase
-          "epId": _selectedEpisodeId ?? '',  // Backend expects epId (episode ID) not episode number
-          "type": category,  // Backend expects 'type' not 'category'
-          "explain": category == "Other" ? feedback : null,  // Backend expects 'explain' not 'feedback'
+          "animeId": widget.id, // Backend expects camelCase
+          "epId": _selectedEpisodeId ??
+              '', // Backend expects epId (episode ID) not episode number
+          "type": category, // Backend expects 'type' not 'category'
+          "explain": category == "Other"
+              ? feedback
+              : null, // Backend expects 'explain' not 'feedback'
         },
         requireAuth: true,
       );
@@ -905,16 +947,20 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success']) {
+        if (!mounted) return;
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Report submitted successfully")),
+          const SnackBar(content: Text('Report submitted successfully')),
         );
       } else {
         throw Exception(data['message'] ?? "Unknown error");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error submitting report: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error submitting report: $e")),
+        );
+      }
     }
   }
 
@@ -963,10 +1009,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     try {
       // For testing, use the provided test URL
       // In production, you would extract the m3u8 URL from the server embed page
-      final testUrl = 'https://cc.sgsgsgsr.site/_v7/8065c6d1-28b3-40ff-bc66-4fefe09ad47c/master.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2aWRlb19pZCI6IjgwNjVjNmQxLTI4YjMtNDBmZi1iYzY2LTRmZWZlMDlhZDQ3YyIsImNsaWVudF9pcCI6IjIyMy4yMjQuMzAuMTgzIiwiZXhwIjoxNzY0MjI2NTYxLCJpYXQiOjE3NjQyMDQ5NjEsImlzcyI6InZpZGVvLWhvc3RpbmctcGxhdGZvcm0ifQ.1LJtbjXtUbC4QLs4eUo9U_X9iYtzaSbbX_itH9GWRhU';
+      final testUrl =
+          'https://cc.sgsgsgsr.site/_v7/8065c6d1-28b3-40ff-bc66-4fefe09ad47c/master.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2aWRlb19pZCI6IjgwNjVjNmQxLTI4YjMtNDBmZi1iYzY2LTRmZWZlMDlhZDQ3YyIsImNsaWVudF9pcCI6IjIyMy4yMjQuMzAuMTgzIiwiZXhwIjoxNzY0MjI2NTYxLCJpYXQiOjE3NjQyMDQ5NjEsImlzcyI6InZpZGVvLWhvc3RpbmctcGxhdGZvcm0ifQ.1LJtbjXtUbC4QLs4eUo9U_X9iYtzaSbbX_itH9GWRhU';
 
-      print('Loading video from: $testUrl');
-      
+      // print('Loading video from: $testUrl');
+
       await _player.open(
         Media(testUrl),
         play: true, // Auto-play to ensure video starts
@@ -974,24 +1021,24 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
       // Listen for player state changes
       _player.stream.playing.listen((playing) {
-        print('Player playing state: $playing');
+        // print('Player playing state: $playing');
       });
 
       _player.stream.buffering.listen((buffering) {
-        print('Player buffering: $buffering');
+        // print('Player buffering: $buffering');
       });
 
       _player.stream.error.listen((error) {
-        print('Player error: $error');
+        // print('Player error: $error');
       });
 
       setState(() {
         isLoadingVideo = false;
       });
-      
-      print('Video loaded successfully');
+
+      // print('Video loaded successfully');
     } catch (e) {
-      print('Error loading video: $e');
+      // print('Error loading video: $e');
       setState(() {
         isLoadingVideo = false;
       });
@@ -1015,7 +1062,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 const SizedBox(height: 20),
                 Text(
                   "Loading Player...",
-                  style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
             ),
@@ -1039,7 +1086,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
-
   String _getEpisodeAgo(int episodeNumber) {
     if (episodeData.isEmpty || episodeData['all_episodes'] == null) {
       return 'Unknown time ago';
@@ -1061,7 +1107,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Widget _buildMainContent() {
     final animeInfo = animeData['anime_info'];
     final currentEpisode = (episodeData['all_episodes'] as List<dynamic>?)
-        ?.firstWhere((episode) => episode['number'] == widget.episodeNumber,
+        ?.firstWhere((episode) => episode['number'] == _currentEpisodeNumber,
             orElse: () => null);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1084,9 +1130,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               const SizedBox(height: 4),
               if (currentEpisode != null)
                 Text(
-                  'Episode ${widget.episodeNumber} - ${currentEpisode['titles'][0]}',
+                  'Episode $_currentEpisodeNumber - ${currentEpisode['titles'][0]}',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 16,
                   ),
                 ),
@@ -1103,17 +1149,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 width: 4,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                widget.episodeNumber != null
-                    ? _getEpisodeAgo(widget.episodeNumber!)
+                _currentEpisodeNumber != null
+                    ? _getEpisodeAgo(_currentEpisodeNumber!)
                     : 'Unknown time ago',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 14,
                 ),
               ),
@@ -1128,7 +1174,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey[900]?.withOpacity(0.7),
+                color: Colors.grey[900]?.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
@@ -1137,7 +1183,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[800]?.withOpacity(0.5),
+                      color: Colors.grey[800]?.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -1159,7 +1205,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                               Text(
                                 animeInfo['likes'].toString(),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1184,7 +1230,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                               Text(
                                 animeInfo['dislikes'].toString(),
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1245,7 +1291,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                     const Text('You are watching',
                         style: TextStyle(color: Colors.white)),
                     Text(
-                      'Episode ${widget.episodeNumber}',
+                      'Episode $_currentEpisodeNumber',
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
@@ -1380,7 +1426,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        backgroundColor: Colors.grey[800]?.withOpacity(0.5),
+        backgroundColor: Colors.grey[800]?.withValues(alpha: 0.5),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -1389,7 +1435,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       label: Text(
         label,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -1513,7 +1559,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 final filteredEpisodes = _getFilteredEpisodes(episodes);
                 final episode = filteredEpisodes[index];
                 final isCurrentEpisode =
-                    episode['number'] == widget.episodeNumber;
+                    episode['number'] == _currentEpisodeNumber;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -1595,7 +1641,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   void onEpisodeSelected(int episodeNumber) {
-    widget.episodeNumber = episodeNumber;
+    _currentEpisodeNumber = episodeNumber;
     fetchEpisodeData(episodeNumber);
 
     fetchEpisodeData(episodeNumber).then((_) async {
@@ -1625,7 +1671,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       builder: (context) => CommentBottomSheet(
         commentCount: episodeData['total_comments'] ?? 0,
         episodeData: episodeData,
-        epNumber: widget.episodeNumber,
+        epNumber: _currentEpisodeNumber,
         animeId: widget.id,
         comments: comments,
         updateComments: updateComments,
@@ -1636,7 +1682,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Map<String, dynamic>? _selectServer(List<dynamic> episodeLinks) {
     if (episodeLinks.isEmpty) return null;
 
-        // Use the widget.lang if provided
+    // Use the widget.lang if provided
     if (widget.lang != null) {
       var serverWithLang = episodeLinks.firstWhere(
         (link) => link['dataType'] == widget.lang,
@@ -1644,8 +1690,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       );
 
       if (serverWithLang.isNotEmpty) {
-        _selectedCategory = serverWithLang['dataType'];
-        _selectedServerName = serverWithLang['serverName'];
+        // _selectedCategory = serverWithLang['dataType'];
+        // _selectedServerName = serverWithLang['serverName'];
         return serverWithLang;
       }
     }
@@ -1658,8 +1704,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       );
 
       if (preferredServer.isNotEmpty) {
-        _selectedCategory = preferredServer['dataType'];
-        _selectedServerName = preferredServer['serverName'];
+        // _selectedCategory = preferredServer['dataType'];
+        // _selectedServerName = preferredServer['serverName'];
         return preferredServer;
       }
     }
@@ -1678,8 +1724,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
 
     if (fallbackServer.isNotEmpty) {
-      _selectedCategory = fallbackServer['dataType'];
-      _selectedServerName = fallbackServer['serverName'];
+      // _selectedCategory = fallbackServer['dataType'];
+      // _selectedServerName = fallbackServer['serverName'];
 
       // Also update _preferredLang to match the fallback
       _preferredLang = fallbackServer['dataType'];
@@ -1717,9 +1763,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     _preferredLang = selectedLang;
     await _secureStorage.write(key: "preferredLang", value: selectedLang);
 
-    _selectedCategory = selectedLang;
-    _selectedServerName = server['serverName'];
-    
+    // _selectedCategory = selectedLang;
+    // _selectedServerName = server['serverName'];
+
     await _loadVideo(server['dataLink']);
   }
 
@@ -1961,5 +2007,4 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       comments = updatedComments;
     });
   }
-
 }
