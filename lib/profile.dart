@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'dart:convert';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
@@ -8,13 +8,14 @@ import 'package:intl/intl.dart';
 import 'package:kuudere/services/http_service.dart';
 
 class ProfileEditPage extends StatefulWidget {
-  const ProfileEditPage({Key? key}) : super(key: key);
+  const ProfileEditPage({super.key});
 
   @override
-  _ProfileEditPageState createState() => _ProfileEditPageState();
+  State<ProfileEditPage> createState() => _ProfileEditPageState();
 }
 
-class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProviderStateMixin {
+class _ProfileEditPageState extends State<ProfileEditPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final authService = AuthService();
   bool isLoading = true;
@@ -73,7 +74,8 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/user/current', requireAuth: true);
+        final response =
+            await httpService.get('/api/user/current', requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -91,7 +93,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
         }
       }
     } catch (e) {
-      print('Error fetching profile data: $e');
+      // print('Error fetching profile data: $e');
       setState(() {
         isLoading = false;
       });
@@ -118,12 +120,15 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
             body["confirmNewPassword"] = _repeatPasswordController.text;
           }
 
-          final response = await httpService.put('/api/user/profile', body: body, requireAuth: true);
+          final response = await httpService.put('/api/user/profile',
+              body: body, requireAuth: true);
 
           if (response.statusCode == 200) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Profile updated successfully')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Profile updated successfully')),
+              );
+            }
             // Clear password fields after successful update
             _currentPasswordController.clear();
             _newPasswordController.clear();
@@ -136,10 +141,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
           }
         }
       } catch (e) {
-        print('Error updating profile: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile')),
-        );
+        // print('Error updating profile: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update profile')),
+          );
+        }
       } finally {
         setState(() {
           isSaving = false;
@@ -270,11 +277,11 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
       return 'Unknown';
     }
     try {
-    final date = DateTime.parse(dateString);
-    final formatter = DateFormat('MMMM d, yyyy');
-    return formatter.format(date);
+      final date = DateTime.parse(dateString);
+      final formatter = DateFormat('MMMM d, yyyy');
+      return formatter.format(date);
     } catch (e) {
-      print('Error parsing date: $dateString, error: $e');
+      // print('Error parsing date: $dateString, error: $e');
       return 'Unknown';
     }
   }
@@ -443,4 +450,3 @@ class _ProfileEditPageState extends State<ProfileEditPage> with SingleTickerProv
     );
   }
 }
-

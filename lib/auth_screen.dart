@@ -8,10 +8,11 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  const AuthScreen({super.key});
 
   @override
-  _AuthScreenState createState() => _AuthScreenState();
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends State<AuthScreen> {
@@ -27,6 +28,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void initState() {
+    super.initState();
     _realtimeService.joinRoom('home');
   }
 

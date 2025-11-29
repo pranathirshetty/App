@@ -1,0 +1,29 @@
+﻿Analyzing Anisuge...                                            
+
+   info - The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\home_screen.dart:1:8 - unnecessary_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\home_screen.dart:5:8 - unnecessary_import
+   info - The imported package 'http' isn't a dependency of the importing package - lib\home_screen.dart:18:8 - depend_on_referenced_packages
+   info - Invalid use of a private type in a public API - lib\home_screen.dart:104:3 - library_private_types_in_public_api
+   info - Invalid use of a private type in a public API - lib\home_screen.dart:763:3 - library_private_types_in_public_api
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\home_screen.dart:808:29 - deprecated_member_use
+   info - Invalid use of a private type in a public API - lib\home_screen.dart:981:3 - library_private_types_in_public_api
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\home_screen.dart:995:40 - deprecated_member_use
+   info - The imported package 'http' isn't a dependency of the importing package - lib\services\auth_service.dart:2:8 - depend_on_referenced_packages
+   info - The imported package 'http' isn't a dependency of the importing package - lib\services\http_service.dart:2:8 - depend_on_referenced_packages
+   info - The prefix 'IO' isn't a lower_case_with_underscores identifier - lib\services\notification.dart:4:60 - library_prefixes
+   info - The imported package 'http' isn't a dependency of the importing package - lib\services\notification.dart:5:8 - depend_on_referenced_packages
+   info - The imported package 'path_provider' isn't a dependency of the importing package - lib\services\notification.dart:6:8 - depend_on_referenced_packages
+warning - The declaration '_checkVersion' isn't referenced - lib\splash_screen.dart:42:16 - unused_element
+warning - Unused import: 'package:flutter/foundation.dart' - lib\watch_anime.dart:5:8 - unused_import
+warning - Unused import: 'package:flutter_inappwebview/flutter_inappwebview.dart' - lib\watch_anime.dart:7:8 - unused_import
+warning - Unused import: 'package:kuudere/notification_page.dart' - lib\watch_anime.dart:11:8 - unused_import
+warning - Unused import: 'package:kuudere/profile.dart' - lib\watch_anime.dart:12:8 - unused_import
+   info - The prefix 'IO' isn't a lower_case_with_underscores identifier - lib\watch_anime.dart:19:60 - library_prefixes
+warning - This class (or a class that this class inherits from) is marked as '@immutable', but one or more of its instance fields aren't final: WatchAnimeScreen.episodeNumber, WatchAnimeScreen.nid, WatchAnimeScreen.lang, WatchAnimeScreen.ntype - lib\watch_anime.dart:24:7 - must_be_immutable
+warning - The value of the field '_selectedCategory' isn't used - lib\watch_anime.dart:68:11 - unused_field
+warning - The value of the field '_selectedServerName' isn't used - lib\watch_anime.dart:69:11 - unused_field
+   info - The 'if' statement could be replaced by a null-aware assignment - lib\watch_anime.dart:120:7 - prefer_conditional_assignment
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\watch_anime.dart:729:37 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\watch_anime.dart:731:37 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\watch_anime.dart:857:49 - use_build_context_synchronously
+

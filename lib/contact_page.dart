@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContactPage extends StatelessWidget {
-  const ContactPage({Key? key, required Widget Function(IconData icon, String title) buildMenuItem}) : super(key: key);
+  const ContactPage(
+      {super.key,
+      required Widget Function(IconData icon, String title) buildMenuItem});
 
   Future<void> _launchUrl(String url) async {
-    if (await canLaunch(url)) {
-      await launch(url);
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
     } else {
       throw 'Could not launch $url';
     }
@@ -34,7 +36,7 @@ class ContactPage extends StatelessWidget {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 30),
@@ -145,4 +147,3 @@ class ContactPage extends StatelessWidget {
     );
   }
 }
-

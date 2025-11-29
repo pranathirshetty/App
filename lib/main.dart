@@ -2,22 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:kuudere/services/notification.dart';
 import 'package:kuudere/splash_screen.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_libs_video/media_kit_libs_video.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Add this line
-  
+
   // Initialize media_kit (ensure bundled native libs are loaded on all platforms)
   MediaKit.ensureInitialized();
-  
+
   // Initialize notification service
   final notificationService = NotificationService();
   await notificationService.initialize();
-  
+
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

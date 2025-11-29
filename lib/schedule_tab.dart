@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -8,17 +8,17 @@ import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
 
 class ScheduleTab extends StatefulWidget {
-  const ScheduleTab({Key? key}) : super(key: key);
+  const ScheduleTab({super.key});
 
   @override
-  _ScheduleTabState createState() => _ScheduleTabState();
+  State<ScheduleTab> createState() => _ScheduleTabState();
 }
 
 class _ScheduleTabState extends State<ScheduleTab> {
   late Future<Map<String, List<AnimeSchedule>>> _scheduleData;
   final RealtimeService _realtimeService = RealtimeService();
   final authService = AuthService();
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,10 +47,10 @@ class _ScheduleTabState extends State<ScheduleTab> {
         final data = jsonData['data'] ?? jsonData;
         if (data is Map) {
           data.forEach((date, animeList) {
-          scheduleData[date] = (animeList as List)
-              .map((anime) => AnimeSchedule.fromJson(anime))
-              .toList();
-        });
+            scheduleData[date] = (animeList as List)
+                .map((anime) => AnimeSchedule.fromJson(anime))
+                .toList();
+          });
         }
 
         return scheduleData;
@@ -130,7 +130,7 @@ class _ScheduleTabState extends State<ScheduleTab> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: isToday
-                      ? Colors.transparent.withOpacity(0.2)
+                      ? Colors.transparent.withValues(alpha: 0.2)
                       : Colors.transparent,
                   child: Text(
                     '${DateFormat('EEEE, MMMM d, yyyy').format(DateTime.parse(date))}${isToday ? ' (Today)' : ''}',
@@ -157,14 +157,13 @@ class AnimeScheduleCard extends StatelessWidget {
   final bool isToday;
 
   const AnimeScheduleCard(
-      {Key? key, required this.anime, required this.isToday})
-      : super(key: key);
+      {super.key, required this.anime, required this.isToday});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isToday ? Colors.red.withOpacity(0.1) : Colors.grey[900],
+      color: isToday ? Colors.red.withValues(alpha: 0.1) : Colors.grey[900],
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         title: Text(

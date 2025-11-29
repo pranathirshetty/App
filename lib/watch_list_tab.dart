@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart' as http;
+
 import 'package:kuudere/anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'dart:convert';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:flutter/scheduler.dart';
+
 import 'package:kuudere/services/http_service.dart';
 
 class WatchListTab extends StatefulWidget {
-  const WatchListTab({Key? key}) : super(key: key);
+  const WatchListTab({super.key});
 
   @override
-  _WatchListTabState createState() => _WatchListTabState();
+  State<WatchListTab> createState() => _WatchListTabState();
 }
 
-class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMixin {
+class _WatchListTabState extends State<WatchListTab>
+    with TickerProviderStateMixin {
   final authService = AuthService();
   String selectedFilter = 'All';
   bool isPublic = true;
@@ -34,8 +35,8 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
   int totalPages = 1;
   bool isLoading = false;
 
-  ScrollController _scrollController = ScrollController();
-  final RealtimeService _realtimeService = RealtimeService();  
+  final ScrollController _scrollController = ScrollController();
+  final RealtimeService _realtimeService = RealtimeService();
 
   @override
   void initState() {
@@ -52,7 +53,8 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       if (currentPage < totalPages && !isLoading) {
         fetchWatchList(page: currentPage + 1);
       }
@@ -66,35 +68,10 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
       isLoading = true;
     });
 
-    String encodedStatus;
-    switch (selectedFilter) {
-      case 'All':
-        encodedStatus = 'All';
-        break;
-      case 'Watching':
-        encodedStatus = 'Watching';
-        break;
-      case 'On Hold':
-        encodedStatus = 'On%20Hold';
-        break;
-      case 'Plan To Watch':
-        encodedStatus = 'Plan%20To%20Watch';
-        break;
-      case 'Dropped':
-        encodedStatus = 'Dropped';
-        break;
-      case 'Completed':
-        encodedStatus = 'Completed';
-        break;
-      default:
-        encodedStatus = 'All';
-    }
-
-  
     try {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
-      
+
       if (sessionInfo == null) {
         setState(() {
           isLoading = false;
@@ -104,31 +81,36 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
 
       final queryParams = <String, String>{
         'page': page.toString(),
-        'perPage': '18',  // Match backend default
+        'perPage': '18', // Match backend default
       };
       if (selectedFilter != 'All') {
-        queryParams['folder'] = selectedFilter;  // Backend expects 'folder' not 'status'
+        queryParams['folder'] =
+            selectedFilter; // Backend expects 'folder' not 'status'
       }
-      
+
       final response = await httpService.get(
-        '/api/anime/watchlist',  // Use correct endpoint that matches SvelteKit backend
+        '/api/anime/watchlist', // Use correct endpoint that matches SvelteKit backend
         queryParams: queryParams,
         requireAuth: true,
-            );
+      );
 
-          if (response.statusCode == 200) {
-            final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         final items = data['data'] ?? data['watchlist'] ?? [];
-            setState(() {
-              if (page == 1) {
-            watchList = (items as List).map((item) => AnimeItem.fromJson(item)).toList();
-              } else {
-            watchList.addAll((items as List).map((item) => AnimeItem.fromJson(item)).toList());
-              }
+        setState(() {
+          if (page == 1) {
+            watchList = (items as List)
+                .map((item) => AnimeItem.fromJson(item))
+                .toList();
+          } else {
+            watchList.addAll((items as List)
+                .map((item) => AnimeItem.fromJson(item))
+                .toList());
+          }
           currentPage = data['current_page'] ?? data['currentPage'] ?? page;
           totalPages = data['total_pages'] ?? data['totalPages'] ?? 1;
-              isLoading = false;
-            });
+          isLoading = false;
+        });
       } else {
         throw Exception('Failed to load watch list');
       }
@@ -136,7 +118,7 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
       setState(() {
         isLoading = false;
       });
-      print('Error fetching watch list: $e');
+      // print('Error fetching watch list: $e');
     }
   }
 
@@ -170,7 +152,7 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
               Switch(
                 value: isPublic,
                 onChanged: (value) => setState(() => isPublic = value),
-                activeColor: Colors.red,
+                activeThumbColor: Colors.red,
               ),
             ],
           ),
@@ -225,7 +207,10 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
               SizedBox(height: 16),
               Text(
                 'Nothing here',
-                style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
@@ -243,7 +228,7 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
         builder: (context, constraints) {
           final double itemWidth = 180;
           final int crossAxisCount = (constraints.maxWidth / itemWidth).floor();
-          
+
           return GridView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
@@ -301,61 +286,39 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
 
     // Make API call to update status
     _updateAnimeStatusAPI(animeId, newStatus).then((_) {
-      setState(() {
-        if (newStatus == 'Remove') {
-          // Remove the anime from the list with animation
-          final index = watchList.indexWhere((anime) => anime.id == animeId);
-          if (index != -1) {
-            _removeAnimeWithAnimation(index);
+      if (mounted) {
+        setState(() {
+          if (newStatus == 'Remove') {
+            // Remove the anime from the list with animation
+            final index = watchList.indexWhere((anime) => anime.id == animeId);
+            if (index != -1) {
+              _removeAnimeWithAnimation(index);
+            }
+          } else {
+            // Update the status of the anime in the list
+            final index = watchList.indexWhere((anime) => anime.id == animeId);
+            if (index != -1) {
+              watchList[index] = watchList[index].copyWith(status: newStatus);
+            }
+            // If the current filter doesn't match the new status, remove the item from the list
+            if (selectedFilter != 'All' && selectedFilter != newStatus) {
+              _removeAnimeWithAnimation(index);
+            }
           }
-        } else {
-          // Update the status of the anime in the list
-          final index = watchList.indexWhere((anime) => anime.id == animeId);
-          if (index != -1) {
-            watchList[index] = watchList[index].copyWith(status: newStatus);
-          }
-          // If the current filter doesn't match the new status, remove the item from the list
-          if (selectedFilter != 'All' && selectedFilter != newStatus) {
-            _removeAnimeWithAnimation(index);
-          }
-        }
-        isLoading = false;
-      });
+          isLoading = false;
+        });
+      }
     }).catchError((error) {
-      print('Error updating anime status: $error');
-      setState(() {
-        isLoading = false;
-      });
+      // print('Error updating anime status: $error');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     });
   }
 
   Future<void> _updateAnimeStatusAPI(String animeId, String newStatus) async {
-    String encodedStatus;
-    switch (newStatus) {
-      case 'All':
-        encodedStatus = 'All';
-        break;
-      case 'Watching':
-        encodedStatus = 'Watching';
-        break;
-      case 'On Hold':
-        encodedStatus = 'On%20Hold';
-        break;
-      case 'Plan To Watch':
-        encodedStatus = 'Plan%20To%20Watch';
-        break;
-      case 'Dropped':
-        encodedStatus = 'Dropped';
-        break;
-      case 'Completed':
-        encodedStatus = 'Completed';
-        break;
-      case 'Remove':
-        encodedStatus = 'Remove';
-        break;
-      default:
-        encodedStatus = 'All';
-    }
     try {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
@@ -364,8 +327,8 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
         final response = await httpService.post(
           '/api/anime/watchlist',
           body: {
-            'animeId': animeId,  // Backend expects camelCase
-            'folder': selectedFilter,  // Backend expects 'folder' not 'status'
+            'animeId': animeId, // Backend expects camelCase
+            'folder': selectedFilter, // Backend expects 'folder' not 'status'
           },
           requireAuth: true,
         );
@@ -375,14 +338,12 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
         }
       }
     } catch (e) {
-      print('Error updating anime status: $e');
-      throw e;
+      // print('Error updating anime status: $e');
+      rethrow;
     }
   }
 
   void _removeAnimeWithAnimation(int index) {
-    final removedAnime = watchList[index];
-    
     AnimationController controller = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -405,7 +366,8 @@ class _WatchListTabState extends State<WatchListTab> with TickerProviderStateMix
     });
 
     setState(() {
-      watchList[index] = watchList[index].copyWith(animationController: controller);
+      watchList[index] =
+          watchList[index].copyWith(animationController: controller);
     });
 
     controller.forward();
@@ -422,10 +384,10 @@ class AnimeCard extends StatelessWidget {
   final Function(String, String) onStatusUpdate;
 
   const AnimeCard({
-    Key? key,
+    super.key,
     required this.item,
     required this.onStatusUpdate,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -461,7 +423,7 @@ class AnimeCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -483,7 +445,7 @@ class AnimeCard extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                     ],
                     stops: [0.6, 1.0],
                   ),
@@ -503,7 +465,8 @@ class AnimeCard extends StatelessWidget {
                         _buildTag(item.type),
                         _buildTag(
                           '${item.subbed}',
-                          icon: _buildSvgIcon(_episodesSvg, color: Colors.yellow),
+                          icon:
+                              _buildSvgIcon(_episodesSvg, color: Colors.yellow),
                         ),
                         _buildTag(
                           '${item.dubbed}',
@@ -558,7 +521,7 @@ class AnimeCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.5),
+          color: Colors.black.withValues(alpha: 0.5),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -572,11 +535,13 @@ class AnimeCard extends StatelessWidget {
 
   void _showMoreOptionsMenu(BuildContext context) {
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero),
+            ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -618,7 +583,7 @@ class AnimeCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -688,7 +653,9 @@ class AnimeItem {
       subbed: json['subbedCount'] ?? json['subbed'] ?? 0,
       image: json['cover'] ?? json['image'] ?? '',
       type: json['type'] ?? 'Unknown',
-      status: json['folder'] ?? json['status'] ?? 'Plan To Watch', // Use folder from backend
+      status: json['folder'] ??
+          json['status'] ??
+          'Plan To Watch', // Use folder from backend
       duration: json['duration']?.toString() ?? '0',
       url: '/watch/${json['id'] ?? json['mainId'] ?? ''}',
     );
@@ -699,16 +666,16 @@ class AnimeItem {
     AnimationController? animationController,
   }) {
     return AnimeItem(
-      id: this.id,
-      title: this.title,
-      total: this.total,
-      dubbed: this.dubbed,
-      subbed: this.subbed,
-      image: this.image,
-      type: this.type,
+      id: id,
+      title: title,
+      total: total,
+      dubbed: dubbed,
+      subbed: subbed,
+      image: image,
+      type: type,
       status: status ?? this.status,
-      duration: this.duration,
-      url: this.url,
+      duration: duration,
+      url: url,
       animationController: animationController ?? this.animationController,
     );
   }
@@ -736,4 +703,3 @@ const String _audioSvg = '''
   <line x1="8" y1="23" x2="16" y2="23"></line>
 </svg>
 ''';
-

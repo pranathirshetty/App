@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -7,7 +7,7 @@ import '../theme/app_theme.dart';
 class CinematicBackground extends StatelessWidget {
   final Widget child;
 
-  const CinematicBackground({Key? key, required this.child}) : super(key: key);
+  const CinematicBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class CinematicBackground extends StatelessWidget {
                   center: const Alignment(0.8, -0.6),
                   radius: 1.2,
                   colors: [
-                    AppTheme.primary.withOpacity(0.15),
+                    AppTheme.primary.withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                 ),
@@ -47,9 +47,9 @@ class CinematicBackground extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withValues(alpha: 0.8),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.8),
+                    Colors.black.withValues(alpha: 0.8),
                   ],
                 ),
               ),

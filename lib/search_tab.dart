@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kuudere/anime_info.dart';
-import 'package:kuudere/services/auth_service.dart';
+
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'dart:ui';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SearchTab extends StatefulWidget {
-  const SearchTab({Key? key}) : super(key: key);
+  const SearchTab({super.key});
 
   @override
-  _SearchTabState createState() => _SearchTabState();
+  State<SearchTab> createState() => _SearchTabState();
 }
 
 class _SearchTabState extends State<SearchTab> {
@@ -21,18 +21,16 @@ class _SearchTabState extends State<SearchTab> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
   int _currentPage = 1;
-  int _totalPages = 1;
-  ScrollController _scrollController = ScrollController();
-  bool _showScrollToTopButton = false;
+  final ScrollController _scrollController = ScrollController();
 
   // Filter states
-  List<String> _selectedGenres = [];
-  List<String> _selectedSeasons = [];
-  List<String> _selectedYears = [];
-  List<String> _selectedTypes = [];
-  List<String> _selectedStatuses = [];
-  List<String> _selectedLanguages = [];
-  List<String> _selectedRatings = [];
+  final List<String> _selectedGenres = [];
+  final List<String> _selectedSeasons = [];
+  final List<String> _selectedYears = [];
+  final List<String> _selectedTypes = [];
+  final List<String> _selectedStatuses = [];
+  final List<String> _selectedLanguages = [];
+  final List<String> _selectedRatings = [];
   final RealtimeService _realtimeService = RealtimeService();
 
   @override
@@ -52,7 +50,8 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   void _scrollListener() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       _searchAnime(loadMore: true);
     }
   }
@@ -72,22 +71,23 @@ class _SearchTabState extends State<SearchTab> {
 
     try {
       final searchQuery = _searchController.text.trim();
-      
+
       final httpService = HttpService();
-      
+
       // Build query parameters for /search?format=api endpoint
       // This uses the same search page that has proper pagination
       // Allow empty keyword - backend will return all results (or filtered results)
       final queryParams = <String, String>{
         'page': _currentPage.toString(),
-        'format': 'api', // Request JSON response (use 'format' instead of 'type' to avoid conflict with filter 'type')
+        'format':
+            'api', // Request JSON response (use 'format' instead of 'type' to avoid conflict with filter 'type')
       };
-      
+
       // Only add keyword if it's not empty
       if (searchQuery.isNotEmpty) {
         queryParams['keyword'] = searchQuery;
       }
-      
+
       // Add filters if selected
       // Note: type=api is removed in hooks.server.ts before processing filters
       if (_selectedGenres.isNotEmpty) {
@@ -126,71 +126,88 @@ class _SearchTabState extends State<SearchTab> {
         // Rating filter expects single value, take first selected
         queryParams['rating'] = _selectedRatings.first;
       }
-      
+
       // Search doesn't require authentication
-      final response = await httpService.get('/search', queryParams: queryParams);
+      final response =
+          await httpService.get('/search', queryParams: queryParams);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         // /search?type=api returns { success: true, animeData: [...], total: number, totalPages: number, currentPage: number }
         if (data['success'] == true && data['animeData'] != null) {
-          final results = List<Map<String, dynamic>>.from(data['animeData'] ?? []);
-        setState(() {
-          if (loadMore) {
-              // Only add new results that aren't already in the list (prevent duplicates)
-              final existingIds = _searchResults.map((r) => r['id'] ?? r['mainId']).toSet();
-              final newResults = results.where((r) => !existingIds.contains(r['id'] ?? r['mainId'])).toList();
-              _searchResults.addAll(newResults);
-            } else {
-              _searchResults = results;
-              _currentPage = 1;
-            }
-            _isLoading = false;
-            _isLoadingMore = false;
-            // Update pagination info from backend
-            _currentPage = data['currentPage'] ?? data['page'] ?? _currentPage;
-            _totalPages = data['totalPages'] ?? 1;
-            // Only increment page if we got results and there are more
-            if (results.isNotEmpty && (data['hasMore'] ?? false)) {
-              _currentPage++;
-            }
-          });
+          final results =
+              List<Map<String, dynamic>>.from(data['animeData'] ?? []);
+          if (mounted) {
+            setState(() {
+              if (loadMore) {
+                // Only add new results that aren't already in the list (prevent duplicates)
+                final existingIds =
+                    _searchResults.map((r) => r['id'] ?? r['mainId']).toSet();
+                final newResults = results
+                    .where((r) => !existingIds.contains(r['id'] ?? r['mainId']))
+                    .toList();
+                _searchResults.addAll(newResults);
+              } else {
+                _searchResults = results;
+                _currentPage = 1;
+              }
+              _isLoading = false;
+              _isLoadingMore = false;
+              // Update pagination info from backend
+              _currentPage =
+                  data['currentPage'] ?? data['page'] ?? _currentPage;
+              // Only increment page if we got results and there are more
+              if (results.isNotEmpty && (data['hasMore'] ?? false)) {
+                _currentPage++;
+              }
+            });
+          }
         } else if (data['error'] != null) {
           // Handle error response
+          if (mounted) {
+            setState(() {
+              _searchResults = [];
+              _isLoading = false;
+              _isLoadingMore = false;
+            });
+          }
+        } else {
+          throw Exception('Unexpected response format');
+        }
+      } else if (response.statusCode == 400) {
+        // Bad request - usually empty query
+        // final data = json.decode(response.body);
+        // print('Search error: ${data['error'] ?? 'Bad request'}');
+        if (mounted) {
           setState(() {
             _searchResults = [];
             _isLoading = false;
             _isLoadingMore = false;
           });
-          } else {
-          throw Exception('Unexpected response format');
         }
-      } else if (response.statusCode == 400) {
-        // Bad request - usually empty query
-        final data = json.decode(response.body);
-        print('Search error: ${data['error'] ?? 'Bad request'}');
-        setState(() {
-          _searchResults = [];
-          _isLoading = false;
-          _isLoadingMore = false;
-        });
       } else if (response.statusCode == 404) {
         // No results found
+        if (mounted) {
+          setState(() {
+            _searchResults = [];
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+        }
+      } else {
+        final errorBody =
+            response.body.isNotEmpty ? json.decode(response.body) : {};
+        throw Exception(
+            'Failed to load search results: ${response.statusCode} - ${errorBody['error'] ?? errorBody['message'] ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      // print('Error during search: $e');
+      if (mounted) {
         setState(() {
-          _searchResults = [];
           _isLoading = false;
           _isLoadingMore = false;
         });
-      } else {
-        final errorBody = response.body.isNotEmpty ? json.decode(response.body) : {};
-        throw Exception('Failed to load search results: ${response.statusCode} - ${errorBody['error'] ?? errorBody['message'] ?? 'Unknown error'}');
       }
-    } catch (e) {
-      print('Error during search: $e');
-      setState(() {
-        _isLoading = false;
-        _isLoadingMore = false;
-      });
     }
   }
 
@@ -270,7 +287,8 @@ class _SearchTabState extends State<SearchTab> {
                               return null;
                             }
                           },
-                          childCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
+                          childCount:
+                              _searchResults.length + (_isLoadingMore ? 1 : 0),
                         ),
                       ),
               ),
@@ -322,32 +340,104 @@ class _SearchTabState extends State<SearchTab> {
             children: [
               Row(
                 children: [
-                  Expanded(child: _buildFilterDropdown('Select genre', _selectedGenres, ['Action', 'Adventure', 'Cars', 'Comedy','Dementia', 'Demons', 'Drama', 'Ecchi','Fantasy', 'Game', 'Harem', 'Historical','Horror', 'Isekai', 'Josei', 'Kids','Magic', 'Martial Arts', 'Mecha', 'Military','Music', 'Mystery', 'Parody', 'Police','Psychological', 'Romance', 'Samurai', 'School','Sci-Fi', 'Seinen', 'Shoujo', 'Shoujo Ai','Shounen', 'Shounen Ai', 'Slice of Life', 'Space','Sports', 'Super Power', 'Supernatural', 'Thriller','unknown', 'Vampire'], multiSelect: true)),
+                  Expanded(
+                      child: _buildFilterDropdown(
+                          'Select genre',
+                          _selectedGenres,
+                          [
+                            'Action',
+                            'Adventure',
+                            'Cars',
+                            'Comedy',
+                            'Dementia',
+                            'Demons',
+                            'Drama',
+                            'Ecchi',
+                            'Fantasy',
+                            'Game',
+                            'Harem',
+                            'Historical',
+                            'Horror',
+                            'Isekai',
+                            'Josei',
+                            'Kids',
+                            'Magic',
+                            'Martial Arts',
+                            'Mecha',
+                            'Military',
+                            'Music',
+                            'Mystery',
+                            'Parody',
+                            'Police',
+                            'Psychological',
+                            'Romance',
+                            'Samurai',
+                            'School',
+                            'Sci-Fi',
+                            'Seinen',
+                            'Shoujo',
+                            'Shoujo Ai',
+                            'Shounen',
+                            'Shounen Ai',
+                            'Slice of Life',
+                            'Space',
+                            'Sports',
+                            'Super Power',
+                            'Supernatural',
+                            'Thriller',
+                            'unknown',
+                            'Vampire'
+                          ],
+                          multiSelect: true)),
                   SizedBox(width: 16),
-                  Expanded(child: _buildFilterDropdown('Select seasons', _selectedSeasons, ['Winter', 'Spring', 'Summer', 'Fall'])),
+                  Expanded(
+                      child: _buildFilterDropdown(
+                          'Select seasons',
+                          _selectedSeasons,
+                          ['Winter', 'Spring', 'Summer', 'Fall'])),
                 ],
               ),
               SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildFilterDropdown('Select years', _selectedYears, List.generate(45, (index) => (2025 - index).toString()))),
+                  Expanded(
+                      child: _buildFilterDropdown(
+                          'Select years',
+                          _selectedYears,
+                          List.generate(
+                              45, (index) => (2025 - index).toString()))),
                   SizedBox(width: 16),
-                  Expanded(child: _buildFilterDropdown('Select languages', _selectedLanguages, ['Japanese', 'English'])),
+                  Expanded(
+                      child: _buildFilterDropdown('Select languages',
+                          _selectedLanguages, ['Japanese', 'English'])),
                 ],
               ),
               SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildFilterDropdown('Select ratings', _selectedRatings, ['G', 'PG', 'PG-13', 'R', 'R+'])),
+                  Expanded(
+                      child: _buildFilterDropdown('Select ratings',
+                          _selectedRatings, ['G', 'PG', 'PG-13', 'R', 'R+'])),
                   SizedBox(width: 16),
-                  Expanded(child: _buildFilterDropdown('Select types', _selectedTypes, ['TV', 'Movie', 'OVA'])),
+                  Expanded(
+                      child: _buildFilterDropdown('Select types',
+                          _selectedTypes, ['TV', 'Movie', 'OVA'])),
                 ],
               ),
               SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildFilterDropdown('Select statuses', _selectedStatuses, ['Finished', 'Releasing', 'Not Yet Released', 'Cancelled'])),
-                  Expanded(child: SizedBox()), // Empty space to maintain grid alignment
+                  Expanded(
+                      child: _buildFilterDropdown(
+                          'Select statuses', _selectedStatuses, [
+                    'Finished',
+                    'Releasing',
+                    'Not Yet Released',
+                    'Cancelled'
+                  ])),
+                  Expanded(
+                      child:
+                          SizedBox()), // Empty space to maintain grid alignment
                 ],
               ),
               SizedBox(height: 16),
@@ -368,14 +458,18 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  Widget _buildFilterDropdown(String hint, List<String> selectedItems, List<String> items, {bool multiSelect = false}) {
+  Widget _buildFilterDropdown(
+      String hint, List<String> selectedItems, List<String> items,
+      {bool multiSelect = false}) {
     return Container(
       decoration: BoxDecoration(
         color: Color(0xFF1A1B1E),
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonFormField<String>(
-        value: multiSelect ? null : (selectedItems.isNotEmpty ? selectedItems.first : null),
+        initialValue: multiSelect
+            ? null
+            : (selectedItems.isNotEmpty ? selectedItems.first : null),
         hint: Text(hint, style: TextStyle(color: Colors.grey[400])),
         style: TextStyle(color: Colors.white),
         dropdownColor: Color(0xFF1A1B1E),
@@ -412,7 +506,8 @@ class _SearchTabState extends State<SearchTab> {
                   Checkbox(
                     value: selectedItems.contains(value),
                     onChanged: (_) {},
-                    fillColor: MaterialStateProperty.resolveWith((states) => Colors.white),
+                    fillColor: WidgetStateProperty.resolveWith(
+                        (states) => Colors.white),
                     checkColor: Color(0xFF1A1B1E),
                   ),
                 Text(value),
@@ -442,7 +537,8 @@ class _SearchTabState extends State<SearchTab> {
     return AnimeCard(
       item: AnimeItem(
         id: anime['id'] ?? anime['mainId'] ?? '',
-        title: anime['english'] ?? anime['romaji'] ?? anime['native'] ?? 'Unknown',
+        title:
+            anime['english'] ?? anime['romaji'] ?? anime['native'] ?? 'Unknown',
         episodeCount: anime['epCount'] ?? 0,
         audioLanguages: anime['dubbedCount'] ?? 0,
         imageUrl: anime['cover'] ?? '/placeholder.svg',
@@ -455,16 +551,16 @@ class _SearchTabState extends State<SearchTab> {
 class GlassContainer extends StatelessWidget {
   final Widget child;
 
-  const GlassContainer({Key? key, required this.child}) : super(key: key);
+  const GlassContainer({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.2),
+          color: Colors.white.withValues(alpha: 0.2),
           width: 1.5,
         ),
       ),
@@ -486,25 +582,25 @@ class AnimeCard extends StatelessWidget {
   final AnimeItem item;
   final VoidCallback? onTap;
 
-  const AnimeCard({Key? key, required this.item, this.onTap}) : super(key: key);
+  const AnimeCard({super.key, required this.item, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AnimeInfoScreen(animeId: item.id),
-            ),
-          );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AnimeInfoScreen(animeId: item.id),
+          ),
+        );
       },
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -526,7 +622,7 @@ class AnimeCard extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                     ],
                     stops: [0.6, 1.0],
                   ),
@@ -591,7 +687,7 @@ class AnimeCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -664,4 +760,3 @@ const String _audioSvg = '''
   <line x1="8" y1="23" x2="16" y2="23"></line>
 </svg>
 ''';
-

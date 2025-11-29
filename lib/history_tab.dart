@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/watch_anime.dart';
 import 'dart:convert';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kuudere/services/auth_service.dart';
-import 'package:kuudere/anime_info.dart';
+
 import 'package:kuudere/services/http_service.dart';
 
 class HistoryTab extends StatefulWidget {
-  const HistoryTab({Key? key}) : super(key: key);
+  const HistoryTab({super.key});
 
   @override
-  _HistoryTabState createState() => _HistoryTabState();
+  State<HistoryTab> createState() => _HistoryTabState();
 }
 
 class _HistoryTabState extends State<HistoryTab> {
@@ -21,9 +21,8 @@ class _HistoryTabState extends State<HistoryTab> {
   int currentPage = 1;
   int totalPages = 1;
   bool isLoading = false;
-  ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
   final RealtimeService _realtimeService = RealtimeService();
-
 
   @override
   void initState() {
@@ -40,7 +39,8 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       if (currentPage < totalPages && !isLoading) {
         fetchHistory(page: currentPage + 1);
       }
@@ -63,7 +63,7 @@ class _HistoryTabState extends State<HistoryTab> {
           '/api/continue-watching/profile',
           queryParams: {
             'page': page.toString(),
-            'perPage': '18',  // Match backend default
+            'perPage': '18', // Match backend default
           },
           requireAuth: true,
         );
@@ -74,9 +74,13 @@ class _HistoryTabState extends State<HistoryTab> {
           final items = data['data'] ?? [];
           setState(() {
             if (page == 1) {
-              historyList = (items as List).map((item) => HistoryItem.fromJson(item)).toList();
+              historyList = (items as List)
+                  .map((item) => HistoryItem.fromJson(item))
+                  .toList();
             } else {
-              historyList.addAll((items as List).map((item) => HistoryItem.fromJson(item)).toList());
+              historyList.addAll((items as List)
+                  .map((item) => HistoryItem.fromJson(item))
+                  .toList());
             }
             currentPage = data['currentPage'] ?? data['current_page'] ?? page;
             totalPages = data['totalPages'] ?? data['total_pages'] ?? 1;
@@ -90,7 +94,7 @@ class _HistoryTabState extends State<HistoryTab> {
       setState(() {
         isLoading = false;
       });
-      print('Error fetching history: $e');
+      // print('Error fetching history: $e');
     }
   }
 
@@ -105,7 +109,10 @@ class _HistoryTabState extends State<HistoryTab> {
               SizedBox(height: 16),
               Text(
                 'No history yet',
-                style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
@@ -179,7 +186,7 @@ class _HistoryTabState extends State<HistoryTab> {
 class HistoryCard extends StatelessWidget {
   final HistoryItem item;
 
-  const HistoryCard({Key? key, required this.item}) : super(key: key);
+  const HistoryCard({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +197,11 @@ class HistoryCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => WatchAnimeScreen(id: item.link.split('/')[2], episodeNumber: item.episode,lang: lang,),
+            builder: (context) => WatchAnimeScreen(
+              id: item.link.split('/')[2],
+              episodeNumber: item.episode,
+              lang: lang,
+            ),
           ),
         );
       },
@@ -302,4 +313,3 @@ class HistoryItem {
     );
   }
 }
-

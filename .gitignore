@@ -47,3 +47,8 @@ data.dart
 keys/
 build
 extract.dart
+
+# Signing
+key.properties
+**/*.jks
+signing_secrets.txt

@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:kuudere/notification_page.dart';
-import 'package:kuudere/profile.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'dart:convert';
-import 'dart:ui';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'watch_anime.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -112,10 +108,10 @@ class AnimeDetails {
 class AnimeInfoScreen extends StatefulWidget {
   final String animeId;
 
-  const AnimeInfoScreen({Key? key, required this.animeId}) : super(key: key);
+  const AnimeInfoScreen({super.key, required this.animeId});
 
   @override
-  _AnimeInfoScreenState createState() => _AnimeInfoScreenState();
+  State<AnimeInfoScreen> createState() => _AnimeInfoScreenState();
 }
 
 class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
@@ -136,9 +132,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
   Future<AnimeDetails> fetchAnimeDetails(String id) async {
     final httpService = HttpService();
-      final sessionInfo = await authService.getStoredSession();
-
-    print('Fetching anime details for ID: $id');
+    final sessionInfo = await authService.getStoredSession();
 
     try {
       // Anime info can be fetched without auth, but user-specific data (like watchlist status) requires auth
@@ -149,8 +143,6 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
         queryParams: {'type': 'api'},
         requireAuth: sessionInfo != null,
       );
-
-      print('Response status code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -164,7 +156,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
             'Failed to load anime details. Status code: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching anime details: $e');
+      // print('Error fetching anime details: $e');
       throw Exception('Failed to load anime details: $e');
     }
   }
@@ -174,19 +166,21 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/notifications/count', requireAuth: true);
+        final response = await httpService.get('/api/notifications/count',
+            requireAuth: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['success'] ?? true) {
             setState(() {
-              notificationCount = data['total']?.toString() ?? data['count']?.toString() ?? '0';
+              notificationCount =
+                  data['total']?.toString() ?? data['count']?.toString() ?? '0';
             });
           }
         }
       }
     } catch (e) {
-      print('Error fetching notification count: $e');
+      // print('Error fetching notification count: $e');
     }
   }
 
@@ -206,8 +200,6 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       return;
     }
 
-    String encodedStatus = Uri.encodeComponent(newStatus);
-
     final httpService = HttpService();
 
     try {
@@ -215,8 +207,8 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       final response = await httpService.post(
         '/api/anime/watchlist',
         body: {
-          'animeId': anime.id,  // Backend expects camelCase
-          'folder': newStatus,  // Backend expects 'folder' not 'status'
+          'animeId': anime.id, // Backend expects camelCase
+          'folder': newStatus, // Backend expects 'folder' not 'status'
         },
         requireAuth: true,
       );
@@ -254,14 +246,14 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
           isLoading = false;
         });
       } else {
-        print(
-            'Failed to update watchlist. Status code: ${response.statusCode}');
+        // print(
+        //     'Failed to update watchlist. Status code: ${response.statusCode}');
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
-      print('Error updating watchlist: $e');
+      // print('Error updating watchlist: $e');
       setState(() {
         isLoading = false;
       });
@@ -315,7 +307,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
           side: const BorderSide(color: Colors.red),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           backgroundColor:
-              anime.inWatchlist ? Colors.red.withOpacity(0.1) : null,
+              anime.inWatchlist ? Colors.red.withValues(alpha: 0.1) : null,
         ),
       ),
     );
@@ -331,7 +323,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
         placeholderBuilder: (BuildContext context) => _buildPlaceholder(height),
         errorBuilder:
             (BuildContext context, Object exception, StackTrace? stackTrace) {
-          print('Error loading SVG: $exception');
+          // print('Error loading SVG: $exception');
           return _buildPlaceholder(height);
         },
       );
@@ -348,7 +340,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
         },
         errorBuilder:
             (BuildContext context, Object error, StackTrace? stackTrace) {
-          print('Error loading image: $error');
+          // print('Error loading image: $error');
           return _buildPlaceholder(height);
         },
       );
@@ -380,7 +372,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.7),
                       Colors.black,
                     ],
                     stops: const [0.0, 0.7, 1.0],
@@ -445,7 +437,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.2),
+                                  color: Colors.green.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Text(
@@ -588,7 +580,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.9),
+                      Colors.black.withValues(alpha: 0.9),
                     ],
                     stops: const [0.0, 0.8],
                   ),
@@ -601,7 +593,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -668,7 +660,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.2),
+                                    color: Colors.green.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -872,7 +864,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
           ),
           if (isLoading)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               child: Center(
                 child: LoadingAnimationWidget.threeArchedCircle(
                   color: Colors.red,
