@@ -252,42 +252,42 @@ class _AuthScreenState extends State<AuthScreen>
                           children: [
                             _AnimeCard(
                               imageUrl:
-                                  'https://cdn.myanimelist.net/images/anime/1015/138006.jpg',
-                              title: 'The Summer Hikaru Died',
-                              year: '2025',
-                              eps: '12',
+                                  'https://artworks.thetvdb.com/banners/v4/series/424536/posters/68d6d5b36aa2f.jpg',
+                              title: 'Frieren Season 2',
+                              year: '2026',
+                              eps: '28',
                             ),
                             const SizedBox(height: 16),
                             _AnimeCard(
                               imageUrl:
-                                  'https://cdn.myanimelist.net/images/anime/1001/141022.jpg',
-                              title: 'Rascal Does Not Dream',
-                              year: '2025',
-                              eps: '13',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://cdn.myanimelist.net/images/anime/1271/142321.jpg',
-                              title: 'DAN DA DAN Season 2',
-                              year: '2025',
-                              eps: '12',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://cdn.myanimelist.net/images/anime/1286/141636.jpg',
-                              title: 'Sakamoto Days',
-                              year: '2025',
+                                  'https://artworks.thetvdb.com/banners/v4/series/377543/posters/655f6f3591801.jpg',
+                              title: 'Jujutsu Kaisen Season 3',
+                              year: '2026',
                               eps: '24',
                             ),
                             const SizedBox(height: 16),
                             _AnimeCard(
                               imageUrl:
-                                  'https://cdn.myanimelist.net/images/anime/1693/138042.jpg',
-                              title: 'Solo Leveling S2',
-                              year: '2025',
+                                  'https://artworks.thetvdb.com/banners/v4/series/355480/posters/68aa38e36a087.jpg',
+                              title: 'Fire Force Season 3',
+                              year: '2026',
+                              eps: '24',
+                            ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://artworks.thetvdb.com/banners/v4/series/421069/posters/67026a480c6d1.jpg',
+                              title: 'Oshi no Ko Season 3',
+                              year: '2026',
                               eps: '13',
+                            ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://artworks.thetvdb.com/banners/v4/series/414221/posters/639d9b966b354.jpg',
+                              title: 'The Angel Next Door S2',
+                              year: '2026',
+                              eps: '12',
                             ),
                           ],
                         ),
