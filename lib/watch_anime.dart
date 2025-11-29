@@ -17,6 +17,7 @@ import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -1937,18 +1938,25 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                animeInfo['description'],
-                style: TextStyle(
-                  color: Colors.grey[300],
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-                maxLines: showFullDescription ? null : 3,
-                overflow: showFullDescription
-                    ? TextOverflow.visible
-                    : TextOverflow.ellipsis,
-              ),
+              showFullDescription
+                  ? HtmlWidget(
+                      animeInfo['description'],
+                      textStyle: TextStyle(
+                        color: Colors.grey[300],
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    )
+                  : Text(
+                      _stripHtmlTags(animeInfo['description']),
+                      style: TextStyle(
+                        color: Colors.grey[300],
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
               GestureDetector(
                 onTap: () {
                   setState(() {
@@ -2012,5 +2020,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     setState(() {
       comments = updatedComments;
     });
+  }
+
+  String _stripHtmlTags(String htmlString) {
+    String text = htmlString
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n')
+        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n');
+    return text.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 }

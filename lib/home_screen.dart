@@ -514,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(height: 12),
                                         // Description
                                         Text(
-                                          item.description,
+                                          _stripHtmlTags(item.description),
                                           style: TextStyle(
                                             color: Colors.white
                                                 .withValues(alpha: 0.9),
@@ -736,6 +736,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  String _stripHtmlTags(String htmlString) {
+    String text = htmlString
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n')
+        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n');
+    return text.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 }
 
