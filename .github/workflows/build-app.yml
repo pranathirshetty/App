@@ -105,14 +105,14 @@ jobs:
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -r kuudere-ios-unsigned.ipa Payload
-          mv kuudere-ios-unsigned.ipa ../../..
+          zip -r Anisuge-ios-unsigned.ipa Payload
+          mv Anisuge-ios-unsigned.ipa ../../..
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: kuudere-ios-unsigned.ipa
+          path: Anisuge-ios-unsigned.ipa
 
   # ==================== LINUX BUILD ====================
   build-linux:
@@ -149,13 +149,13 @@ jobs:
       - name: Package Linux build
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../../kuudere-linux-x64.tar.gz .
+          tar -czf ../../../../../Anisuge-linux-x64.tar.gz .
 
       - name: Upload Linux build
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: kuudere-linux-x64.tar.gz
+          path: Anisuge-linux-x64.tar.gz
 
   # ==================== WINDOWS BUILD ====================
   build-windows:
@@ -184,15 +184,44 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      - name: Package Windows build
-        run: |
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath kuudere-windows-x64.zip
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress
 
-      - name: Upload Windows build
+      - name: Create Inno Setup Script
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          $script = @"
+          [Setup]
+          AppName=Anisuge
+          AppVersion=$version
+          AppPublisher=Anisuge
+          AppSupportURL=https://github.com/iotserver24/Anisurge-new
+          DefaultDirName={autopf}\Anisuge
+          DefaultGroupName=Anisuge
+          OutputDir=.
+          OutputBaseFilename=Anisuge-Setup-Windows-x64
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          SetupIconFile=windows\runner\resources\app_icon.ico
+          UninstallDisplayIcon={app}\Anisuge.exe
+          
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+          
+          [Icons]
+          Name: "{group}\Anisuge"; Filename: "{app}\Anisuge.exe"
+          "@
+          Set-Content -Path setup.iss -Value $script
+
+      - name: Compile Inno Setup Script
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss'
+
+      - name: Upload Windows Setup
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64
-          path: kuudere-windows-x64.zip
+          name: windows-setup
+          path: Anisuge-Setup-Windows-x64.exe
 
   # ==================== MACOS BUILD ====================
   build-macos:
@@ -224,13 +253,13 @@ jobs:
       - name: Package macOS build
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../kuudere-macos.zip *.app
+          zip -r ../../../../../Anisuge-macos.zip *.app
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: kuudere-macos.zip
+          path: Anisuge-macos.zip
 
   # ==================== WEB BUILD ====================
   build-web:
@@ -262,13 +291,13 @@ jobs:
       - name: Package Web build
         run: |
           cd build/web
-          tar -czf ../../kuudere-web.tar.gz .
+          tar -czf ../../Anisuge-web.tar.gz .
 
       - name: Upload Web build
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: kuudere-web.tar.gz
+          path: Anisuge-web.tar.gz
 
   # ==================== CREATE RELEASE ====================
   create-release:
@@ -296,8 +325,20 @@ jobs:
           files: |
             artifacts/android-apk/app-release.apk
             artifacts/android-aab/app-release.aab
-            artifacts/ios-ipa/kuudere-ios-unsigned.ipa
-            artifacts/linux-x64/kuudere-linux-x64.tar.gz
-            artifacts/windows-x64/kuudere-windows-x64.zip
-            artifacts/macos-app/kuudere-macos.zip
-            artifacts/web-build/kuudere-web.tar.gz
+            artifacts/ios-ipa/Anisuge-ios-unsigned.ipa
+            artifacts/linux-x64/Anisuge-linux-x64.tar.gz
+            artifacts/windows-setup/Anisuge-Setup-Windows-x64.exe
+            artifacts/macos-app/Anisuge-macos.zip
+            artifacts/web-build/Anisuge-web.tar.gz
+
+      - name: Delete Artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            android-apk
+            android-aab
+            ios-ipa
+            linux-x64
+            windows-setup
+            macos-app
+            web-build
