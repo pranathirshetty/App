@@ -1,8 +1,0 @@
-﻿Analyzing Anisuge...                                            
-
-   info - Invalid use of a private type in a public API - lib\home_screen.dart:761:3 - library_private_types_in_public_api
-   info - The 'if' statement could be replaced by a null-aware assignment - lib\watch_anime.dart:120:7 - prefer_conditional_assignment
-   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\watch_anime.dart:733:37 - deprecated_member_use
-   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\watch_anime.dart:735:37 - deprecated_member_use
-   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\watch_anime.dart:865:49 - use_build_context_synchronously
-
