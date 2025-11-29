@@ -67,6 +67,15 @@ jobs:
       - name: Build Split APKs
         run: flutter build apk --release --split-per-abi
 
+      - name: Rename APKs
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd build/app/outputs/flutter-apk
+          mv Anisuge-universal.apk AniSurge-universal-$VERSION.apk
+          mv app-armeabi-v7a-release.apk AniSurge-armeabi-v7a-$VERSION.apk
+          mv app-arm64-v8a-release.apk AniSurge-arm64-v8a-$VERSION.apk
+          mv app-x86_64-release.apk AniSurge-x86_64-$VERSION.apk
+
       - name: Build App Bundle
         run: flutter build appbundle --release
 
