@@ -76,7 +76,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     _searchController.dispose();
     _player.dispose();
     super.dispose();
-    socket.dispose();
+    // socket.dispose();
   }
 
   @override
@@ -176,7 +176,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   void initializeScreen(int episodeNumber) {
     fetchAnimeData(widget.nid);
-    _connectSocket();
+    // _connectSocket();
     fetchEpisodeData(episodeNumber).then((_) async {
       if (episodeData['episode_links'] != null) {
         final selectedServer = _selectServer(episodeData['episode_links']);
@@ -196,6 +196,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     });
   }
 
+  /*
   void _connectSocket() {
     socket = socket_io.io('https://api.kuudere.to', <String, dynamic>{
       'transports': ['websocket'],
@@ -240,7 +241,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       }
     });
   }
+  */
 
+  /*
   void _joinRoom() {
     if (currentRoom.isNotEmpty) {
       // print('Leaving room: $currentRoom'); // Debug print
@@ -255,6 +258,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     socket.emit('join', {'other_id': currentRoom});
     socket.emit('get_current_room_count', {'room': currentRoom});
   }
+  */
 
   // Add these helper methods:
   String _formatCount(int count) {
@@ -264,6 +268,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     return count.toString();
   }
 
+  /*
   void _animateCountChange(String direction) {
     setState(() {
       isCountIncreasing = direction == 'up';
@@ -280,6 +285,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       }
     });
   }
+  */
 
   Future<void> _handleAnimeResponse(String type) async {
     final authService = AuthService();

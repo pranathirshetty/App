@@ -72,6 +72,7 @@ class NotificationService {
   }
 
   Future<void> _connectToSocket() async {
+    /*
     try {
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
@@ -102,6 +103,7 @@ class NotificationService {
     } catch (e) {
       debugPrint('Error connecting to socket: $e');
     }
+    */
   }
 
   Future<void> showNotification(

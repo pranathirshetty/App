@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:kuudere/services/realtime_service.dart';
-
 import 'package:kuudere/auth_screen.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/http_service.dart';
@@ -22,18 +23,36 @@ class _SplashScreenState extends State<SplashScreen> {
   final httpService = HttpService();
   final RealtimeService _realtimeService = RealtimeService();
 
+  late final Player player;
+  late final VideoController controller;
+
+  // To store where we should go
+  Widget? _nextScreen;
+  bool _videoCompleted = false;
+
   @override
   void initState() {
     super.initState();
     _realtimeService.joinRoom("/");
-    _startSplashSequence();
+
+    // Initialize video player
+    player = Player();
+    controller = VideoController(player);
+
+    _initVideo();
+    _checkSession(); // Start checking immediately
   }
 
-  Future<void> _startSplashSequence() async {
-    await Future.delayed(const Duration(seconds: 3));
-    // Version check disabled
-    // await _checkVersion();
-    await _checkSession();
+  Future<void> _initVideo() async {
+    await player.open(Media('asset://assets/splash.mp4'));
+
+    // Listen for completion
+    player.stream.completed.listen((completed) {
+      if (completed) {
+        _videoCompleted = true;
+        _tryNavigate();
+      }
+    });
   }
 
   Future<void> _checkSession() async {
@@ -47,79 +66,50 @@ class _SplashScreenState extends State<SplashScreen> {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] != false) {
-            _navigateToHome();
-            return;
+            _nextScreen = const HomeScreen();
+          } else {
+            _nextScreen = const AuthScreen();
           }
+        } else if (authService.isSessionExpired(sessionInfo)) {
+          _nextScreen = const AuthScreen();
+        } else {
+          _nextScreen = const AuthScreen();
         }
-
-        if (authService.isSessionExpired(sessionInfo)) {
-          _navigateToAuth();
-          return;
-        }
+      } else {
+        _nextScreen = const AuthScreen();
       }
-      _navigateToAuth();
     } catch (e) {
       debugPrint('Session check error: $e');
-      _navigateToAuth();
+      _nextScreen = const AuthScreen();
     }
+
+    _tryNavigate();
   }
 
-  void _navigateToAuth() {
-    if (mounted) {
+  void _tryNavigate() {
+    if (_videoCompleted && _nextScreen != null && mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const AuthScreen()),
-      );
-    }
-  }
-
-  void _navigateToHome() {
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => _nextScreen!),
       );
     }
   }
 
   @override
+  void dispose() {
+    player.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: const Color(0xFF0B0B0B),
-        body: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Flexible(
-                child: Align(
-                  alignment: AlignmentDirectional.center,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      'assets/splash.png',
-                      width: 150,
-                      height: 150,
-                      fit: BoxFit.fill,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'AniSurge powered by kuudere',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 30),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B0B0B),
+      body: Center(
+        child: Video(
+          controller: controller,
+          fit: BoxFit.contain, // Adjust to screen without stretching
+          controls: NoVideoControls, // Hide controls for splash screen
         ),
       ),
     );
