@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:kuudere/home_screen.dart';
 import 'package:kuudere/models/session_model.dart';
@@ -118,20 +119,40 @@ class _AuthScreenState extends State<AuthScreen>
           final descriptionSize = isDesktop ? 16.0 : 14.0;
           final logoSize = isDesktop ? 32.0 : 28.0;
 
-          return Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF000000),
-                  Color(0xFF1A1A1A),
-                ],
-              ),
-            ),
-            child: isDesktop
-                ? _buildDesktopLayout(headingSize, descriptionSize, logoSize)
-                : _buildMobileLayout(headingSize, descriptionSize, logoSize),
+          return Stack(
+            children: [
+              // Background Image (Desktop Only)
+              if (isDesktop)
+                Positioned.fill(
+                  child: Image.network(
+                    'https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(color: const Color(0xFF000000));
+                    },
+                  ),
+                ),
+              // Dark Gradient Overlay (Desktop Only)
+              if (isDesktop)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.9),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              // Main Content
+              isDesktop
+                  ? _buildDesktopLayout(headingSize, descriptionSize, logoSize)
+                  : _buildMobileLayout(headingSize, descriptionSize, logoSize),
+            ],
           );
         },
       ),
@@ -288,45 +309,53 @@ class _AuthScreenState extends State<AuthScreen>
 
   Widget _buildMobileLayout(
       double headingSize, double descriptionSize, double logoSize) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF0F0F0F),
+            Color(0xFF000000),
+          ],
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 32.0),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo only
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.network(
-                      'https://kuudere.to/logo.png',
-                      height: logoSize,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: logoSize,
-                          height: logoSize,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(6),
+                  // Form Card Container
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0A0A0A),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFF1A1A1A),
+                            width: 1,
                           ),
-                          child: Icon(
-                            Icons.play_circle_outline,
-                            size: logoSize * 0.6,
-                            color: Colors.black,
-                          ),
-                        );
-                      },
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(24),
+                        child: _buildLoginForm(centerText: false),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 40),
-                  // Login Form
-                  _buildLoginForm(centerText: false),
                 ],
               ),
             ),
