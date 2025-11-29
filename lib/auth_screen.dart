@@ -451,12 +451,10 @@ class _NeonTextFieldState extends State<_NeonTextField> {
 class _NeonBorderContainer extends StatefulWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
-  final BorderRadius borderRadius;
 
   const _NeonBorderContainer({
     required this.child,
     this.padding = EdgeInsets.zero,
-    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
   });
 
   @override
@@ -490,7 +488,7 @@ class _NeonBorderContainerState extends State<_NeonBorderContainer>
         return Container(
           padding: const EdgeInsets.all(3), // Border width
           decoration: BoxDecoration(
-            borderRadius: widget.borderRadius,
+            borderRadius: BorderRadius.circular(24),
             gradient: SweepGradient(
               colors: [
                 Colors.transparent,
@@ -534,7 +532,7 @@ class _NeonBorderContainerState extends State<_NeonBorderContainer>
             padding: widget.padding,
             decoration: BoxDecoration(
               color: const Color(0xFF1E1E1E),
-              borderRadius: widget.borderRadius,
+              borderRadius: BorderRadius.circular(24),
             ),
             child: widget.child,
           ),
