@@ -107,380 +107,448 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF000000),
-              Color(0xFF1A1A1A),
-            ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth > 900;
+          final screenWidth = constraints.maxWidth;
+
+          // Responsive font sizes
+          final headingSize =
+              isDesktop ? 42.0 : (screenWidth < 600 ? 28.0 : 36.0);
+          final descriptionSize = isDesktop ? 16.0 : 14.0;
+          final logoSize = isDesktop ? 32.0 : 28.0;
+
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF000000),
+                  Color(0xFF1A1A1A),
+                ],
+              ),
+            ),
+            child: isDesktop
+                ? _buildDesktopLayout(headingSize, descriptionSize, logoSize)
+                : _buildMobileLayout(headingSize, descriptionSize, logoSize),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(
+      double headingSize, double descriptionSize, double logoSize) {
+    return Stack(
+      children: [
+        // Angled Right Background
+        Positioned(
+          top: 0,
+          bottom: 0,
+          right: 0,
+          width: MediaQuery.of(context).size.width * 0.45,
+          child: ClipPath(
+            clipper: _AngledClipper(),
+            child: Container(
+              color: const Color(0xFF0A0A0A),
+            ),
           ),
         ),
-        child: Stack(
+        // Content
+        Row(
           children: [
-            // Angled Right Background
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              width: MediaQuery.of(context).size.width * 0.45,
-              child: ClipPath(
-                clipper: _AngledClipper(),
-                child: Container(
-                  color: const Color(0xFF0A0A0A),
+            // Left side - Promotional content
+            Expanded(
+              flex: 3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 60.0, vertical: 40.0),
+                child: Row(
+                  children: [
+                    // Text Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Logo
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://kuudere.to/logo.png',
+                              height: logoSize,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: logoSize,
+                                  height: logoSize,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Icon(
+                                    Icons.play_circle_outline,
+                                    size: logoSize * 0.6,
+                                    color: Colors.black,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                          Text(
+                            'Stream, Discover &\nDownload',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: headingSize,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                              letterSpacing: -1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Find and download torrents, watch trailers, manage your list, search, browse and discover anime, watch together with friends and more, all in the same interface.',
+                            style: TextStyle(
+                              color: const Color(0xFF999999),
+                              fontSize: descriptionSize,
+                              height: 1.6,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 60),
+                    // Anime Cards Column
+                    Transform.rotate(
+                      angle: 0.12,
+                      child: SizedBox(
+                        width: 150,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://cdn.myanimelist.net/images/anime/1015/138006.jpg',
+                              title: 'The Summer Hikaru Died',
+                              year: '2025',
+                              eps: '12',
+                            ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://cdn.myanimelist.net/images/anime/1001/141022.jpg',
+                              title: 'Rascal Does Not Dream',
+                              year: '2025',
+                              eps: '13',
+                            ),
+                            const SizedBox(height: 16),
+                            _AnimeCard(
+                              imageUrl:
+                                  'https://cdn.myanimelist.net/images/anime/1271/142321.jpg',
+                              title: 'DAN DA DAN Season 2',
+                              year: '2025',
+                              eps: '12',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            // Content
-            Row(
-              children: [
-                // Left side - Promotional content
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 60.0, vertical: 40.0),
-                    child: Row(
-                      children: [
-                        // Text Content
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Logo
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  'https://kuudere.to/logo.png',
-                                  height: 32,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Icon(
-                                        Icons.play_circle_outline,
-                                        size: 20,
-                                        color: Colors.black,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 40),
-                              const Text(
-                                'Stream, Discover &\nDownload',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 56,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.1,
-                                  letterSpacing: -1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                'Find and download torrents, watch trailers, manage your list, search, browse and discover anime, watch together with friends and more, all in the same interface.',
-                                style: TextStyle(
-                                  color: Color(0xFF999999),
-                                  fontSize: 16,
-                                  height: 1.6,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 60),
-                        // Anime Cards Column
-                        Transform.rotate(
-                          angle: 0.12,
-                          child: SizedBox(
-                            width: 150,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _AnimeCard(
-                                  imageUrl:
-                                      'https://cdn.myanimelist.net/images/anime/1015/138006.jpg',
-                                  title: 'The Summer Hikaru Died',
-                                  year: '2025',
-                                  eps: '12',
-                                ),
-                                const SizedBox(height: 16),
-                                _AnimeCard(
-                                  imageUrl:
-                                      'https://cdn.myanimelist.net/images/anime/1001/141022.jpg',
-                                  title: 'Rascal Does Not Dream',
-                                  year: '2025',
-                                  eps: '13',
-                                ),
-                                const SizedBox(height: 16),
-                                _AnimeCard(
-                                  imageUrl:
-                                      'https://cdn.myanimelist.net/images/anime/1271/142321.jpg',
-                                  title: 'DAN DA DAN Season 2',
-                                  year: '2025',
-                                  eps: '12',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Right side - Login form
-                Expanded(
-                  flex: 2,
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 50.0, vertical: 32.0),
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: SlideTransition(
-                          position: _slideAnimation,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 400),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Text(
-                                      _isLogin
-                                          ? 'Welcome back'
-                                          : 'Create account',
-                                      key: ValueKey<bool>(_isLogin),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Center(
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Text(
-                                      _isLogin
-                                          ? 'Sign in to continue watching'
-                                          : 'Join our streaming platform',
-                                      key: ValueKey<bool>(_isLogin),
-                                      style: const TextStyle(
-                                        color: Color(0xFF999999),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 28),
-                                Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      AnimatedSize(
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                        child: _isLogin
-                                            ? const SizedBox.shrink()
-                                            : Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  _CleanTextField(
-                                                    controller:
-                                                        _displayNameController,
-                                                    label: 'Full name',
-                                                    hint:
-                                                        'Enter your full name',
-                                                  ),
-                                                  const SizedBox(height: 16),
-                                                ],
-                                              ),
-                                      ),
-                                      _CleanTextField(
-                                        controller: _emailController,
-                                        label: 'Email',
-                                        hint: 'Enter your email address',
-                                        keyboardType:
-                                            TextInputType.emailAddress,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      _CleanTextField(
-                                        controller: _passwordController,
-                                        label: 'Password',
-                                        hint: 'Enter your password',
-                                        isPassword: true,
-                                        obscurePassword: _obscurePassword,
-                                        onTogglePassword: () => setState(() =>
-                                            _obscurePassword =
-                                                !_obscurePassword),
-                                      ),
-                                      AnimatedSize(
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                        child: _isLogin
-                                            ? Column(
-                                                children: [
-                                                  const SizedBox(height: 8),
-                                                  Align(
-                                                    alignment:
-                                                        Alignment.centerRight,
-                                                    child: TextButton(
-                                                      onPressed: () {
-                                                        // Handle forgot password
-                                                      },
-                                                      style:
-                                                          TextButton.styleFrom(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 0),
-                                                      ),
-                                                      child: const Text(
-                                                        'Forgot password?',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              )
-                                            : const SizedBox.shrink(),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        height: 48,
-                                        child: ElevatedButton(
-                                          onPressed:
-                                              _isLoading ? null : _submitForm,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.white,
-                                            foregroundColor: Colors.black,
-                                            elevation: 0,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            disabledBackgroundColor:
-                                                Colors.white.withOpacity(0.6),
-                                          ),
-                                          child: _isLoading
-                                              ? LoadingAnimationWidget
-                                                  .threeArchedCircle(
-                                                      color: Colors.black,
-                                                      size: 24)
-                                              : AnimatedSwitcher(
-                                                  duration: const Duration(
-                                                      milliseconds: 300),
-                                                  child: Text(
-                                                    _isLogin
-                                                        ? 'Sign in'
-                                                        : 'Create account',
-                                                    key: ValueKey<bool>(
-                                                        _isLogin),
-                                                    style: const TextStyle(
-                                                      fontSize: 15,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      letterSpacing: 0.5,
-                                                    ),
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          AnimatedSwitcher(
-                                            duration: const Duration(
-                                                milliseconds: 300),
-                                            child: Text(
-                                              _isLogin
-                                                  ? 'Don\'t have an account? '
-                                                  : 'Already have an account? ',
-                                              key: ValueKey<bool>(_isLogin),
-                                              style: const TextStyle(
-                                                color: Color(0xFF999999),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              setState(
-                                                  () => _isLogin = !_isLogin);
-                                            },
-                                            style: TextButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 4),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                            child: AnimatedSwitcher(
-                                              duration: const Duration(
-                                                  milliseconds: 300),
-                                              child: Text(
-                                                _isLogin
-                                                    ? 'Sign up'
-                                                    : 'Sign in',
-                                                key: ValueKey<bool>(_isLogin),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+            // Right side - Login form
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 50.0, vertical: 32.0),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: _buildLoginForm(centerText: true),
                       ),
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(
+      double headingSize, double descriptionSize, double logoSize) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Logo only
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      'https://kuudere.to/logo.png',
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: logoSize,
+                          height: logoSize,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            size: logoSize * 0.6,
+                            color: Colors.black,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Login Form
+                  _buildLoginForm(centerText: false),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildLoginForm({bool centerText = true}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        centerText
+            ? Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _isLogin ? 'Welcome back' : 'Create account',
+                    key: ValueKey<bool>(_isLogin),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+              )
+            : AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Text(
+                  _isLogin ? 'Welcome back' : 'Create account',
+                  key: ValueKey<bool>(_isLogin),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+        const SizedBox(height: 6),
+        centerText
+            ? Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _isLogin
+                        ? 'Sign in to continue watching'
+                        : 'Join our streaming platform',
+                    key: ValueKey<bool>(_isLogin),
+                    style: const TextStyle(
+                      color: Color(0xFF999999),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              )
+            : AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Text(
+                  _isLogin
+                      ? 'Sign in to continue watching'
+                      : 'Join our streaming platform',
+                  key: ValueKey<bool>(_isLogin),
+                  style: const TextStyle(
+                    color: Color(0xFF999999),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+        const SizedBox(height: 28),
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _isLogin
+                    ? const SizedBox.shrink()
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _CleanTextField(
+                            controller: _displayNameController,
+                            label: 'Full name',
+                            hint: 'Enter your full name',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+              ),
+              _CleanTextField(
+                controller: _emailController,
+                label: 'Email',
+                hint: 'Enter your email address',
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              _CleanTextField(
+                controller: _passwordController,
+                label: 'Password',
+                hint: 'Enter your password',
+                isPassword: true,
+                obscurePassword: _obscurePassword,
+                onTogglePassword: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _isLogin
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                // Handle forgot password
+                              },
+                              style: TextButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 0),
+                              ),
+                              child: const Text(
+                                'Forgot password?',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    disabledBackgroundColor: Colors.white.withOpacity(0.6),
+                  ),
+                  child: _isLoading
+                      ? LoadingAnimationWidget.threeArchedCircle(
+                          color: Colors.black, size: 24)
+                      : AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            _isLogin ? 'Sign in' : 'Create account',
+                            key: ValueKey<bool>(_isLogin),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _isLogin
+                          ? 'Don\'t have an account? '
+                          : 'Already have an account? ',
+                      key: ValueKey<bool>(_isLogin),
+                      style: const TextStyle(
+                        color: Color(0xFF999999),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _isLogin = !_isLogin);
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        _isLogin ? 'Sign up' : 'Sign in',
+                        key: ValueKey<bool>(_isLogin),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
