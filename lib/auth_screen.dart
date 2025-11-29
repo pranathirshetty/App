@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 import 'package:kuudere/home_screen.dart';
 import 'package:kuudere/models/session_model.dart';
 import 'package:kuudere/services/realtime_service.dart';
@@ -11,11 +11,11 @@ class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -26,10 +26,30 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _obscurePassword = true;
   final RealtimeService _realtimeService = RealtimeService();
 
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
     _realtimeService.joinRoom('home');
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _animationController.forward();
   }
 
   @override
@@ -37,6 +57,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -86,279 +107,418 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      backgroundColor: const Color(0xFF0B0B0B),
+      body: Center(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                        999), // Adjust the radius as needed
-                    child: Image.asset(
-                      'assets/splash.png',
-                      height: 32,
+          padding: const EdgeInsets.all(24.0),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _isLogin ? 'Welcome Back' : 'Register',
+                      key: ValueKey<bool>(_isLogin),
+                      style: TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  _isLogin ? 'Welcome back' : 'Register',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _isLogin
-                      ? 'Hello there, Sign in to continue'
-                      : 'Create your new account',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 32),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      if (!_isLogin) ...[
-                        TextFormField(
-                          controller: _displayNameController,
-                          decoration: const InputDecoration(
-                            labelText:
-                                'Username', // Label moves to border when focused
-                            labelStyle: TextStyle(
-                                color: Color.fromARGB(183, 255, 255, 255)),
-                            border: OutlineInputBorder(),
-                            enabledBorder: OutlineInputBorder(
-                              borderSide: BorderSide(color: Colors.grey),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                  color: Color.fromARGB(255, 243, 33, 33),
-                                  width: 1),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value?.isEmpty ?? true) {
-                              return 'Please enter your username';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Your email', // Label instead of hint
-                          labelStyle: TextStyle(
-                              color: Color.fromARGB(183, 255, 255, 255)),
-                          border: OutlineInputBorder(),
-                          enabledBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(
-                                color: Color.fromARGB(255, 243, 33, 33),
-                                width: 1),
-                          ),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value?.isEmpty ?? true) {
-                            return 'Please enter your email';
-                          }
-                          return null;
-                        },
+                  const SizedBox(height: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      _isLogin
+                          ? 'Hello there, Sign in to continue'
+                          : 'Create your new account',
+                      key: ValueKey<bool>(_isLogin),
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: InputDecoration(
-                          labelText: 'Password', // Label instead of hint
-                          labelStyle: TextStyle(
-                              color: Color.fromARGB(183, 255, 255, 255)),
-                          border: const OutlineInputBorder(),
-                          enabledBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  _NeonBorderContainer(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: _isLogin
+                                ? const SizedBox.shrink()
+                                : Column(
+                                    children: [
+                                      _NeonTextField(
+                                        controller: _displayNameController,
+                                        hint: 'Your Name',
+                                        icon: Icons.person_outline,
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
                           ),
-                          focusedBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(
-                                color: Color.fromARGB(255, 243, 33, 33),
-                                width: 1),
+                          _NeonTextField(
+                            controller: _emailController,
+                            hint: 'Your Email',
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
                           ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                              color: Colors.white54,
+                          const SizedBox(height: 16),
+                          _NeonTextField(
+                            controller: _passwordController,
+                            hint: 'Password',
+                            icon: Icons.lock_outline,
+                            isPassword: true,
+                            obscurePassword: _obscurePassword,
+                            onTogglePassword: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: _isLogin
+                                ? Column(
+                                    children: [
+                                      const SizedBox(height: 12),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: () {
+                                            // Handle forgot password
+                                          },
+                                          child: const Text(
+                                            'Forgot password?',
+                                            style:
+                                                TextStyle(color: Colors.grey),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            width: double.infinity,
+                            height: 55,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primary,
+                                  AppTheme.primary.withValues(alpha: 0.7),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppTheme.primary.withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
-                            onPressed: () {
-                              setState(
-                                  () => _obscurePassword = !_obscurePassword);
-                            },
-                          ),
-                        ),
-                        obscureText: _obscurePassword,
-                        validator: (value) {
-                          if (value?.isEmpty ?? true) {
-                            return 'Please enter your password';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_isLogin) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              // Handle forgot password
-                            },
-                            child: const Text(
-                              'Forgot password?',
-                              style: TextStyle(color: AppTheme.textSecondary),
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? LoadingAnimationWidget.threeArchedCircle(
+                                      color: Colors.white, size: 24)
+                                  : AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      child: Text(
+                                        _isLogin ? 'Login' : 'Register',
+                                        key: ValueKey<bool>(_isLogin),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                             ),
                           ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? LoadingAnimationWidget.threeArchedCircle(
-                                  color: Colors.white, size: 24)
-                              : Text(
-                                  _isLogin ? 'Login now' : 'Register Now',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                          const SizedBox(height: 24),
+                          // TextButton(
+                          //   onPressed: () {
+                          //     // Handle Google sign in
+                          //   },
+                          //   style: TextButton.styleFrom(
+                          //     backgroundColor: const Color(0xFF2C2C2C),
+                          //     padding: const EdgeInsets.symmetric(vertical: 16),
+                          //     shape: RoundedRectangleBorder(
+                          //       borderRadius: BorderRadius.circular(30),
+                          //     ),
+                          //   ),
+                          //   child: Row(
+                          //     mainAxisAlignment: MainAxisAlignment.center,
+                          //     children: [
+                          //       const FaIcon(
+                          //         FontAwesomeIcons.google,
+                          //         color: Colors.white,
+                          //         size: 20,
+                          //       ),
+                          //       const SizedBox(width: 12),
+                          //       Text(
+                          //         _isLogin
+                          //             ? 'Continue with Google'
+                          //             : 'Register with Google',
+                          //         style: const TextStyle(
+                          //           color: Colors.white,
+                          //           fontWeight: FontWeight.w600,
+                          //         ),
+                          //       ),
+                          //     ],
+                          //   ),
+                          // ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: Text(
+                                  _isLogin
+                                      ? 'Don\'t have an account? '
+                                      : 'Already have an account? ',
+                                  key: ValueKey<bool>(_isLogin),
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() => _isLogin = !_isLogin);
+                                },
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Text(
+                                    _isLogin ? 'Register' : 'Login',
+                                    key: ValueKey<bool>(_isLogin),
+                                    style: TextStyle(
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                          // Handle Google sign in
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: AppTheme.surface,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                              ),
+                            ],
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const FaIcon(
-                              FontAwesomeIcons.google,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              _isLogin
-                                  ? 'Continue with google'
-                                  : 'Register with google',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
-                      if (!_isLogin) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          'Be registering, you are agreeing to our Terms of use and Privacy Policy.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                      if (_isLogin) ...[
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Haven\'t signed up yet? ',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _isLogin = false);
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                              ),
-                              child: const Text(
-                                'Create account',
-                                style: TextStyle(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already Have An Account? ',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _isLogin = true);
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                              ),
-                              child: const Text(
-                                'Login',
-                                style: TextStyle(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NeonTextField extends StatefulWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool isPassword;
+  final TextInputType? keyboardType;
+  final bool obscurePassword;
+  final VoidCallback? onTogglePassword;
+
+  const _NeonTextField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.isPassword = false,
+    this.keyboardType,
+    this.obscurePassword = false,
+    this.onTogglePassword,
+  });
+
+  @override
+  State<_NeonTextField> createState() => _NeonTextFieldState();
+}
+
+class _NeonTextFieldState extends State<_NeonTextField> {
+  final FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: _isFocused
+            ? [
+                BoxShadow(
+                  color: AppTheme.primary.withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ]
+            : [],
+      ),
+      child: TextFormField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        obscureText: widget.isPassword ? widget.obscurePassword : false,
+        keyboardType: widget.keyboardType,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: widget.hint,
+          hintStyle: TextStyle(color: Colors.grey[600]),
+          prefixIcon: Icon(
+            widget.icon,
+            color: _isFocused ? AppTheme.primary : Colors.grey[600],
+            size: 20,
+          ),
+          suffixIcon: widget.isPassword
+              ? IconButton(
+                  icon: Icon(
+                    widget.obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: _isFocused ? AppTheme.primary : Colors.grey[600],
+                    size: 20,
+                  ),
+                  onPressed: widget.onTogglePassword,
+                )
+              : null,
+          filled: true,
+          fillColor: const Color(0xFF2C2C2C),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide(
+              color: AppTheme.primary.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        ),
+        validator: (value) {
+          if (value?.isEmpty ?? true) return 'Required';
+          return null;
+        },
+      ),
+    );
+  }
+}
+
+class _NeonBorderContainer extends StatefulWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final BorderRadius borderRadius;
+
+  const _NeonBorderContainer({
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+  });
+
+  @override
+  State<_NeonBorderContainer> createState() => _NeonBorderContainerState();
+}
+
+class _NeonBorderContainerState extends State<_NeonBorderContainer>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(3), // Border width
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: SweepGradient(
+              colors: [
+                Colors.transparent,
+                AppTheme.primary,
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.1, 0.2],
+              transform: GradientRotation(_controller.value * 2 * 3.14159),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primary.withValues(alpha: 0.3),
+                blurRadius: 20,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Container(
+            padding: widget.padding,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: widget.borderRadius,
+            ),
+            child: widget.child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }

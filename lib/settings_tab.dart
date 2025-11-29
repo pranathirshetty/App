@@ -10,6 +10,7 @@ import 'package:kuudere/services/realtime_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kuudere/services/http_service.dart';
+import 'package:kuudere/theme/app_theme.dart';
 
 class SettingsTab extends StatefulWidget {
   final VoidCallback onWatchlistTap;
@@ -136,7 +137,7 @@ class _SettingsTabState extends State<SettingsTab> {
           isLoading
               ? Center(
                   child: LoadingAnimationWidget.threeArchedCircle(
-                    color: Colors.red,
+                    color: AppTheme.primary,
                     size: 50,
                   ),
                 )
@@ -386,7 +387,7 @@ class _SettingsTabState extends State<SettingsTab> {
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(
-          color: Colors.red.withValues(alpha: 0.5),
+          color: AppTheme.primary.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(12),
@@ -402,13 +403,13 @@ class _SettingsTabState extends State<SettingsTab> {
             alignment: Alignment.center,
             child: isLoggingOut
                 ? LoadingAnimationWidget.threeArchedCircle(
-                    color: Colors.red,
+                    color: AppTheme.primary,
                     size: 24,
                   )
                 : const Text(
                     'Log out',
                     style: TextStyle(
-                      color: Colors.red,
+                      color: AppTheme.primary,
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
                     ),

@@ -16,6 +16,7 @@ import 'watch_list_tab.dart';
 import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
+import 'package:kuudere/theme/app_theme.dart';
 
 // Model class for anime data
 class AnimeItem {
@@ -331,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.red,
+        selectedItemColor: AppTheme.primary,
         unselectedItemColor: Colors.grey,
         currentIndex: _currentIndex,
         items: const [
@@ -369,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isLoading) {
       return Center(
         child: LoadingAnimationWidget.threeArchedCircle(
-          color: Colors.red,
+          color: AppTheme.primary,
           size: 50,
         ),
       );
@@ -377,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return RefreshIndicator(
       onRefresh: fetchData,
-      color: Colors.red,
+      color: AppTheme.primary,
       child: SingleChildScrollView(
         controller: _scrollController,
         child: Column(
@@ -542,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
-                                                      Colors.redAccent,
+                                                      AppTheme.primary,
                                                   padding: EdgeInsets.symmetric(
                                                     vertical: 16,
                                                     horizontal: 24,
