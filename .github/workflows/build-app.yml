@@ -57,17 +57,24 @@ jobs:
           echo "keyAlias=${{ vars.ANDROID_KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ vars.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build Universal APK
+        env:
+          ARM_ONLY: true
+        run: |
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Anisuge-universal.apk
+
+      - name: Build Split APKs
+        run: flutter build apk --release --split-per-abi
 
       - name: Build App Bundle
         run: flutter build appbundle --release
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: android-apks
+          path: build/app/outputs/flutter-apk/*.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
@@ -323,7 +330,7 @@ jobs:
           prerelease: ${{ github.event.inputs.type == 'beta' }}
           generate_release_notes: true
           files: |
-            artifacts/android-apk/app-release.apk
+            artifacts/android-apks/*.apk
             artifacts/android-aab/app-release.aab
             artifacts/ios-ipa/Anisuge-ios-unsigned.ipa
             artifacts/linux-x64/Anisuge-linux-x64.tar.gz
@@ -335,7 +342,7 @@ jobs:
         uses: geekyeggo/delete-artifact@v5
         with:
           name: |
-            android-apk
+            android-apks
             android-aab
             ios-ipa
             linux-x64
