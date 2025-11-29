@@ -186,9 +186,9 @@ class _AppHeaderState extends State<AppHeader> {
     }
 
     // Default: Logo
-    return Image.network(
-      'https://kuudere.to/logo.png',
-      height: 20,
+    return Image.asset(
+      'assets/logo-txt.png',
+      height: 100,
       fit: BoxFit.contain,
     );
   }

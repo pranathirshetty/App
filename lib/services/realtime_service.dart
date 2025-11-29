@@ -8,10 +8,12 @@ class RealtimeService {
   String? currentRoom;
 
   RealtimeService._internal() {
-    initializeSocket();
+    // Socket disabled as per request
+    // initializeSocket();
   }
 
   void initializeSocket() {
+    /*
     socket = socket_io.io(
         'https://kuudere.to',
         socket_io.OptionBuilder()
@@ -24,9 +26,11 @@ class RealtimeService {
     });
 
     socket!.connect();
+    */
   }
 
   void joinRoom(String newRoom) {
+    /*
     if (currentRoom != null) {
       socket!.emit('leave', {'room': currentRoom});
     }
@@ -36,5 +40,6 @@ class RealtimeService {
     socket!.emit('get_current_room_count', {'room': currentRoom});
 
     // print("Joined room: $currentRoom");
+    */
   }
 }
