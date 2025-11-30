@@ -44,11 +44,26 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initVideo() async {
-    await player.open(Media('asset://assets/splash.mp4'));
+    try {
+      await player.open(Media('asset://assets/splash.mp4'));
+      // Mute to allow autoplay on browsers
+      await player.setVolume(0);
+    } catch (e) {
+      debugPrint('Error opening video: $e');
+    }
 
     // Listen for completion
     player.stream.completed.listen((completed) {
       if (completed) {
+        _videoCompleted = true;
+        _tryNavigate();
+      }
+    });
+
+    // Fallback timeout in case video fails or browser blocks it
+    Future.delayed(const Duration(seconds: 4), () {
+      if (!_videoCompleted) {
+        debugPrint('Video timed out, forcing navigation');
         _videoCompleted = true;
         _tryNavigate();
       }

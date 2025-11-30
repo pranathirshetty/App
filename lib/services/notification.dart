@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+// import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+// import 'package:http/http.dart' as http;
+// import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+// import 'dart:io';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -53,6 +54,8 @@ class NotificationService {
   }
 
   Future<String?> _downloadAndSaveImage(String imageUrl) async {
+    if (kIsWeb) return null;
+    /*
     try {
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode != 200) return null;
@@ -69,6 +72,8 @@ class NotificationService {
       debugPrint('Error downloading image: $e');
       return null;
     }
+    */
+    return null;
   }
 
   Future<void> _connectToSocket() async {
