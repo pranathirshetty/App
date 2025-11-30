@@ -62,7 +62,7 @@ jobs:
           ARM_ONLY: true
         run: |
           flutter build apk --release
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/Anisuge-universal.apk
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/AniSurge-universal.apk
 
       - name: Build Split APKs
         run: flutter build apk --release --split-per-abi
@@ -71,7 +71,7 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version }}"
           cd build/app/outputs/flutter-apk
-          mv Anisuge-universal.apk AniSurge-universal-$VERSION.apk
+          mv AniSurge-universal.apk AniSurge-universal-$VERSION.apk
           
           for f in app-*-release.apk; do
             if [ -f "$f" ]; then
@@ -125,18 +125,18 @@ jobs:
           cd build/ios/iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
-          zip -r Anisuge-ios-unsigned.ipa Payload
-          mv Anisuge-ios-unsigned.ipa ../../..
+          zip -r AniSurge-ios-unsigned.ipa Payload
+          mv AniSurge-ios-unsigned.ipa ../../..
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: Anisuge-ios-unsigned.ipa
+          path: AniSurge-ios-unsigned.ipa
 
   # ==================== LINUX BUILD ====================
   build-linux:
-    name: Build Linux
+    name: Build Linux (Deb, Rpm, AppImage, Pacman)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -149,7 +149,16 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev libasound2-dev libmpv-dev mpv
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev libasound2-dev libmpv-dev mpv ruby-full build-essential rpm libarchive-tools
+
+      - name: Install Packaging Tools
+        run: |
+          sudo gem install fpm
+          # Install AppImageTool
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+          echo "$PWD/squashfs-root/usr/bin" >> $GITHUB_PATH
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -166,16 +175,91 @@ jobs:
       - name: Build Linux
         run: flutter build linux --release
 
-      - name: Package Linux build
+      - name: Prepare Packaging
         run: |
-          cd build/linux/x64/release/bundle
-          tar -czf ../../../../../Anisuge-linux-x64.tar.gz .
+          VERSION="${{ github.event.inputs.version }}"
+          BUILD_DIR="build/linux/x64/release/bundle"
+          PKG_DIR="packaging"
+          
+          # Create directory structure
+          mkdir -p $PKG_DIR/usr/bin
+          mkdir -p $PKG_DIR/usr/lib/anisurge
+          mkdir -p $PKG_DIR/usr/share/applications
+          mkdir -p $PKG_DIR/usr/share/icons/hicolor/192x192/apps
+          
+          # Copy files
+          cp -r $BUILD_DIR/* $PKG_DIR/usr/lib/anisurge/
+          cp web/icons/Icon-192.png $PKG_DIR/usr/share/icons/hicolor/192x192/apps/anisuge.png
+          
+          # Create executable wrapper
+          echo '#!/bin/bash' > $PKG_DIR/usr/bin/anisurge
+          echo '/usr/lib/anisurge/AniSurge "$@"' >> $PKG_DIR/usr/bin/anisurge
+          chmod +x $PKG_DIR/usr/bin/anisurge
+          
+          # Create Desktop file
+          cat > $PKG_DIR/usr/share/applications/anisurge.desktop <<EOF
+          [Desktop Entry]
+          Name=AniSurge
+          Comment=Anime Streaming App
+          Exec=anisurge
+          Icon=anisurge
+          Terminal=false
+          Type=Application
+          Categories=Video;
+          EOF
 
-      - name: Upload Linux build
+      - name: Build Packages (Deb, Rpm, Pacman)
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd packaging
+          
+          # DEB
+          fpm -s dir -t deb -n anisurge -v "$VERSION" --maintainer "AniSurge <support@anisurge.com>" --description "AniSurge Anime App" --url "https://github.com/iotserver24/Anisurge-new" -p ../AniSurge-linux-amd64.deb .
+          
+          # RPM
+          fpm -s dir -t rpm -n anisurge -v "$VERSION" --maintainer "AniSurge <support@anisurge.com>" --description "AniSurge Anime App" --url "https://github.com/iotserver24/Anisurge-new" -p ../AniSurge-linux-x86_64.rpm .
+          
+          # PACMAN
+          fpm -s dir -t pacman -n anisurge -v "$VERSION" --maintainer "AniSurge <support@anisurge.com>" --description "AniSurge Anime App" --url "https://github.com/iotserver24/Anisurge-new" -p ../AniSurge-linux-x86_64.pkg.tar.zst .
+
+      - name: Build AppImage
+        env:
+          ARCH: x86_64
+        run: |
+          mkdir -p AppDir
+          cp -r build/linux/x64/release/bundle/* AppDir/
+          cp web/icons/Icon-192.png AppDir/anisuge.png
+          
+          # Create AppRun
+          cat > AppDir/AppRun <<EOF
+          #!/bin/sh
+          cd "\$(dirname "\$0")"
+          export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$PWD/lib"
+          exec ./AniSurge "\$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Desktop file for AppImage
+          cat > AppDir/anisurge.desktop <<EOF
+          [Desktop Entry]
+          Name=AniSurge
+          Exec=anisuge
+          Icon=anisuge
+          Type=Application
+          Categories=Video;
+          EOF
+          
+          appimagetool AppDir AniSurge-x86_64.AppImage
+
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-x64
-          path: Anisuge-linux-x64.tar.gz
+          name: linux-artifacts
+          path: |
+            AniSurge-linux-amd64.deb
+            AniSurge-linux-x86_64.rpm
+            AniSurge-linux-x86_64.pkg.tar.zst
+            AniSurge-x86_64.AppImage
 
   # ==================== WINDOWS BUILD ====================
   build-windows:
@@ -212,25 +296,25 @@ jobs:
           $version = "${{ github.event.inputs.version }}"
           $script = @"
           [Setup]
-          AppName=Anisuge
+          AppName=AniSurge
           AppVersion=$version
-          AppPublisher=Anisuge
+          AppPublisher=AniSurge
           AppSupportURL=https://github.com/iotserver24/Anisurge-new
-          DefaultDirName={autopf}\Anisuge
-          DefaultGroupName=Anisuge
+          DefaultDirName={autopf}\AniSurge
+          DefaultGroupName=AniSurge
           OutputDir=.
-          OutputBaseFilename=Anisuge-Setup-Windows-x64
+          OutputBaseFilename=AniSurge-Setup-Windows-x64
           Compression=lzma
           SolidCompression=yes
           ArchitecturesInstallIn64BitMode=x64
           SetupIconFile=windows\runner\resources\app_icon.ico
-          UninstallDisplayIcon={app}\Anisuge.exe
+          UninstallDisplayIcon={app}\AniSurge.exe
           
           [Files]
           Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
           
           [Icons]
-          Name: "{group}\Anisuge"; Filename: "{app}\Anisuge.exe"
+          Name: "{group}\AniSurge"; Filename: "{app}\AniSurge.exe"
           "@
           Set-Content -Path setup.iss -Value $script
 
@@ -241,7 +325,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-setup
-          path: Anisuge-Setup-Windows-x64.exe
+          path: AniSurge-Setup-Windows-x64.exe
 
   # ==================== MACOS BUILD ====================
   build-macos:
@@ -273,13 +357,13 @@ jobs:
       - name: Package macOS build
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../Anisuge-macos.zip *.app
+          zip -r ../../../../../AniSurge-macos.zip *.app
 
       - name: Upload macOS build
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: Anisuge-macos.zip
+          path: AniSurge-macos.zip
 
   # ==================== WEB BUILD ====================
   build-web:
@@ -311,13 +395,13 @@ jobs:
       - name: Package Web build
         run: |
           cd build/web
-          tar -czf ../../Anisuge-web.tar.gz .
+          tar -czf ../../AniSurge-web.tar.gz .
 
       - name: Upload Web build
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: Anisuge-web.tar.gz
+          path: AniSurge-web.tar.gz
 
   # ==================== CREATE RELEASE ====================
   create-release:
@@ -345,11 +429,11 @@ jobs:
           files: |
             artifacts/android-apks/*.apk
             artifacts/android-aab/app-release.aab
-            artifacts/ios-ipa/Anisuge-ios-unsigned.ipa
-            artifacts/linux-x64/Anisuge-linux-x64.tar.gz
-            artifacts/windows-setup/Anisuge-Setup-Windows-x64.exe
-            artifacts/macos-app/Anisuge-macos.zip
-            artifacts/web-build/Anisuge-web.tar.gz
+            artifacts/ios-ipa/AniSurge-ios-unsigned.ipa
+            artifacts/linux-artifacts/*
+            artifacts/windows-setup/AniSurge-Setup-Windows-x64.exe
+            artifacts/macos-app/AniSurge-macos.zip
+            artifacts/web-build/AniSurge-web.tar.gz
 
       - name: Delete Artifacts
         uses: geekyeggo/delete-artifact@v5
@@ -358,7 +442,7 @@ jobs:
             android-apks
             android-aab
             ios-ipa
-            linux-x64
+            linux-artifacts
             windows-setup
             macos-app
             web-build
