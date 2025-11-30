@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'dart:ui';
+// import 'dart:ui';
+import 'dart:async';
 
 import 'package:kuudere/home_screen.dart';
 import 'package:kuudere/models/session_model.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import '../services/auth_service.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -30,6 +32,47 @@ class _AuthScreenState extends State<AuthScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  final CarouselSliderController _carouselController =
+      CarouselSliderController();
+  Timer? _carouselTimer;
+
+  final List<Map<String, String>> _animeList = [
+    {
+      'imageUrl':
+          'https://artworks.thetvdb.com/banners/v4/series/424536/posters/68d6d5b36aa2f.jpg',
+      'title': 'Frieren Season 2',
+      'year': '2026',
+      'eps': '28',
+    },
+    {
+      'imageUrl':
+          'https://artworks.thetvdb.com/banners/v4/series/377543/posters/655f6f3591801.jpg',
+      'title': 'Jujutsu Kaisen Season 3',
+      'year': '2026',
+      'eps': '24',
+    },
+    {
+      'imageUrl':
+          'https://artworks.thetvdb.com/banners/v4/series/355480/posters/68aa38e36a087.jpg',
+      'title': 'Fire Force Season 3',
+      'year': '2026',
+      'eps': '24',
+    },
+    {
+      'imageUrl':
+          'https://artworks.thetvdb.com/banners/v4/series/421069/posters/67026a480c6d1.jpg',
+      'title': 'Oshi no Ko Season 3',
+      'year': '2026',
+      'eps': '13',
+    },
+    {
+      'imageUrl':
+          'https://artworks.thetvdb.com/banners/v4/series/414221/posters/639d9b966b354.jpg',
+      'title': 'The Angel Next Door S2',
+      'year': '2026',
+      'eps': '12',
+    },
+  ];
 
   @override
   void initState() {
@@ -51,6 +94,20 @@ class _AuthScreenState extends State<AuthScreen>
     );
 
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startCarousel());
+  }
+
+  void _startCarousel() {
+    const duration = Duration(seconds: 4);
+    // Start immediately
+    _carouselController.nextPage(duration: duration, curve: Curves.linear);
+    // Loop
+    _carouselTimer = Timer.periodic(duration, (timer) {
+      if (mounted) {
+        _carouselController.nextPage(duration: duration, curve: Curves.linear);
+      }
+    });
   }
 
   @override
@@ -59,6 +116,7 @@ class _AuthScreenState extends State<AuthScreen>
     _passwordController.dispose();
     _displayNameController.dispose();
     _animationController.dispose();
+    _carouselTimer?.cancel();
     super.dispose();
   }
 
@@ -141,8 +199,8 @@ class _AuthScreenState extends State<AuthScreen>
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.7),
-                          Colors.black.withOpacity(0.9),
+                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.9),
                         ],
                       ),
                     ),
@@ -242,54 +300,32 @@ class _AuthScreenState extends State<AuthScreen>
                       ),
                     ),
                     const SizedBox(width: 60),
-                    // Anime Cards Column
+                    // Anime Cards Carousel
                     Transform.rotate(
                       angle: 0.12,
                       child: SizedBox(
                         width: 150,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://artworks.thetvdb.com/banners/v4/series/424536/posters/68d6d5b36aa2f.jpg',
-                              title: 'Frieren Season 2',
-                              year: '2026',
-                              eps: '28',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://artworks.thetvdb.com/banners/v4/series/377543/posters/655f6f3591801.jpg',
-                              title: 'Jujutsu Kaisen Season 3',
-                              year: '2026',
-                              eps: '24',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://artworks.thetvdb.com/banners/v4/series/355480/posters/68aa38e36a087.jpg',
-                              title: 'Fire Force Season 3',
-                              year: '2026',
-                              eps: '24',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://artworks.thetvdb.com/banners/v4/series/421069/posters/67026a480c6d1.jpg',
-                              title: 'Oshi no Ko Season 3',
-                              year: '2026',
-                              eps: '13',
-                            ),
-                            const SizedBox(height: 16),
-                            _AnimeCard(
-                              imageUrl:
-                                  'https://artworks.thetvdb.com/banners/v4/series/414221/posters/639d9b966b354.jpg',
-                              title: 'The Angel Next Door S2',
-                              year: '2026',
-                              eps: '12',
-                            ),
-                          ],
+                        height: MediaQuery.of(context).size.height,
+                        child: CarouselSlider.builder(
+                          itemCount: _animeList.length,
+                          carouselController: _carouselController,
+                          options: CarouselOptions(
+                            height: MediaQuery.of(context).size.height,
+                            scrollDirection: Axis.vertical,
+                            autoPlay: false,
+                            viewportFraction: 0.35,
+                            enableInfiniteScroll: true,
+                            scrollPhysics: const NeverScrollableScrollPhysics(),
+                          ),
+                          itemBuilder: (context, index, realIndex) {
+                            final anime = _animeList[index];
+                            return Container(
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              child: _AnimeCard(
+                                imageUrl: anime['imageUrl']!,
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -361,7 +397,7 @@ class _AuthScreenState extends State<AuthScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
@@ -534,7 +570,8 @@ class _AuthScreenState extends State<AuthScreen>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    disabledBackgroundColor: Colors.white.withOpacity(0.6),
+                    disabledBackgroundColor:
+                        Colors.white.withValues(alpha: 0.6),
                   ),
                   child: _isLoading
                       ? LoadingAnimationWidget.threeArchedCircle(
@@ -748,103 +785,29 @@ class _CleanTextFieldState extends State<_CleanTextField> {
 
 class _AnimeCard extends StatelessWidget {
   final String imageUrl;
-  final String title;
-  final String year;
-  final String eps;
 
   const _AnimeCard({
     required this.imageUrl,
-    required this.title,
-    required this.year,
-    required this.eps,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            imageUrl,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
             width: double.infinity,
             height: 200,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: double.infinity,
-                height: 200,
-                color: const Color(0xFF2A2A2A),
-                child: const Icon(Icons.movie, color: Color(0xFF666666)),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Color(0xFF00C853),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            const Text(
-              'TV',
-              style: TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              year,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.closed_caption,
-              size: 12,
-              color: Color(0xFF666666),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              eps,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
+            color: const Color(0xFF2A2A2A),
+            child: const Icon(Icons.movie, color: Color(0xFF666666)),
+          );
+        },
+      ),
     );
   }
 }
