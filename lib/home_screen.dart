@@ -16,7 +16,6 @@ import 'watch_list_tab.dart';
 import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
-import 'package:kuudere/theme/app_theme.dart';
 
 // Model class for anime data
 class AnimeItem {
@@ -332,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.primary,
+        selectedItemColor: Colors.red,
         unselectedItemColor: Colors.grey,
         currentIndex: _currentIndex,
         items: const [
@@ -370,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isLoading) {
       return Center(
         child: LoadingAnimationWidget.threeArchedCircle(
-          color: AppTheme.primary,
+          color: Colors.red,
           size: 50,
         ),
       );
@@ -378,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return RefreshIndicator(
       onRefresh: fetchData,
-      color: AppTheme.primary,
+      color: Colors.red,
       child: SingleChildScrollView(
         controller: _scrollController,
         child: Column(
@@ -413,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   CarouselSlider(
                     options: CarouselOptions(
-                      height: MediaQuery.of(context).size.height * 0.5,
+                      height: MediaQuery.of(context).size.height * 0.75,
                       viewportFraction: 1.0,
                       enlargeCenterPage: false,
                       autoPlay: true,
@@ -477,9 +476,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       20,
                                       MediaQuery.of(context).padding.top +
                                           kToolbarHeight +
-                                          10,
+                                          40,
                                       20,
-                                      10,
+                                      20,
                                     ),
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.end,
@@ -499,20 +498,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ],
                                         ),
 
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 12),
                                         // Title
                                         Text(
                                           item.title,
                                           style: TextStyle(
                                             color: Colors.white,
-                                            fontSize: 22,
+                                            fontSize: 28,
                                             fontWeight: FontWeight.bold,
                                             height: 1.2,
                                           ),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 12),
                                         // Description
                                         Text(
                                           _stripHtmlTags(item.description),
@@ -522,10 +521,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             fontSize: 14,
                                             height: 1.5,
                                           ),
-                                          maxLines: 2,
+                                          maxLines: 3,
                                           overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 20),
                                         // Watch button
                                         Row(
                                           children: [
@@ -543,7 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
-                                                      AppTheme.primary,
+                                                      Colors.redAccent,
                                                   padding: EdgeInsets.symmetric(
                                                     vertical: 16,
                                                     horizontal: 24,
