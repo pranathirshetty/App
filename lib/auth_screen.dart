@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-// import 'dart:ui';
+import 'dart:ui';
 import 'dart:async';
 
 import 'package:kuudere/home_screen.dart';
@@ -17,8 +17,7 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with SingleTickerProviderStateMixin {
+class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -29,12 +28,10 @@ class _AuthScreenState extends State<AuthScreen>
   bool _obscurePassword = true;
   final RealtimeService _realtimeService = RealtimeService();
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
   final CarouselSliderController _carouselController =
       CarouselSliderController();
   Timer? _carouselTimer;
+  late AnimationController _dripController;
 
   final List<Map<String, String>> _animeList = [
     {
@@ -79,33 +76,31 @@ class _AuthScreenState extends State<AuthScreen>
     super.initState();
     _realtimeService.joinRoom('home');
 
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-
-    _animationController.forward();
-
     WidgetsBinding.instance.addPostFrameCallback((_) => _startCarousel());
+
+    _dripController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
   }
 
   void _startCarousel() {
     const duration = Duration(seconds: 4);
     // Start immediately
-    _carouselController.nextPage(duration: duration, curve: Curves.linear);
+    try {
+      if (MediaQuery.of(context).size.width > 900) {
+        _carouselController.nextPage(duration: duration, curve: Curves.linear);
+      }
+    } catch (_) {}
     // Loop
     _carouselTimer = Timer.periodic(duration, (timer) {
       if (mounted) {
-        _carouselController.nextPage(duration: duration, curve: Curves.linear);
+        try {
+          if (MediaQuery.of(context).size.width > 900) {
+            _carouselController.nextPage(
+                duration: duration, curve: Curves.linear);
+          }
+        } catch (_) {}
       }
     });
   }
@@ -115,7 +110,7 @@ class _AuthScreenState extends State<AuthScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
-    _animationController.dispose();
+    _dripController.dispose();
     _carouselTimer?.cancel();
     super.dispose();
   }
@@ -166,6 +161,7 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isDesktop = constraints.maxWidth > 900;
@@ -340,15 +336,9 @@ class _AuthScreenState extends State<AuthScreen>
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 50.0, vertical: 32.0),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        child: _buildLoginForm(centerText: true),
-                      ),
-                    ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: _buildLoginForm(centerText: true),
                   ),
                 ),
               ),
@@ -361,50 +351,98 @@ class _AuthScreenState extends State<AuthScreen>
 
   Widget _buildMobileLayout(
       double headingSize, double descriptionSize, double logoSize) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF0F0F0F),
-            Color(0xFF000000),
-          ],
-        ),
-      ),
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 32.0),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          // 1. Background Gradient
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0F0F0F),
+                    Color(0xFF0C0C0C),
+                    Color(0xFF080808),
+                    Color(0xFF050505),
+                    Color(0xFF000000),
+                  ],
+                  stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // 2. Dripping Mayonnaise Animation
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 300, // Height of the drip area
+            child: AnimatedBuilder(
+              animation: _dripController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _DrippingPainter(_dripController.value),
+                  size: Size.infinite,
+                );
+              },
+            ),
+          ),
+
+          // 3. Glass Effect (Whole Body)
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.02), // Subtle overlay
+              ),
+            ),
+          ),
+
+          // 4. Content
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 32.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Form Card Container
+                  // Simple design for all mobile/medium screens
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 500),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0A0A0A),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF1A1A1A),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Logo
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              'https://kuudere.to/logo.png',
+                              height: logoSize,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: logoSize,
+                                  height: logoSize,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Icon(
+                                    Icons.play_circle_outline,
+                                    size: logoSize * 0.6,
+                                    color: Colors.black,
+                                  ),
+                                );
+                              },
                             ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(24),
-                        child: _buildLoginForm(centerText: false),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildLoginForm(centerText: false),
+                        ],
                       ),
                     ),
                   ),
@@ -412,7 +450,7 @@ class _AuthScreenState extends State<AuthScreen>
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -836,4 +874,78 @@ class _AngledClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class _DrippingPainter extends CustomPainter {
+  final double value;
+
+  _DrippingPainter(this.value);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF).withOpacity(0.9) // Pure white
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final width = size.width;
+
+    // Create a dripping effect using sine waves
+    path.moveTo(0, 0);
+
+    // We'll draw a wave that moves downwards
+    // The wave has varying amplitude to look like drips
+
+    for (double x = 0; x <= width; x++) {
+      // Base drip length
+      double y = 40 +
+          // Main wave
+          math.sin((x / width * 4 * math.pi) + (value * 2 * math.pi)) * 20 +
+          // Secondary wave for irregularity
+          math.sin((x / width * 8 * math.pi) + (value * 4 * math.pi)) * 10 +
+          // Long drips at specific intervals
+          math.max(
+              0,
+              math.sin((x / width * 10 * math.pi) + (value * 2 * math.pi)) *
+                  60);
+
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(width, 0);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Add some detached drops
+    final dropPaint = Paint()
+      ..color = const Color(0xFFFFFFFF).withOpacity(0.8) // Pure white
+      ..style = PaintingStyle.fill;
+
+    // Random drops based on time
+    // We simulate drops falling by using the value
+    for (int i = 0; i < 5; i++) {
+      double dropX = width * (0.2 + i * 0.15);
+      double dropProgress = (value * 2 + i * 0.3) % 1.0;
+      double dropY = 60 + dropProgress * 200;
+
+      // Only show drop if it's "falling"
+      if (dropY > 80) {
+        double dropSize =
+            4 + 4 * dropProgress; // Drop gets slightly bigger as it falls
+        // Stretch the drop vertically as it falls
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: Offset(dropX, dropY),
+                width: dropSize,
+                height: dropSize * 1.5),
+            dropPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DrippingPainter oldDelegate) {
+    return oldDelegate.value != value;
+  }
 }
