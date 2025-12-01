@@ -45,14 +45,12 @@ dependencies:
   google_fonts: ^6.2.1
   font_awesome_flutter: ^10.8.0
   flutter_riverpod: ^2.6.1
-  icons_launcher: ^3.0.0
   socket_io_client: ^3.0.2
   iconify_flutter: ^0.0.7
   url_launcher: ^6.3.1
   lucide_icons: ^0.257.0
   flutter_local_notifications: ^18.0.1
   dio: ^5.8.0+1
-  puppeteer: ^3.16.0
   media_kit: ^1.1.11
   media_kit_video: ^1.2.5
   media_kit_libs_video: ^1.0.5
@@ -76,6 +74,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   cached_network_image: ^3.2.3
+  icons_launcher: ^3.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
