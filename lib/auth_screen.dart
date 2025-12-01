@@ -744,6 +744,7 @@ class _CleanTextFieldState extends State<_CleanTextField> {
           textInputAction: widget.textInputAction,
           obscureText: widget.isPassword ? widget.obscurePassword : false,
           keyboardType: widget.keyboardType,
+          cursorColor: Colors.white,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 15,

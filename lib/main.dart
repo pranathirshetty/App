@@ -26,6 +26,11 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       darkTheme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Color(0xFF141217),
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: Colors.white,
+          selectionColor: Colors.white.withOpacity(0.3),
+          selectionHandleColor: Colors.white,
+        ),
       ),
       home: SplashScreen(),
     );
