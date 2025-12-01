@@ -196,8 +196,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.black.withValues(alpha: 0.7),
-                          Colors.black.withOpacity(0.7),
-                          Colors.black.withOpacity(0.9),
+                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.9),
                         ],
                       ),
                     ),
@@ -247,7 +247,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                       BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                         child: Container(
-                          color: Colors.white.withOpacity(0.02),
+                          color: Colors.white.withValues(alpha: 0.02),
                         ),
                       ),
                     ],
@@ -883,7 +883,7 @@ class _DrippingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF).withOpacity(0.9) // Pure white
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9) // Pure white
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -918,7 +918,7 @@ class _DrippingPainter extends CustomPainter {
 
     // Add some detached drops
     final dropPaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withOpacity(0.8) // Pure white
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.8) // Pure white
       ..style = PaintingStyle.fill;
 
     // Random drops based on time

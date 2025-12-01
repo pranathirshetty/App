@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Color(0xFF141217),
         textSelectionTheme: TextSelectionThemeData(
           cursorColor: Colors.white,
-          selectionColor: Colors.white.withOpacity(0.3),
+          selectionColor: Colors.white.withValues(alpha: 0.3),
           selectionHandleColor: Colors.white,
         ),
       ),
