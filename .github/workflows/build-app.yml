@@ -48,14 +48,14 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ vars.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n' | base64 --decode > android/app/upload-keystore.jks
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n' | base64 --decode > android/app/upload-keystore.jks
 
       - name: Create key.properties
         run: |
           echo "storeFile=upload-keystore.jks" > android/key.properties
-          echo "storePassword=${{ vars.ANDROID_STORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ vars.ANDROID_KEY_ALIAS }}" >> android/key.properties
-          echo "keyPassword=${{ vars.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+          echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/key.properties
 
       - name: Build Split APKs (Recommended - Smaller Size)
         run: flutter build apk --release --split-per-abi
