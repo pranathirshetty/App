@@ -196,12 +196,64 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.black.withValues(alpha: 0.7),
-                          Colors.black.withValues(alpha: 0.9),
+                          Colors.black.withOpacity(0.7),
+                          Colors.black.withOpacity(0.9),
                         ],
                       ),
                     ),
                   ),
                 ),
+
+              // Mobile Background (solid color to avoid banding with glass effect)
+              if (!isDesktop)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: constraints.maxHeight,
+                    color: const Color(0xFF050505), // Very dark gray background
+                  ),
+                ),
+
+              // Dripping Animation (Mobile Only)
+              if (!isDesktop)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 300,
+                  child: Stack(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _dripController,
+                        builder: (context, child) {
+                          return CustomPaint(
+                            painter: _DrippingPainter(_dripController.value),
+                            size: Size.infinite,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Glass Effect (Mobile Only)
+              if (!isDesktop)
+                Positioned.fill(
+                  child: Stack(
+                    children: [
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                        child: Container(
+                          color: Colors.white.withOpacity(0.02),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Main Content
               isDesktop
                   ? _buildDesktopLayout(headingSize, descriptionSize, logoSize)
@@ -351,106 +403,52 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   Widget _buildMobileLayout(
       double headingSize, double descriptionSize, double logoSize) {
-    return SizedBox.expand(
-      child: Stack(
-        children: [
-          // 1. Background Gradient
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF0F0F0F),
-                    Color(0xFF0C0C0C),
-                    Color(0xFF080808),
-                    Color(0xFF050505),
-                    Color(0xFF000000),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Simple design for all mobile/medium screens
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Logo
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.network(
+                        'https://kuudere.to/logo.png',
+                        height: logoSize,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: logoSize,
+                            height: logoSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              size: logoSize * 0.6,
+                              color: Colors.black,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildLoginForm(centerText: false),
                   ],
-                  stops: [0.0, 0.25, 0.5, 0.75, 1.0],
                 ),
               ),
             ),
-          ),
-
-          // 2. Dripping Mayonnaise Animation
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 300, // Height of the drip area
-            child: AnimatedBuilder(
-              animation: _dripController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _DrippingPainter(_dripController.value),
-                  size: Size.infinite,
-                );
-              },
-            ),
-          ),
-
-          // 3. Glass Effect (Whole Body)
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-              child: Container(
-                color: Colors.white.withValues(alpha: 0.02), // Subtle overlay
-              ),
-            ),
-          ),
-
-          // 4. Content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 32.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Simple design for all mobile/medium screens
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Logo
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://kuudere.to/logo.png',
-                              height: logoSize,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: logoSize,
-                                  height: logoSize,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Icon(
-                                    Icons.play_circle_outline,
-                                    size: logoSize * 0.6,
-                                    color: Colors.black,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildLoginForm(centerText: false),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
