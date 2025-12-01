@@ -13,6 +13,10 @@
 # InAppWebView
 -keep class com.pichillilorenzo.** { *; }
 
+# Ignore missing Play Store classes (Flutter embedding optional deps)
+-dontwarn com.google.android.play.core.**
+-dontwarn io.flutter.embedding.engine.deferredcomponents.**
+
 # Remove logging in release
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
