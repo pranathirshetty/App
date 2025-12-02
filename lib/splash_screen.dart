@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _realtimeService.joinRoom("/");
 
     // Initialize video player
-    final bool isLinux = Platform.isLinux;
+    final bool isLinux = !kIsWeb && Platform.isLinux;
     player = Player();
     controller = VideoController(
       player,
