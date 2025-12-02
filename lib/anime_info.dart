@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'dart:convert';
@@ -393,23 +394,30 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
           child: Text('Remove'),
         ),
       ],
-      child: OutlinedButton.icon(
+      child: ElevatedButton.icon(
         icon: Icon(
           anime.inWatchlist ? Icons.bookmark : Icons.bookmark_border,
-          color: Colors.red,
+          color: Colors.black,
         ),
-        label: Text(
-          anime.inWatchlist
-              ? (anime.folder ?? 'In Watchlist')
-              : 'Add to Watchlist',
-          style: const TextStyle(color: Colors.red),
+        label: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            anime.inWatchlist
+                ? (anime.folder ?? 'In Watchlist')
+                : 'Add to Watchlist',
+            style: const TextStyle(color: Colors.black),
+          ),
         ),
         onPressed: null,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.red),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          backgroundColor:
-              anime.inWatchlist ? Colors.red.withValues(alpha: 0.1) : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white,
+          disabledForegroundColor: Colors.black,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       ),
     );
@@ -637,278 +645,355 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   }
 
   Widget _buildMobileLayout(AnimeDetails anime) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Stack(
-            children: [
-              _buildBannerImage(anime.banner, height: 300),
-              Container(
-                height: 300,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.black,
-                    ],
-                    stops: const [0.0, 0.7, 1.0],
+    return Stack(
+      children: [
+        CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Stack(
+                children: [
+                  _buildBannerImage(anime.banner, height: 300),
+                  Container(
+                    height: 300,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black,
+                        ],
+                        stops: const [0.0, 0.7, 1.0],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 200, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 200, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            anime.cover,
-                            height: 180,
-                            width: 120,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                anime.english,
-                                maxLines: 2,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                anime.cover,
+                                height: 180,
+                                width: 120,
+                                fit: BoxFit.cover,
                               ),
-                              const SizedBox(height: 8),
-                              Row(
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.remove_red_eye,
-                                      size: 16, color: Colors.grey[400]),
-                                  const SizedBox(width: 4),
                                   Text(
-                                    anime.views,
-                                    style: TextStyle(
-                                        color: Colors.grey[400], fontSize: 14),
+                                    anime.english,
+                                    maxLines: 2,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Icon(Icons.favorite,
-                                      size: 16, color: Colors.grey[400]),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    anime.likes,
-                                    style: TextStyle(
-                                        color: Colors.grey[400], fontSize: 14),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.remove_red_eye,
+                                          size: 16, color: Colors.grey[400]),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        anime.views,
+                                        style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 14),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Icon(Icons.favorite,
+                                          size: 16, color: Colors.grey[400]),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        anime.likes,
+                                        style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.green.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      anime.status,
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(16),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Toggle Buttons
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _showEpisodes = false),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: !_showEpisodes
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: AnimatedDefaultTextStyle(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                      style: TextStyle(
+                                        color: !_showEpisodes
+                                            ? Colors.black
+                                            : Colors.white
+                                                .withValues(alpha: 0.7),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                      child: const Text('Anime Info'),
+                                    ),
+                                  ),
                                 ),
-                                child: Text(
-                                  anime.status,
-                                  style: const TextStyle(
-                                    color: Colors.green,
-                                    fontSize: 12,
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() => _showEpisodes = true);
+                                    if (episodeData.isEmpty) fetchEpisodeData();
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: _showEpisodes
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: AnimatedDefaultTextStyle(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                      style: TextStyle(
+                                        color: _showEpisodes
+                                            ? Colors.black
+                                            : Colors.white
+                                                .withValues(alpha: 0.7),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                      child: const Text('Episodes'),
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        if (anime.subbedCount > 0)
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('Watch Now'),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        WatchAnimeScreen(id: anime.id),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildWatchlistButton(anime),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                    // Toggle Buttons
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () =>
-                                  setState(() => _showEpisodes = false),
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: !_showEpisodes
-                                      ? Colors.red
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Anime Info',
-                                  style: TextStyle(
-                                    color: !_showEpisodes
-                                        ? Colors.white
-                                        : Colors.grey[400],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                        if (_showEpisodes)
+                          _buildEpisodeList()
+                        else ...[
+                          HtmlWidget(
+                            anime.description,
+                            textStyle: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.5,
                             ),
                           ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() => _showEpisodes = true);
-                                if (episodeData.isEmpty) fetchEpisodeData();
-                              },
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: _showEpisodes
-                                      ? Colors.red
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Episodes',
-                                  style: TextStyle(
-                                    color: _showEpisodes
-                                        ? Colors.white
-                                        : Colors.grey[400],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Genres',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: anime.genres
+                                .map(
+                                  (genre) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[900],
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      genre,
+                                      style: const TextStyle(
+                                          color: Colors.white70),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Studios',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: anime.studios
+                                .map(
+                                  (studio) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[900],
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      studio,
+                                      style: const TextStyle(
+                                          color: Colors.white70),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ],
-                      ),
+                        const SizedBox(
+                            height: 100), // Space for floating buttons
+                      ],
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
 
-                    if (_showEpisodes)
-                      _buildEpisodeList()
-                    else ...[
-                      HtmlWidget(
-                        anime.description,
-                        textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Genres',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: anime.genres
-                            .map(
-                              (genre) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[900],
-                                  borderRadius: BorderRadius.circular(16),
+        // Floating Bottom Bar
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(40, 0, 40, 24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.1),
+                        Colors.white.withValues(alpha: 0.02),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.4, 1.0],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      if (anime.subbedCount > 0)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.play_arrow),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Watch Now'),
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      WatchAnimeScreen(id: anime.id),
                                 ),
-                                child: Text(
-                                  genre,
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            )
-                            .toList(),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Studios',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 14, horizontal: 8),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: anime.studios
-                            .map(
-                              (studio) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[900],
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Text(
-                                  studio,
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildWatchlistButton(anime),
                       ),
                     ],
-                    const SizedBox(height: 32),
-                  ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -1040,7 +1125,12 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 20,
                                       vertical: 12,

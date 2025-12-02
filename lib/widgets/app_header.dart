@@ -188,7 +188,7 @@ class _AppHeaderState extends State<AppHeader> {
     // Default: Logo
     return Image.asset(
       'assets/logo-txt.png',
-      height: 100,
+      height: 28,
       fit: BoxFit.contain,
     );
   }
