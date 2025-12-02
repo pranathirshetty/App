@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        margin: const EdgeInsets.fromLTRB(40, 0, 40, 24),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
             filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: Colors.white.withValues(alpha: 0.1),
@@ -372,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 unselectedItemColor: Colors.white.withValues(alpha: 0.6),
                 currentIndex: _currentIndex,
                 elevation: 0,
-                iconSize: 32,
+                iconSize: 26,
                 showSelectedLabels: false,
                 showUnselectedLabels: false,
                 items: const [
