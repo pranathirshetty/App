@@ -1018,7 +1018,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       // For testing, use the provided test URL
       // In production, you would extract the m3u8 URL from the server embed page
       final testUrl =
-          'https://cc.sgsgsgsr.site/_v7/8065c6d1-28b3-40ff-bc66-4fefe09ad47c/master.m3u8?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2aWRlb19pZCI6IjgwNjVjNmQxLTI4YjMtNDBmZi1iYzY2LTRmZWZlMDlhZDQ3YyIsImNsaWVudF9pcCI6IjIyMy4yMjQuMzAuMTgzIiwiZXhwIjoxNzY0MjI2NTYxLCJpYXQiOjE3NjQyMDQ5NjEsImlzcyI6InZpZGVvLWhvc3RpbmctcGxhdGZvcm0ifQ.1LJtbjXtUbC4QLs4eUo9U_X9iYtzaSbbX_itH9GWRhU';
+          'https://dn.netmagcdn.com:2228/hls-playback/27b2024b2986a37d731fe40e5fdb36a1527a740ceecda5f858b0559af39a24f8f51707d118e9a13c4f18154b7c07fbc219785a551afbcc62b4ce5d2f898b551ac7d5ac91ee05ecb12ea50e4d46dc0cca80b2080ab4f35777ee956a7f218ca97c5e84fceb681a328176e4cfc452700a5b762fcbc1be9b25525754c8bc14021b41c61fa68ced39d0df5ecb51ca682cdedc/master.m3u8';
 
       // print('Loading video from: $testUrl');
 
