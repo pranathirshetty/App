@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'dart:ui';
 
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:convert';
@@ -314,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B0B),
       extendBodyBehindAppBar: isHomeTab,
+      extendBody: true,
       appBar: AppHeader(
         style: isHomeTab ? HeaderStyle.gradient : HeaderStyle.solid,
         scrollProgress: isHomeTab ? _scrollProgress : null,
@@ -328,39 +330,82 @@ class _HomeScreenState extends State<HomeScreen> {
           SettingsTab(onWatchlistTap: _navigateToWatchlist),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.red,
-        unselectedItemColor: Colors.grey,
-        currentIndex: _currentIndex,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Schedule',
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.1),
+                    Colors.white.withValues(alpha: 0.02),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+              child: BottomNavigationBar(
+                backgroundColor: Colors.transparent,
+                type: BottomNavigationBarType.fixed,
+                selectedItemColor: Colors.redAccent,
+                unselectedItemColor: Colors.white.withValues(alpha: 0.6),
+                currentIndex: _currentIndex,
+                elevation: 0,
+                iconSize: 32,
+                showSelectedLabels: false,
+                showUnselectedLabels: false,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.calendar_today),
+                    label: 'Schedule',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.search),
+                    label: 'Search',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.bookmark_outline),
+                    label: 'Watchlist',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.settings_outlined),
+                    label: 'Settings',
+                  ),
+                ],
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_outline),
-            label: 'Watchlist',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
-        ],
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        ),
       ),
     );
   }
@@ -633,6 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: 'Top Upcoming',
               items: topUpcoming,
             ),
+            const SizedBox(height: 100),
           ],
         ),
       ),
