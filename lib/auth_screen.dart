@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'dart:async';
-
+import 'dart:io';
 import 'package:kuudere/home_screen.dart';
 import 'package:kuudere/models/session_model.dart';
 import 'package:kuudere/services/realtime_service.dart';
@@ -82,8 +82,14 @@ class _AuthScreenState extends State<AuthScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _startCarousel());
 
+    final bool isLinux = !kIsWeb && Platform.isLinux;
     _player = Player();
-    _videoController = VideoController(_player);
+    _videoController = VideoController(
+      _player,
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: !isLinux,
+      ),
+    );
 
     // Set volume and playlist mode before opening
     _player.setVolume(0);
