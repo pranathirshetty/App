@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:kuudere/widgets/custom_dropdown.dart';
 
 class AnimeDetails {
   final String id;
@@ -121,6 +122,11 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   bool isLoading = false;
   String notificationCount = '0';
 
+  // Watchlist State - separate from Future to avoid page reload
+  bool _inWatchlist = false;
+  String? _folder;
+  bool _isUpdatingWatchlist = false;
+
   // Episode List State
   bool _showEpisodes = false;
   bool isLoadingEpisodes = false;
@@ -166,11 +172,21 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        final AnimeDetails details;
         // SvelteKit might return data directly or wrapped
         if (data['data'] != null) {
-          return AnimeDetails.fromJson(data);
+          details = AnimeDetails.fromJson(data);
+        } else {
+          details = AnimeDetails.fromJson({'data': data});
         }
-        return AnimeDetails.fromJson({'data': data});
+
+        // Initialize watchlist state from fetched data
+        setState(() {
+          _inWatchlist = details.inWatchlist;
+          _folder = details.folder;
+        });
+
+        return details;
       } else {
         throw Exception(
             'Failed to load anime details. Status code: ${response.statusCode}');
@@ -289,19 +305,17 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
   Future<void> _updateWatchlistStatus(
       AnimeDetails anime, String newStatus) async {
-    setState(() {
-      isLoading = true;
-    });
-
     final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
 
     if (sessionInfo == null) {
-      setState(() {
-        isLoading = false;
-      });
       return;
     }
+
+    // Show loading in button
+    setState(() {
+      _isUpdatingWatchlist = true;
+    });
 
     final httpService = HttpService();
 
@@ -317,106 +331,79 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       );
 
       if (response.statusCode == 200) {
+        // Only update the watchlist state variables, not the entire Future
+        // This prevents the whole page from reloading
         setState(() {
-          _animeDetails = Future.value(AnimeDetails(
-            id: anime.id,
-            english: anime.english,
-            romaji: anime.romaji,
-            native: anime.native,
-            ageRating: anime.ageRating,
-            malScore: anime.malScore,
-            averageScore: anime.averageScore,
-            duration: anime.duration,
-            genres: anime.genres,
-            cover: anime.cover,
-            banner: anime.banner,
-            season: anime.season,
-            startDate: anime.startDate,
-            status: anime.status,
-            synonyms: anime.synonyms,
-            studios: anime.studios,
-            type: anime.type,
-            year: anime.year,
-            epCount: anime.epCount,
-            subbedCount: anime.subbedCount,
-            dubbedCount: anime.dubbedCount,
-            description: anime.description,
-            inWatchlist: newStatus != 'Remove',
-            views: anime.views,
-            likes: anime.likes,
-            folder: newStatus != 'Remove' ? newStatus : null,
-          ));
-          isLoading = false;
+          _inWatchlist = newStatus != 'Remove';
+          _folder = newStatus != 'Remove' ? newStatus : null;
+          _isUpdatingWatchlist = false;
         });
       } else {
-        // print(
-        //     'Failed to update watchlist. Status code: ${response.statusCode}');
         setState(() {
-          isLoading = false;
+          _isUpdatingWatchlist = false;
         });
       }
     } catch (e) {
       // print('Error updating watchlist: $e');
       setState(() {
-        isLoading = false;
+        _isUpdatingWatchlist = false;
       });
     }
   }
 
   Widget _buildWatchlistButton(AnimeDetails anime) {
-    return PopupMenuButton<String>(
-      onSelected: (String result) {
-        _updateWatchlistStatus(anime, result);
+    final options = [
+      'Watching',
+      'On Hold',
+      'Plan To Watch',
+      'Dropped',
+      'Completed',
+      'Remove'
+    ];
+
+    // Use state variables instead of anime properties for real-time updates
+    return CustomDropdown<String>(
+      value: _folder,
+      items: options,
+      itemBuilder: (value) => value,
+      onChanged: (value) {
+        if (!_isUpdatingWatchlist) {
+          _updateWatchlistStatus(anime, value);
+        }
       },
-      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        ...<String>[
-          'Watching',
-          'On Hold',
-          'Plan To Watch',
-          'Dropped',
-          'Completed'
-        ].map(
-          (String value) => PopupMenuItem<String>(
-            value: value,
-            child: Row(
-              children: [
-                Text(value),
-                if (anime.folder == value) ...[
-                  const SizedBox(width: 8),
-                  const Icon(Icons.check, color: Colors.green, size: 16),
-                ],
-              ],
+      width: 180,
+      child: AbsorbPointer(
+        child: ElevatedButton.icon(
+          icon: _isUpdatingWatchlist
+              ? LoadingAnimationWidget.threeArchedCircle(
+                  color: Colors.black,
+                  size: 20,
+                )
+              : Icon(
+                  _inWatchlist ? Icons.bookmark : Icons.bookmark_border,
+                  color: Colors.black,
+                ),
+          label: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _isUpdatingWatchlist
+                  ? 'Updating...'
+                  : _inWatchlist
+                      ? (_folder ?? 'In Watchlist')
+                      : 'Add to Watchlist',
+              style: const TextStyle(color: Colors.black),
             ),
           ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'Remove',
-          child: Text('Remove'),
-        ),
-      ],
-      child: ElevatedButton.icon(
-        icon: Icon(
-          anime.inWatchlist ? Icons.bookmark : Icons.bookmark_border,
-          color: Colors.black,
-        ),
-        label: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            anime.inWatchlist
-                ? (anime.folder ?? 'In Watchlist')
-                : 'Add to Watchlist',
-            style: const TextStyle(color: Colors.black),
-          ),
-        ),
-        onPressed: null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          disabledBackgroundColor: Colors.white,
-          disabledForegroundColor: Colors.black,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+          onPressed: null, // CustomDropdown handles the tap
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            disabledBackgroundColor: Colors.white,
+            disabledForegroundColor: Colors.black,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
       ),
