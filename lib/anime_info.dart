@@ -120,6 +120,16 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   bool isLoading = false;
   String notificationCount = '0';
 
+  // Episode List State
+  bool _showEpisodes = false;
+  bool isLoadingEpisodes = false;
+  Map<String, dynamic> episodeData = {};
+  int _currentPageStart = 1;
+  final int _episodesPerPage = 100;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final ScrollController _episodeScrollController = ScrollController();
+
   final authService = AuthService();
   final RealtimeService _realtimeService = RealtimeService();
 
@@ -129,6 +139,13 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     _realtimeService.joinRoom("/watch/${widget.animeId}/");
     fetchNotificationCount();
     _animeDetails = fetchAnimeDetails(widget.animeId);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _episodeScrollController.dispose();
+    super.dispose();
   }
 
   Future<AnimeDetails> fetchAnimeDetails(String id) async {
@@ -183,6 +200,65 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     } catch (e) {
       // print('Error fetching notification count: $e');
     }
+  }
+
+  Future<void> fetchEpisodeData() async {
+    setState(() {
+      isLoadingEpisodes = true;
+    });
+
+    final authService = AuthService();
+    final sessionInfo = await authService.getStoredSession();
+    final httpService = HttpService();
+
+    try {
+      // Fetch episode 1 to get the list of all episodes
+      final response = await httpService.get(
+        '/api/watch/${widget.animeId}/1',
+        requireAuth: sessionInfo != null,
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          episodeData = json.decode(response.body);
+          print("Episode Data Response: ${response.body}"); // Log the response
+          isLoadingEpisodes = false;
+        });
+      } else {
+        setState(() {
+          isLoadingEpisodes = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingEpisodes = false;
+      });
+    }
+  }
+
+  List<int> _generatePageGroups(int totalEpisodes) {
+    List<int> groups = [];
+    for (int i = 1; i <= totalEpisodes; i += _episodesPerPage) {
+      groups.add(i);
+    }
+    return groups;
+  }
+
+  List<dynamic> _getFilteredEpisodes(List<dynamic> episodes) {
+    return episodes.where((episode) {
+      final number = episode['number'] as int;
+      final title = (episode['titles'][0] as String).toLowerCase();
+      final numberInRange = number >= _currentPageStart &&
+          number < _currentPageStart + _episodesPerPage;
+
+      if (_searchQuery.isEmpty) return numberInRange;
+
+      final matchesNumber = number.toString().contains(_searchQuery);
+      final matchesTitle = title.contains(_searchQuery);
+
+      return numberInRange && (matchesNumber || matchesTitle);
+    }).toList()
+      ..sort((a, b) => (a['number'] as int).compareTo(b['number'] as int));
   }
 
   Future<void> _updateWatchlistStatus(
@@ -358,6 +434,164 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     );
   }
 
+  Widget _buildEpisodeList() {
+    if (isLoadingEpisodes) {
+      return Center(
+        child: LoadingAnimationWidget.fourRotatingDots(
+          color: Colors.red,
+          size: 50,
+        ),
+      );
+    }
+
+    final episodes = episodeData['all_episodes'] ?? [];
+    if (episodes.isEmpty) {
+      return const Center(
+        child: Text(
+          'No episodes found',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+    }
+
+    final totalEpisodes = episodes.length;
+    final pageGroups = _generatePageGroups(totalEpisodes);
+
+    return Container(
+      margin: const EdgeInsets.all(0),
+      padding: const EdgeInsets.all(0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              DropdownButton<int>(
+                dropdownColor: Colors.black,
+                value: _currentPageStart,
+                items: pageGroups.map((start) {
+                  final end = start + _episodesPerPage - 1;
+                  return DropdownMenuItem(
+                    value: start,
+                    child: Text(
+                      '$start - $end',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _currentPageStart = value!;
+                  });
+                },
+                underline: Container(
+                  height: 2,
+                  color: Colors.red,
+                ),
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search episode...',
+              hintStyle: const TextStyle(color: Colors.white70),
+              fillColor: Colors.grey[900],
+              filled: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              prefixIcon: const Icon(Icons.search, color: Colors.white70),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white70),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        });
+                      },
+                    )
+                  : null,
+            ),
+            style: const TextStyle(color: Colors.white),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value.toLowerCase();
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          ListView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _getFilteredEpisodes(episodes).length,
+            itemBuilder: (context, index) {
+              final filteredEpisodes = _getFilteredEpisodes(episodes);
+              final episode = filteredEpisodes[index];
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(8),
+                  leading: Container(
+                    width: 80,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.play_circle_outline,
+                        color: Colors.white54,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    'Episode ${episode['number']}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    episode['titles'][0] ?? '',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WatchAnimeScreen(
+                          id: widget.animeId,
+                          episodeNumber: episode['number'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMobileLayout(AnimeDetails anime) {
     return CustomScrollView(
       slivers: [
@@ -486,74 +720,146 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-                    HtmlWidget(
-                      anime.description,
-                      textStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        height: 1.5,
+
+                    // Toggle Buttons
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => _showEpisodes = false),
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !_showEpisodes
+                                      ? Colors.red
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Anime Info',
+                                  style: TextStyle(
+                                    color: !_showEpisodes
+                                        ? Colors.white
+                                        : Colors.grey[400],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() => _showEpisodes = true);
+                                if (episodeData.isEmpty) fetchEpisodeData();
+                              },
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _showEpisodes
+                                      ? Colors.red
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Episodes',
+                                  style: TextStyle(
+                                    color: _showEpisodes
+                                        ? Colors.white
+                                        : Colors.grey[400],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
-                      'Genres',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+
+                    if (_showEpisodes)
+                      _buildEpisodeList()
+                    else ...[
+                      HtmlWidget(
+                        anime.description,
+                        textStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: anime.genres
-                          .map(
-                            (genre) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Text(
-                                genre,
-                                style: const TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Studios',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Genres',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: anime.studios
-                          .map(
-                            (studio) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[900],
-                                borderRadius: BorderRadius.circular(16),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: anime.genres
+                            .map(
+                              (genre) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[900],
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  genre,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
                               ),
-                              child: Text(
-                                studio,
-                                style: const TextStyle(color: Colors.white70),
+                            )
+                            .toList(),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Studios',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: anime.studios
+                            .map(
+                              (studio) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[900],
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Text(
+                                  studio,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
                               ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+                            )
+                            .toList(),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                   ],
                 ),

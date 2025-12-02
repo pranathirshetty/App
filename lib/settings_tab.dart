@@ -11,6 +11,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/theme/app_theme.dart';
+import 'package:kuudere/general_settings_page.dart';
 
 class SettingsTab extends StatefulWidget {
   final VoidCallback onWatchlistTap;
@@ -374,6 +375,13 @@ class _SettingsTabState extends State<SettingsTab> {
                     ContactPage(buildMenuItem: _buildMenuItem),
               ),
             );
+          } else if (title == 'General') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const GeneralSettingsPage(),
+              ),
+            );
           } else if (!comingSoon) {
             // Handle other menu items...
           }
@@ -431,7 +439,7 @@ class _SettingsTabState extends State<SettingsTab> {
             const SizedBox(height: 16),
             _buildActionButtons(context),
             const SizedBox(height: 24),
-            _buildMenuItem(Icons.settings, 'General', comingSoon: true),
+            _buildMenuItem(Icons.settings, 'General'),
             _buildMenuItem(Icons.palette, 'User interface', comingSoon: true),
             _buildMenuItem(Icons.mail_outline, 'Contact'),
             _buildMenuItem(Icons.tv, 'TV Login', comingSoon: true),
