@@ -20,7 +20,8 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -36,6 +37,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Timer? _carouselTimer;
   late final Player _player;
   late final VideoController _videoController;
+  late AnimationController _dripController;
 
   final List<Map<String, String>> _animeList = [
     {
@@ -101,6 +103,12 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     _player.open(Media('asset:///assets/auth_bg.mp4'));
+
+    // Initialize dripping animation controller
+    _dripController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
   }
 
   void _startCarousel() {
@@ -131,6 +139,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _displayNameController.dispose();
     _player.dispose();
     _carouselTimer?.cancel();
+    _dripController.dispose();
     super.dispose();
   }
 
@@ -179,6 +188,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLinux = !kIsWeb && Platform.isLinux;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
@@ -190,7 +201,7 @@ class _AuthScreenState extends State<AuthScreen> {
           final headingSize =
               isDesktop ? 42.0 : (screenWidth < 600 ? 28.0 : 36.0);
           final descriptionSize = isDesktop ? 16.0 : 14.0;
-          final logoSize = isDesktop ? 200.0 : 175.0;
+          final logoSize = isDesktop ? 60.0 : 50.0;
 
           return Stack(
             children: [
@@ -223,8 +234,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-              // Mobile Background Video
-              if (!isDesktop)
+              // Mobile Background - Video (non-Linux) or Gradient (Linux)
+              if (!isDesktop && !isLinux)
                 Positioned.fill(
                   child: Video(
                     controller: _videoController,
@@ -233,8 +244,29 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-              // Glass Effect (Mobile Only)
-              if (!isDesktop)
+              // Gradient Background (Linux Mobile/Medium Only)
+              if (!isDesktop && isLinux)
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF0F0F0F),
+                          Color(0xFF0C0C0C),
+                          Color(0xFF080808),
+                          Color(0xFF050505),
+                          Color(0xFF000000),
+                        ],
+                        stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Glass Effect (Mobile Only, non-Linux)
+              if (!isDesktop && !isLinux)
                 Positioned.fill(
                   child: ClipRect(
                     child: BackdropFilter(
@@ -395,52 +427,90 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _buildMobileLayout(
       double headingSize, double descriptionSize, double logoSize) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 32.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Simple design for all mobile/medium screens
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Logo
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.asset(
-                        'assets/logo-txt.png',
-                        height: logoSize,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: logoSize,
-                            height: logoSize,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              Icons.play_circle_outline,
-                              size: logoSize * 0.6,
-                              color: Colors.black,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _buildLoginForm(centerText: false),
-                  ],
+    final bool isLinux = !kIsWeb && Platform.isLinux;
+
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          // Dripping animation (Linux only)
+          if (isLinux)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 300,
+              child: AnimatedBuilder(
+                animation: _dripController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _DrippingPainter(_dripController.value),
+                    size: Size.infinite,
+                  );
+                },
+              ),
+            ),
+
+          // Glass Effect (Linux only - blurs the dripping animation)
+          if (isLinux)
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                child: Container(
+                  color: Colors.white.withValues(alpha: 0.02), // Subtle overlay
                 ),
               ),
             ),
-          ],
-        ),
+
+          // Content
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 32.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Simple design for all mobile/medium screens
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Logo
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.asset(
+                              'assets/logo-txt.png',
+                              height: logoSize,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: logoSize,
+                                  height: logoSize,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Icon(
+                                    Icons.play_circle_outline,
+                                    size: logoSize * 0.6,
+                                    color: Colors.black,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildLoginForm(centerText: false),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -865,4 +935,78 @@ class _AngledClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class _DrippingPainter extends CustomPainter {
+  final double value;
+
+  _DrippingPainter(this.value);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF).withOpacity(0.9) // Pure white
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final width = size.width;
+
+    // Create a dripping effect using sine waves
+    path.moveTo(0, 0);
+
+    // We'll draw a wave that moves downwards
+    // The wave has varying amplitude to look like drips
+
+    for (double x = 0; x <= width; x++) {
+      // Base drip length
+      double y = 40 +
+          // Main wave
+          math.sin((x / width * 4 * math.pi) + (value * 2 * math.pi)) * 20 +
+          // Secondary wave for irregularity
+          math.sin((x / width * 8 * math.pi) + (value * 4 * math.pi)) * 10 +
+          // Long drips at specific intervals
+          math.max(
+              0,
+              math.sin((x / width * 10 * math.pi) + (value * 2 * math.pi)) *
+                  60);
+
+      path.lineTo(x, y);
+    }
+
+    path.lineTo(width, 0);
+    path.close();
+
+    canvas.drawPath(path, paint);
+
+    // Add some detached drops
+    final dropPaint = Paint()
+      ..color = const Color(0xFFFFFFFF).withOpacity(0.8) // Pure white
+      ..style = PaintingStyle.fill;
+
+    // Random drops based on time
+    // We simulate drops falling by using the value
+    for (int i = 0; i < 5; i++) {
+      double dropX = width * (0.2 + i * 0.15);
+      double dropProgress = (value * 2 + i * 0.3) % 1.0;
+      double dropY = 60 + dropProgress * 200;
+
+      // Only show drop if it's "falling"
+      if (dropY > 80) {
+        double dropSize =
+            4 + 4 * dropProgress; // Drop gets slightly bigger as it falls
+        // Stretch the drop vertically as it falls
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: Offset(dropX, dropY),
+                width: dropSize,
+                height: dropSize * 1.5),
+            dropPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DrippingPainter oldDelegate) {
+    return oldDelegate.value != value;
+  }
 }
