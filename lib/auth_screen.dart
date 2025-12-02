@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'dart:async';
@@ -9,6 +10,8 @@ import 'package:kuudere/services/realtime_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import '../services/auth_service.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -17,7 +20,7 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
+class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -31,7 +34,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   final CarouselSliderController _carouselController =
       CarouselSliderController();
   Timer? _carouselTimer;
-  late AnimationController _dripController;
+  late final Player _player;
+  late final VideoController _videoController;
 
   final List<Map<String, String>> _animeList = [
     {
@@ -78,10 +82,12 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _startCarousel());
 
-    _dripController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
+    _player = Player();
+    _videoController = VideoController(_player);
+    _player.open(Media(
+        'https://v1.pinimg.com/videos/iht/expMp4/86/1f/4f/861f4f49a71c63a02d8a59170d3c2598_720w.mp4'));
+    _player.setVolume(0);
+    _player.setPlaylistMode(PlaylistMode.loop);
   }
 
   void _startCarousel() {
@@ -110,7 +116,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     _emailController.dispose();
     _passwordController.dispose();
     _displayNameController.dispose();
-    _dripController.dispose();
+    _player.dispose();
     _carouselTimer?.cancel();
     super.dispose();
   }
@@ -171,12 +177,12 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           final headingSize =
               isDesktop ? 42.0 : (screenWidth < 600 ? 28.0 : 36.0);
           final descriptionSize = isDesktop ? 16.0 : 14.0;
-          final logoSize = isDesktop ? 32.0 : 28.0;
+          final logoSize = isDesktop ? 200.0 : 175.0;
 
           return Stack(
             children: [
-              // Background Image (Desktop Only)
-              if (isDesktop)
+              // Background Image (Desktop Only or Web)
+              if (isDesktop || kIsWeb)
                 Positioned.fill(
                   child: Image.network(
                     'https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg',
@@ -204,53 +210,26 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-              // Mobile Background (solid color to avoid banding with glass effect)
-              if (!isDesktop)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: constraints.maxHeight,
-                    color: const Color(0xFF050505), // Very dark gray background
-                  ),
-                ),
-
-              // Dripping Animation (Mobile Only)
-              if (!isDesktop)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 300,
-                  child: Stack(
-                    children: [
-                      AnimatedBuilder(
-                        animation: _dripController,
-                        builder: (context, child) {
-                          return CustomPaint(
-                            painter: _DrippingPainter(_dripController.value),
-                            size: Size.infinite,
-                          );
-                        },
-                      ),
-                    ],
+              // Mobile Background Video
+              if (!isDesktop && !kIsWeb)
+                Positioned.fill(
+                  child: Video(
+                    controller: _videoController,
+                    fit: BoxFit.cover,
+                    controls: NoVideoControls,
                   ),
                 ),
 
               // Glass Effect (Mobile Only)
               if (!isDesktop)
                 Positioned.fill(
-                  child: Stack(
-                    children: [
-                      BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                        child: Container(
-                          color: Colors.white.withValues(alpha: 0.02),
-                        ),
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.4),
                       ),
-                    ],
+                    ),
                   ),
                 ),
 
@@ -302,8 +281,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           // Logo
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://kuudere.to/logo.png',
+                            child: Image.asset(
+                              'assets/logo-txt.png',
                               height: logoSize,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
@@ -420,8 +399,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                     // Logo
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        'https://kuudere.to/logo.png',
+                      child: Image.asset(
+                        'assets/logo-txt.png',
                         height: logoSize,
                         fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) {
@@ -441,7 +420,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                         },
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 4),
                     _buildLoginForm(centerText: false),
                   ],
                 ),
@@ -637,8 +616,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           ? 'Don\'t have an account? '
                           : 'Already have an account? ',
                       key: ValueKey<bool>(_isLogin),
-                      style: const TextStyle(
-                        color: Color(0xFF999999),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 13,
                       ),
                     ),
@@ -752,8 +731,8 @@ class _CleanTextFieldState extends State<_CleanTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(
-              color: Color(0xFF666666),
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -771,7 +750,7 @@ class _CleanTextFieldState extends State<_CleanTextField> {
                   )
                 : null,
             filled: true,
-            fillColor: const Color(0xFF1A1A1A),
+            fillColor: Colors.black.withValues(alpha: 0.3),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: const BorderSide(
@@ -873,78 +852,4 @@ class _AngledClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
-}
-
-class _DrippingPainter extends CustomPainter {
-  final double value;
-
-  _DrippingPainter(this.value);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9) // Pure white
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final width = size.width;
-
-    // Create a dripping effect using sine waves
-    path.moveTo(0, 0);
-
-    // We'll draw a wave that moves downwards
-    // The wave has varying amplitude to look like drips
-
-    for (double x = 0; x <= width; x++) {
-      // Base drip length
-      double y = 40 +
-          // Main wave
-          math.sin((x / width * 4 * math.pi) + (value * 2 * math.pi)) * 20 +
-          // Secondary wave for irregularity
-          math.sin((x / width * 8 * math.pi) + (value * 4 * math.pi)) * 10 +
-          // Long drips at specific intervals
-          math.max(
-              0,
-              math.sin((x / width * 10 * math.pi) + (value * 2 * math.pi)) *
-                  60);
-
-      path.lineTo(x, y);
-    }
-
-    path.lineTo(width, 0);
-    path.close();
-
-    canvas.drawPath(path, paint);
-
-    // Add some detached drops
-    final dropPaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.8) // Pure white
-      ..style = PaintingStyle.fill;
-
-    // Random drops based on time
-    // We simulate drops falling by using the value
-    for (int i = 0; i < 5; i++) {
-      double dropX = width * (0.2 + i * 0.15);
-      double dropProgress = (value * 2 + i * 0.3) % 1.0;
-      double dropY = 60 + dropProgress * 200;
-
-      // Only show drop if it's "falling"
-      if (dropY > 80) {
-        double dropSize =
-            4 + 4 * dropProgress; // Drop gets slightly bigger as it falls
-        // Stretch the drop vertically as it falls
-        canvas.drawOval(
-            Rect.fromCenter(
-                center: Offset(dropX, dropY),
-                width: dropSize,
-                height: dropSize * 1.5),
-            dropPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DrippingPainter oldDelegate) {
-    return oldDelegate.value != value;
-  }
 }
