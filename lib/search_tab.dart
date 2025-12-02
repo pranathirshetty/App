@@ -441,15 +441,45 @@ class _SearchTabState extends State<SearchTab> {
                 ],
               ),
               SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _searchAnime(),
-                icon: Icon(Icons.filter_list),
-                label: Text('Apply Filters'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFE53935),
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _searchAnime(),
+                      icon: Icon(Icons.filter_list),
+                      label: Text('Apply Filters'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFE53935),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _selectedGenres.clear();
+                          _selectedSeasons.clear();
+                          _selectedYears.clear();
+                          _selectedTypes.clear();
+                          _selectedStatuses.clear();
+                          _selectedLanguages.clear();
+                          _selectedRatings.clear();
+                        });
+                        _searchAnime();
+                      },
+                      icon: Icon(Icons.clear_all),
+                      label: Text('Clear Filters'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.grey[700]!),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -467,10 +497,16 @@ class _SearchTabState extends State<SearchTab> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: multiSelect
             ? null
             : (selectedItems.isNotEmpty ? selectedItems.first : null),
-        hint: Text(hint, style: TextStyle(color: Colors.grey[400])),
+        hint: Text(
+          hint,
+          style: TextStyle(color: Colors.grey[400]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         style: TextStyle(color: Colors.white),
         dropdownColor: Color(0xFF1A1B1E),
         decoration: InputDecoration(
@@ -478,7 +514,7 @@ class _SearchTabState extends State<SearchTab> {
             borderSide: BorderSide.none,
             borderRadius: BorderRadius.circular(8),
           ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         ),
         icon: Icon(Icons.arrow_drop_down, color: Colors.grey[400]),
         onChanged: (String? newValue) {
@@ -510,7 +546,13 @@ class _SearchTabState extends State<SearchTab> {
                         (states) => Colors.white),
                     checkColor: Color(0xFF1A1B1E),
                   ),
-                Text(value),
+                Expanded(
+                  child: Text(
+                    value,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               ],
             ),
           );
@@ -524,6 +566,8 @@ class _SearchTabState extends State<SearchTab> {
                       : hint)
                   : (selectedItems.isNotEmpty ? selectedItems.first : hint),
               style: TextStyle(color: Colors.white),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             );
           }).toList();
         },
