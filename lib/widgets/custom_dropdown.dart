@@ -9,6 +9,7 @@ class CustomDropdown<T> extends StatefulWidget {
   final Widget child;
   final Color? backgroundColor;
   final double width;
+  final double? maxHeight;
 
   const CustomDropdown({
     super.key,
@@ -19,6 +20,7 @@ class CustomDropdown<T> extends StatefulWidget {
     required this.child,
     this.backgroundColor,
     this.width = 200,
+    this.maxHeight,
   });
 
   @override
@@ -90,10 +92,11 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
     var size = renderBox.size;
     var offset = renderBox.localToGlobal(Offset.zero);
 
-    // Calculate position to keep it on screen
+    // Calculate position - prefer to show below, only show above if not enough space
     final screenHeight = MediaQuery.of(context).size.height;
-    final dropdownHeight = widget.items.length * 50.0 + 20; // Approx height
-    final showAbove = (offset.dy + size.height + dropdownHeight) > screenHeight;
+    final spaceBelow = screenHeight - (offset.dy + size.height);
+    final showAbove =
+        spaceBelow < 220; // Only show above if less than 220px below
 
     return OverlayEntry(
       builder: (context) => Stack(
@@ -117,7 +120,8 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
             child: Material(
               color: Colors.transparent,
               child: Container(
-                width: widget.width,
+                width: size
+                    .width, // Use actual button width instead of fixed width
                 child: ScaleTransition(
                   scale: _scaleAnimation,
                   alignment:
@@ -126,7 +130,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
                     opacity: _fadeAnimation,
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.5),
@@ -136,74 +140,35 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(8),
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                           child: Container(
                             decoration: BoxDecoration(
                               color: widget.backgroundColor ??
                                   const Color(0xFF1A1A1A).withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.1),
                                 width: 1,
                               ),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: widget.items.map((item) {
-                                final isSelected = item == widget.value;
-                                return InkWell(
-                                  onTap: () {
-                                    widget.onChanged(item);
-                                    _closeDropdown();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
+                            child: widget.maxHeight != null
+                                ? ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: widget.maxHeight!,
                                     ),
-                                    decoration: BoxDecoration(
-                                      border: widget.items.last != item
-                                          ? Border(
-                                              bottom: BorderSide(
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.05),
-                                              ),
-                                            )
-                                          : null,
-                                      color: isSelected
-                                          ? Colors.white.withValues(alpha: 0.1)
-                                          : Colors.transparent,
+                                    child: SingleChildScrollView(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: _buildItems(),
+                                      ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            widget.itemBuilder(item),
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : Colors.white70,
-                                              fontSize: 14,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                        if (isSelected)
-                                          const Icon(
-                                            Icons.check,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                      ],
-                                    ),
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: _buildItems(),
                                   ),
-                                );
-                              }).toList(),
-                            ),
                           ),
                         ),
                       ),
@@ -216,6 +181,57 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
         ],
       ),
     );
+  }
+
+  List<Widget> _buildItems() {
+    return widget.items.map((item) {
+      final isSelected = item == widget.value;
+      return InkWell(
+        onTap: () {
+          widget.onChanged(item);
+          _closeDropdown();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+          decoration: BoxDecoration(
+            border: widget.items.last != item
+                ? Border(
+                    bottom: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.05),
+                    ),
+                  )
+                : null,
+            color: isSelected
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.itemBuilder(item),
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontSize: 14,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 16,
+                ),
+            ],
+          ),
+        ),
+      );
+    }).toList();
   }
 
   @override
