@@ -232,7 +232,7 @@ class _WatchListTabState extends State<WatchListTab>
 
           return GridView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount > 0 ? crossAxisCount : 1,
               childAspectRatio: 0.7,

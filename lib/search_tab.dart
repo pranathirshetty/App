@@ -254,7 +254,7 @@ class _SearchTabState extends State<SearchTab> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
                 sliver: _isLoading
                     ? SliverToBoxAdapter(
                         child: Center(

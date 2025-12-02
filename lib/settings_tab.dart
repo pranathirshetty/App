@@ -434,6 +434,7 @@ class _SettingsTabState extends State<SettingsTab> {
       backgroundColor: Colors.black,
       body: SafeArea(
         child: ListView(
+          padding: const EdgeInsets.only(bottom: 100),
           children: [
             _buildProfileSection(),
             const SizedBox(height: 16),

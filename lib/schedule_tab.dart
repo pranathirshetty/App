@@ -120,6 +120,7 @@ class _ScheduleTabState extends State<ScheduleTab> {
         final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
         return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 100),
           itemCount: sortedDates.length,
           itemBuilder: (context, index) {
             final date = sortedDates[index];
