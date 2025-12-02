@@ -129,7 +129,7 @@ class ContactPage extends StatelessWidget {
                   subtitle: 'Get updates and support',
                   icon: Icons.telegram,
                   color: Colors.blue,
-                  onTap: () => _launchUrl('https://t.me/kuudere0to'),
+                  onTap: () => _launchUrl('https://t.me/+275Exgz0Nas5MGE1'),
                 ),
                 SizedBox(height: 16),
                 _buildContactCard(
