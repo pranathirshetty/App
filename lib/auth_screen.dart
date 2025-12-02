@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'dart:async';
-
+import 'dart:io';
 import 'package:kuudere/home_screen.dart';
 import 'package:kuudere/models/session_model.dart';
 import 'package:kuudere/services/realtime_service.dart';
@@ -82,19 +82,32 @@ class _AuthScreenState extends State<AuthScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _startCarousel());
 
+    final bool isLinux = !kIsWeb && Platform.isLinux;
     _player = Player();
-    _videoController = VideoController(_player);
-    _player.open(Media(
-        'https://v1.pinimg.com/videos/iht/expMp4/86/1f/4f/861f4f49a71c63a02d8a59170d3c2598_720w.mp4'));
+    _videoController = VideoController(
+      _player,
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: !isLinux,
+      ),
+    );
+
+    // Set volume and playlist mode before opening
     _player.setVolume(0);
     _player.setPlaylistMode(PlaylistMode.loop);
+
+    // Listen for errors
+    _player.stream.error.listen((error) {
+      debugPrint('MediaKit Error: $error');
+    });
+
+    _player.open(Media('asset:///assets/auth_bg.mp4'));
   }
 
   void _startCarousel() {
     const duration = Duration(seconds: 4);
     // Start immediately
     try {
-      if (MediaQuery.of(context).size.width > 900) {
+      if (MediaQuery.of(context).size.width > 800) {
         _carouselController.nextPage(duration: duration, curve: Curves.linear);
       }
     } catch (_) {}
@@ -102,7 +115,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _carouselTimer = Timer.periodic(duration, (timer) {
       if (mounted) {
         try {
-          if (MediaQuery.of(context).size.width > 900) {
+          if (MediaQuery.of(context).size.width > 800) {
             _carouselController.nextPage(
                 duration: duration, curve: Curves.linear);
           }
@@ -170,7 +183,7 @@ class _AuthScreenState extends State<AuthScreen> {
       resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 900;
+          final isDesktop = constraints.maxWidth > 800;
           final screenWidth = constraints.maxWidth;
 
           // Responsive font sizes
@@ -181,8 +194,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
           return Stack(
             children: [
-              // Background Image (Desktop Only or Web)
-              if (isDesktop || kIsWeb)
+              // Background Image (Desktop Only)
+              if (isDesktop)
                 Positioned.fill(
                   child: Image.network(
                     'https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg',
@@ -211,7 +224,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
 
               // Mobile Background Video
-              if (!isDesktop && !kIsWeb)
+              if (!isDesktop)
                 Positioned.fill(
                   child: Video(
                     controller: _videoController,
