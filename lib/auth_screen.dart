@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'dart:async';
@@ -176,12 +177,12 @@ class _AuthScreenState extends State<AuthScreen> {
           final headingSize =
               isDesktop ? 42.0 : (screenWidth < 600 ? 28.0 : 36.0);
           final descriptionSize = isDesktop ? 16.0 : 14.0;
-          final logoSize = isDesktop ? 32.0 : 28.0;
+          final logoSize = isDesktop ? 200.0 : 175.0;
 
           return Stack(
             children: [
-              // Background Image (Desktop Only)
-              if (isDesktop)
+              // Background Image (Desktop Only or Web)
+              if (isDesktop || kIsWeb)
                 Positioned.fill(
                   child: Image.network(
                     'https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg',
@@ -210,7 +211,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
 
               // Mobile Background Video
-              if (!isDesktop)
+              if (!isDesktop && !kIsWeb)
                 Positioned.fill(
                   child: Video(
                     controller: _videoController,
@@ -219,19 +220,18 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-              // Subtle Global Blur
+              // Glass Effect (Mobile Only)
               if (!isDesktop)
                 Positioned.fill(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                    child: Container(
-                      color: Colors.transparent,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.4),
+                      ),
                     ),
                   ),
                 ),
-
-              // Glass Effect (Mobile Only) - REMOVED to allow clear video background
-              // The glass effect is now applied specifically to the form card
 
               // Main Content
               isDesktop
@@ -281,8 +281,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           // Logo
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://kuudere.to/logo.png',
+                            child: Image.asset(
+                              'assets/logo-txt.png',
                               height: logoSize,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
@@ -391,73 +391,38 @@ class _AuthScreenState extends State<AuthScreen> {
             // Simple design for all mobile/medium screens
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 25.0, sigmaY: 25.0),
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      padding: const EdgeInsets.all(40.0),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 1.5,
-                        ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.15),
-                            Colors.white.withValues(alpha: 0.05),
-                            Colors.black.withValues(alpha: 0.1),
-                          ],
-                          stops: const [0.0, 0.4, 1.0],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 30,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 15),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Logo
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              'https://kuudere.to/logo.png',
-                              height: logoSize,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: logoSize,
-                                  height: logoSize,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Icon(
-                                    Icons.play_circle_outline,
-                                    size: logoSize * 0.6,
-                                    color: Colors.black,
-                                  ),
-                                );
-                              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Logo
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.asset(
+                        'assets/logo-txt.png',
+                        height: logoSize,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: logoSize,
+                            height: logoSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildLoginForm(centerText: false),
-                        ],
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              size: logoSize * 0.6,
+                              color: Colors.black,
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    _buildLoginForm(centerText: false),
+                  ],
                 ),
               ),
             ),
@@ -651,8 +616,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           ? 'Don\'t have an account? '
                           : 'Already have an account? ',
                       key: ValueKey<bool>(_isLogin),
-                      style: const TextStyle(
-                        color: Color(0xFF999999),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 13,
                       ),
                     ),
@@ -766,8 +731,8 @@ class _CleanTextFieldState extends State<_CleanTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(
-              color: Color(0xFF666666),
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -785,7 +750,7 @@ class _CleanTextFieldState extends State<_CleanTextField> {
                   )
                 : null,
             filled: true,
-            fillColor: const Color(0xFF1A1A1A),
+            fillColor: Colors.black.withValues(alpha: 0.3),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: const BorderSide(
