@@ -124,6 +124,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   bool _showEpisodes = false;
   bool isLoadingEpisodes = false;
   Map<String, dynamic> episodeData = {};
+  Map<String, String> _thumbnails = {};
   int _currentPageStart = 1;
   final int _episodesPerPage = 100;
   final TextEditingController _searchController = TextEditingController();
@@ -220,9 +221,15 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          episodeData = json.decode(response.body);
-          print("Episode Data Response: ${response.body}"); // Log the response
+          final data = json.decode(response.body);
+          episodeData = data;
+          // print("Episode Data Response: ${response.body}"); // Log the response
           isLoadingEpisodes = false;
+
+          if (data['anime_info'] != null &&
+              data['anime_info']['anilist'] != null) {
+            fetchThumbnails(data['anime_info']['anilist']);
+          }
         });
       } else {
         setState(() {
@@ -233,6 +240,24 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       setState(() {
         isLoadingEpisodes = false;
       });
+    }
+  }
+
+  Future<void> fetchThumbnails(int anilistId) async {
+    final httpService = HttpService();
+    try {
+      final response = await httpService.get('/api/thumbnails/$anilistId');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['thumbnails'] != null) {
+          setState(() {
+            _thumbnails = Map<String, String>.from(data['thumbnails']);
+          });
+        }
+      }
+    } catch (e) {
+      // print('Error fetching thumbnails: $e');
     }
   }
 
@@ -545,19 +570,38 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(8),
                   leading: Container(
-                    width: 80,
+                    width: 90,
                     height: 50,
                     decoration: BoxDecoration(
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(4),
+                      image: _thumbnails
+                              .containsKey(episode['number'].toString())
+                          ? DecorationImage(
+                              image: NetworkImage(
+                                  _thumbnails[episode['number'].toString()]!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.play_circle_outline,
-                        color: Colors.white54,
-                        size: 24,
-                      ),
-                    ),
+                    child: _thumbnails.containsKey(episode['number'].toString())
+                        ? Container(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white54,
+                              size: 24,
+                            ),
+                          ),
                   ),
                   title: Text(
                     'Episode ${episode['number']}',
