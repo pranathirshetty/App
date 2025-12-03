@@ -9,7 +9,9 @@ import 'dart:ui';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SearchTab extends StatefulWidget {
-  const SearchTab({super.key});
+  final String? initialGenre;
+
+  const SearchTab({super.key, this.initialGenre});
 
   @override
   State<SearchTab> createState() => _SearchTabState();
@@ -37,6 +39,9 @@ class _SearchTabState extends State<SearchTab> {
   void initState() {
     super.initState();
     _realtimeService.joinRoom("search");
+    if (widget.initialGenre != null) {
+      _selectedGenres.add(widget.initialGenre!);
+    }
     // Load initial results (all anime or filtered) like SvelteKit does
     _searchAnime();
     _scrollController.addListener(_scrollListener);
@@ -324,9 +329,18 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Widget _buildFilterGrid() {
+    final hasFilters = _selectedGenres.isNotEmpty ||
+        _selectedSeasons.isNotEmpty ||
+        _selectedYears.isNotEmpty ||
+        _selectedTypes.isNotEmpty ||
+        _selectedStatuses.isNotEmpty ||
+        _selectedLanguages.isNotEmpty ||
+        _selectedRatings.isNotEmpty;
+
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
+        initiallyExpanded: hasFilters,
         title: Text(
           'Filters',
           style: TextStyle(color: Colors.white, fontSize: 18),
