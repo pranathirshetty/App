@@ -19,6 +19,8 @@ import 'package:kuudere/theme/app_theme.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -66,6 +68,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   String? _selectedEpisodeId;
   int? _currentEpisodeNumber; // Introduced _currentEpisodeNumber
   Map<String, String> _thumbnails = {}; // Store thumbnails
+  List<dynamic> _availableSubtitles = [];
+  Map<String, dynamic>? _currentSubtitle;
+  String _currentServer = 'zen'; // Default server
+  List<Map<String, dynamic>> _availableQualities = [];
+  String? _currentQuality;
 
   // Media Kit player
   late final Player _player;
@@ -1259,47 +1266,628 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
-  Future<void> _loadVideo(String url) async {
+  Future<void> _loadVideo(String url, {String? server}) async {
     setState(() {
       isLoadingVideo = true;
     });
 
     try {
-      // For testing, use the provided test URL
-      // In production, you would extract the m3u8 URL from the server embed page
-      final testUrl =
-          'https://dn.netmagcdn.com:2228/hls-playback/27b2024b2986a37d731fe40e5fdb36a1527a740ceecda5f858b0559af39a24f8f51707d118e9a13c4f18154b7c07fbc219785a551afbcc62b4ce5d2f898b551ac7d5ac91ee05ecb12ea50e4d46dc0cca80b2080ab4f35777ee956a7f218ca97c5e84fceb681a328176e4cfc452700a5b762fcbc1be9b25525754c8bc14021b41c61fa68ced39d0df5ecb51ca682cdedc/master.m3u8';
+      final httpService = HttpService();
+      final anilistId = episodeData['anime_info']?['anilist'];
 
-      // print('Loading video from: $testUrl');
+      if (anilistId == null) {
+        throw Exception('Anilist ID not found');
+      }
 
-      await _player.open(
-        Media(testUrl),
-        play: true, // Auto-play to ensure video starts
-      );
+      final serverParam = server ?? _currentServer;
+      final endpoint = '/$anilistId/$_currentEpisodeNumber/$serverParam';
 
-      // Listen for player state changes
-      _player.stream.playing.listen((playing) {
-        // print('Player playing state: $playing');
-      });
+      final response = await httpService.get(endpoint);
 
-      _player.stream.buffering.listen((buffering) {
-        // print('Player buffering: $buffering');
-      });
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
 
-      _player.stream.error.listen((error) {
-        // print('Player error: $error');
-      });
+        if (data['success'] == true) {
+          // Handle different server response structures
+          Map<String, dynamic>? directLinkData;
+
+          if (data.containsKey('directLink') && data['directLink'] != null) {
+            // zen/zen2 format
+            final directLink = data['directLink'];
+            if (directLink is Map && directLink.containsKey('data')) {
+              directLinkData = directLink['data'];
+            }
+          } else if (data.containsKey('data') && data['data'] != null) {
+            // pahe/hiya/allmanga format
+            directLinkData = data['data'];
+          }
+
+          if (directLinkData != null && directLinkData['m3u8_url'] != null) {
+            String m3u8Url = directLinkData['m3u8_url'];
+            final subtitles = directLinkData['subtitles'] as List<dynamic>?;
+            final fonts = directLinkData['fonts'] as List<dynamic>?;
+            final sources = directLinkData['sources'] as List<dynamic>?;
+
+            // Clear current subtitle track when changing servers
+            try {
+              await _player.setSubtitleTrack(SubtitleTrack.no());
+            } catch (e) {
+              // Ignore errors when clearing
+            }
+
+            setState(() {
+              _currentServer = serverParam;
+              _availableSubtitles = subtitles ?? [];
+              _currentSubtitle = null;
+              _availableQualities = [];
+
+              if (sources != null && sources.isNotEmpty) {
+                // pahe format with multiple quality options
+                for (var source in sources) {
+                  _availableQualities.add({
+                    'url': source['url'],
+                    'quality': source['quality'],
+                  });
+                }
+                // Use first quality by default
+                m3u8Url = sources[0]['url'];
+                _currentQuality = sources[0]['quality'];
+              } else {
+                _currentQuality = 'Auto';
+              }
+            });
+
+            // Set mpv properties before loading media
+            if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+              try {
+                await (_player.platform as dynamic)
+                    .setProperty('sub-ass', 'yes');
+                await (_player.platform as dynamic)
+                    .setProperty('embeddedfonts', 'yes');
+                await (_player.platform as dynamic)
+                    .setProperty('sub-ass-override', 'no');
+              } catch (e) {
+                // print('Error setting mpv properties: $e');
+              }
+            }
+
+            if (fonts != null && fonts.isNotEmpty) {
+              await _loadFonts(fonts);
+            }
+
+            await _player.open(
+              Media(m3u8Url),
+              play: true,
+            );
+
+            if (subtitles != null) {
+              for (final sub in subtitles) {
+                if (sub['is_default'] == true) {
+                  try {
+                    // Download subtitle file to temp directory
+                    final subUrl = sub['url'];
+                    final format = sub['format'] ?? 'srt';
+
+                    if (format == 'ass') {
+                      // Download ASS file to preserve formatting
+                      final tempDir = await getTemporaryDirectory();
+                      final subFile = File(
+                          '${tempDir.path}/subtitle_${DateTime.now().millisecondsSinceEpoch}.ass');
+
+                      final response = await http.get(Uri.parse(subUrl));
+                      if (response.statusCode == 200) {
+                        await subFile.writeAsBytes(response.bodyBytes);
+
+                        await _player.setSubtitleTrack(
+                          SubtitleTrack.uri(
+                            subFile.path,
+                            title: sub['title'],
+                            language: sub['language'],
+                          ),
+                        );
+                      }
+                    } else {
+                      await _player.setSubtitleTrack(
+                        SubtitleTrack.uri(
+                          subUrl,
+                          title: sub['title'],
+                          language: sub['language'],
+                        ),
+                      );
+                    }
+
+                    setState(() {
+                      _currentSubtitle = sub;
+                    });
+                  } catch (e) {
+                    // print('Error setting subtitle: $e');
+                  }
+                  break; // Set only the default one
+                }
+              }
+            }
+          } else {
+            throw Exception('Failed to get direct link data');
+          }
+        } else {
+          throw Exception('Server returned success=false');
+        }
+      } else {
+        throw Exception('Failed to fetch video data: ${response.statusCode}');
+      }
 
       setState(() {
         isLoadingVideo = false;
       });
-
-      // print('Video loaded successfully');
     } catch (e) {
       // print('Error loading video: $e');
       setState(() {
         isLoadingVideo = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading video: $e')),
+        );
+      }
+    }
+  }
+
+  void _changeSubtitle(Map<String, dynamic>? subtitle) async {
+    if (subtitle == null) {
+      await _player.setSubtitleTrack(SubtitleTrack.no());
+      setState(() {
+        _currentSubtitle = null;
+      });
+    } else {
+      try {
+        final subUrl = subtitle['url'];
+        final format = subtitle['format'] ?? 'srt';
+
+        if (format == 'ass') {
+          // Download ASS file to preserve formatting
+          final tempDir = await getTemporaryDirectory();
+          final subFile = File(
+              '${tempDir.path}/subtitle_${DateTime.now().millisecondsSinceEpoch}.ass');
+
+          final response = await http.get(Uri.parse(subUrl));
+          if (response.statusCode == 200) {
+            await subFile.writeAsBytes(response.bodyBytes);
+
+            await _player.setSubtitleTrack(
+              SubtitleTrack.uri(
+                subFile.path,
+                title: subtitle['title'],
+                language: subtitle['language'],
+              ),
+            );
+          }
+        } else {
+          await _player.setSubtitleTrack(
+            SubtitleTrack.uri(
+              subUrl,
+              title: subtitle['title'],
+              language: subtitle['language'],
+            ),
+          );
+        }
+
+        setState(() {
+          _currentSubtitle = subtitle;
+        });
+      } catch (e) {
+        // print('Error changing subtitle: $e');
+      }
+    }
+  }
+
+  void _showSubtitleSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Select Subtitle",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.subtitles_off,
+                        color: _currentSubtitle == null
+                            ? Colors.red
+                            : Colors.white,
+                      ),
+                      title: Text(
+                        "Off",
+                        style: TextStyle(
+                          color: _currentSubtitle == null
+                              ? Colors.red
+                              : Colors.white,
+                        ),
+                      ),
+                      onTap: () {
+                        _changeSubtitle(null);
+                        Navigator.pop(context);
+                      },
+                    ),
+                    ..._availableSubtitles.map((sub) {
+                      final isSelected = _currentSubtitle == sub;
+                      return ListTile(
+                        leading: Icon(
+                          Icons.subtitles,
+                          color: isSelected ? Colors.red : Colors.white,
+                        ),
+                        title: Text(
+                          sub['title'] ?? sub['language_name'] ?? 'Unknown',
+                          style: TextStyle(
+                            color: isSelected ? Colors.red : Colors.white,
+                          ),
+                        ),
+                        onTap: () {
+                          _changeSubtitle(sub);
+                          Navigator.pop(context);
+                        },
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Settings",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_availableQualities.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.hd, color: Colors.white),
+                  title: const Text("Quality",
+                      style: TextStyle(color: Colors.white)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _currentQuality ?? 'Auto',
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 14),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward_ios,
+                          color: Colors.white, size: 16),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showQualitySelection();
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.dns, color: Colors.white),
+                title:
+                    const Text("Server", style: TextStyle(color: Colors.white)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _currentServer.toUpperCase(),
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white, size: 16),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showServerSelection();
+                },
+              ),
+              if (_availableSubtitles.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.subtitles, color: Colors.white),
+                  title: const Text("Subtitles/CC",
+                      style: TextStyle(color: Colors.white)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _currentSubtitle?['title'] ??
+                            _currentSubtitle?['language_name'] ??
+                            "Off",
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 14),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward_ios,
+                          color: Colors.white, size: 16),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showSubtitleSelection();
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.speed, color: Colors.white),
+                title: const Text("Playback Speed",
+                    style: TextStyle(color: Colors.white)),
+                trailing: const Icon(Icons.arrow_forward_ios,
+                    color: Colors.white, size: 16),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showPlaybackSpeedSelection();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPlaybackSpeedSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Playback Speed",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children:
+                      [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map((speed) {
+                    final isSelected = _player.state.rate == speed;
+                    return ListTile(
+                      leading: isSelected
+                          ? const Icon(Icons.check, color: Colors.red)
+                          : const SizedBox(width: 24),
+                      title: Text(
+                        "${speed}x",
+                        style: TextStyle(
+                          color: isSelected ? Colors.red : Colors.white,
+                        ),
+                      ),
+                      onTap: () {
+                        _player.setRate(speed);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showQualitySelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Quality",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _availableQualities.map((qual) {
+                    final isSelected = _currentQuality == qual['quality'];
+                    return ListTile(
+                      leading: isSelected
+                          ? const Icon(Icons.check, color: Colors.red)
+                          : const SizedBox(width: 24),
+                      title: Text(
+                        qual['quality'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.red : Colors.white,
+                        ),
+                      ),
+                      onTap: () async {
+                        setState(() {
+                          _currentQuality = qual['quality'];
+                        });
+                        await _player.open(Media(qual['url']), play: true);
+                        if (mounted) Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showServerSelection() {
+    final servers = [
+      'hiya',
+      'hiya-dub',
+      'zen',
+      'zen2',
+      'pahe',
+      'allmanga',
+      'allmanga-dub'
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Server",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: servers.map((server) {
+                    final isSelected = _currentServer == server;
+                    return ListTile(
+                      leading: isSelected
+                          ? const Icon(Icons.check, color: Colors.red)
+                          : const SizedBox(width: 24),
+                      title: Text(
+                        server.toUpperCase(),
+                        style: TextStyle(
+                          color: isSelected ? Colors.red : Colors.white,
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _loadVideo('', server: server);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadFonts(List<dynamic> fonts) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final fontsDir = Directory('${tempDir.path}/fonts');
+      if (!await fontsDir.exists()) {
+        await fontsDir.create(recursive: true);
+      }
+
+      for (final font in fonts) {
+        final fontUrl = font['url'];
+        final fontName = font['name'];
+        if (fontUrl != null && fontName != null) {
+          // Extract extension from URL
+          String extension = '.ttf'; // Default
+          try {
+            final uri = Uri.parse(fontUrl);
+            final pathSegments = uri.pathSegments;
+            if (pathSegments.isNotEmpty) {
+              final filename = pathSegments.last;
+              if (filename.contains('.')) {
+                extension = filename.substring(filename.lastIndexOf('.'));
+              }
+            }
+          } catch (_) {}
+
+          String fileNameWithExt = fontName;
+          if (!fontName.toLowerCase().endsWith(extension)) {
+            fileNameWithExt = '$fontName$extension';
+          }
+
+          final fontFile = File('${fontsDir.path}/$fileNameWithExt');
+          if (!await fontFile.exists()) {
+            // Download font
+            final response = await http.get(Uri.parse(fontUrl));
+            if (response.statusCode == 200) {
+              await fontFile.writeAsBytes(response.bodyBytes);
+            }
+          }
+        }
+      }
+
+      // Configure player to use fonts directory and enable ASS
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        await (_player.platform as dynamic)
+            .setProperty('sub-fonts-dir', fontsDir.path);
+        await (_player.platform as dynamic).setProperty('sub-ass', 'yes');
+        await (_player.platform as dynamic).setProperty('embeddedfonts', 'yes');
+      }
+    } catch (e) {
+      // print('Error loading fonts: $e');
     }
   }
 
@@ -1334,7 +1922,62 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       child: Video(
         key: ValueKey(_videoController),
         controller: _videoController,
-        controls: MaterialVideoControls,
+        controls: (state) {
+          if (Platform.isAndroid || Platform.isIOS) {
+            // Mobile controls with custom top button bar
+            final topButtonBar = [
+              const Spacer(),
+              if (_availableSubtitles.isNotEmpty)
+                MaterialCustomButton(
+                  onPressed: _showSubtitleSelection,
+                  icon: const Icon(Icons.subtitles),
+                ),
+              MaterialCustomButton(
+                onPressed: _showSettings,
+                icon: const Icon(Icons.settings),
+              ),
+            ];
+
+            return MaterialVideoControlsTheme(
+              normal: MaterialVideoControlsThemeData(
+                topButtonBar: topButtonBar,
+              ),
+              fullscreen: MaterialVideoControlsThemeData(
+                topButtonBar: topButtonBar,
+              ),
+              child: MaterialVideoControls(state),
+            );
+          }
+
+          final buttonBar = [
+            const MaterialDesktopPlayOrPauseButton(),
+            const MaterialDesktopVolumeButton(),
+            const MaterialDesktopPositionIndicator(),
+            const Spacer(),
+            if (_availableSubtitles.isNotEmpty)
+              IconButton(
+                onPressed: _showSubtitleSelection,
+                icon: const Icon(Icons.subtitles, color: Colors.white),
+                tooltip: "Subtitles",
+              ),
+            IconButton(
+              onPressed: _showSettings,
+              icon: const Icon(Icons.settings, color: Colors.white),
+              tooltip: "Settings",
+            ),
+            const MaterialDesktopFullscreenButton(),
+          ];
+
+          return MaterialDesktopVideoControlsTheme(
+            normal: MaterialDesktopVideoControlsThemeData(
+              bottomButtonBar: buttonBar,
+            ),
+            fullscreen: MaterialDesktopVideoControlsThemeData(
+              bottomButtonBar: buttonBar,
+            ),
+            child: MaterialDesktopVideoControls(state),
+          );
+        },
         fill: Colors.black,
         filterQuality: FilterQuality.high,
         wakelock: true,
