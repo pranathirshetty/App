@@ -133,7 +133,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -146,10 +146,11 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>>
                           child: Container(
                             decoration: BoxDecoration(
                               color: widget.backgroundColor ??
-                                  const Color(0xFF1A1A1A).withOpacity(0.8),
+                                  const Color(0xFF1A1A1A)
+                                      .withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withValues(alpha: 0.1),
                                 width: 1,
                               ),
                             ),

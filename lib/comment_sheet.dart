@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'dart:ui'; // For ImageFilter
 
 import 'package:kuudere/services/auth_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';

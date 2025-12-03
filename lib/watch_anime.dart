@@ -65,6 +65,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Timer? _progressTimer;
   String? _selectedEpisodeId;
   int? _currentEpisodeNumber; // Introduced _currentEpisodeNumber
+  Map<String, String> _thumbnails = {}; // Store thumbnails
 
   // Media Kit player
   late final Player _player;
@@ -556,6 +557,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           _currentEpisodeNumber =
               episodeNumber; // Update _currentEpisodeNumber here
 
+          if (episodeData['anime_info'] != null &&
+              episodeData['anime_info']['anilist'] != null) {
+            fetchThumbnails(episodeData['anime_info']['anilist']);
+          }
+
           if (episodeData['all_episodes'] != null) {
             // Store episode ID for tracking
             final episodes = episodeData['all_episodes'] as List<dynamic>;
@@ -639,6 +645,24 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> fetchThumbnails(int anilistId) async {
+    final httpService = HttpService();
+    try {
+      final response = await httpService.get('/api/thumbnails/$anilistId');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['thumbnails'] != null) {
+          setState(() {
+            _thumbnails = Map<String, String>.from(data['thumbnails']);
+          });
+        }
+      }
+    } catch (e) {
+      // print('Error fetching thumbnails: $e');
     }
   }
 
@@ -1181,20 +1205,39 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 child: ListTile(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  leading: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 45,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const Icon(Icons.play_circle_outline,
-                          color: Colors.white70),
-                    ],
+                  leading: Container(
+                    width: 100,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[800],
+                      borderRadius: BorderRadius.circular(4),
+                      image: _thumbnails
+                              .containsKey(episode['number'].toString())
+                          ? DecorationImage(
+                              image: NetworkImage(
+                                  _thumbnails[episode['number'].toString()]!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _thumbnails.containsKey(episode['number'].toString())
+                        ? Container(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            child: const Center(
+                              child: Icon(
+                                Icons.play_circle_outline,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white70,
+                              size: 24,
+                            ),
+                          ),
                   ),
                   title: Text(
                     '${episode['number']}. ${episode['titles'][0]}',
@@ -1793,14 +1836,34 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                       decoration: BoxDecoration(
                         color: Colors.grey[800],
                         borderRadius: BorderRadius.circular(4),
+                        image: _thumbnails
+                                .containsKey(episode['number'].toString())
+                            ? DecorationImage(
+                                image: NetworkImage(
+                                    _thumbnails[episode['number'].toString()]!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.play_circle_outline,
-                          color: Colors.white54,
-                          size: 32,
-                        ),
-                      ),
+                      child:
+                          _thumbnails.containsKey(episode['number'].toString())
+                              ? Container(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.play_circle_outline,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                )
+                              : const Center(
+                                  child: Icon(
+                                    Icons.play_circle_outline,
+                                    color: Colors.white70,
+                                    size: 24,
+                                  ),
+                                ),
                     ),
                     title: Row(
                       children: [

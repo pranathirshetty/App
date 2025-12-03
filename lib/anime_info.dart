@@ -10,6 +10,7 @@ import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:kuudere/widgets/custom_dropdown.dart';
+import 'search_tab.dart';
 
 class AnimeDetails {
   final String id;
@@ -520,7 +521,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                     color: Colors.grey[900],
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -638,7 +639,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                       child:
                           _thumbnails.containsKey(episode['number'].toString())
                               ? Container(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   child: const Center(
                                     child: Icon(
                                       Icons.play_circle_outline,
@@ -899,17 +900,28 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                             runSpacing: 8,
                             children: anime.genres
                                 .map(
-                                  (genre) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[900],
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      genre,
-                                      style: const TextStyle(
-                                          color: Colors.white70),
+                                  (genre) => GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              SearchTab(initialGenre: genre),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[900],
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Text(
+                                        genre,
+                                        style: const TextStyle(
+                                            color: Colors.white70),
+                                      ),
                                     ),
                                   ),
                                 )
