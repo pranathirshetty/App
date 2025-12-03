@@ -986,26 +986,233 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       );
     }
 
+    final isDesktop = MediaQuery.of(context).size.width > 1000;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppHeader(
         style: HeaderStyle.transparent,
         showBackButton: true,
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
+      body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+    );
+  }
+
+  Widget _buildMobileLayout() {
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildVideoPlayer(),
+              _buildMainContent(isDesktop: false),
+              _buildEpisodeListMobile(),
+              _buildAnimeDetailsCard(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 24),
             child: Column(
               children: [
                 _buildVideoPlayer(),
-                _buildMainContent(),
-                _buildEpisodeListMobile(),
+                _buildMainContent(isDesktop: true),
                 _buildAnimeDetailsCard(),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          width: 400,
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            color: const Color(0xFF0F0F0F),
+          ),
+          child: _buildSidebar(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebar() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            indicatorColor: Colors.red,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey,
+            dividerColor: Colors.transparent,
+            tabs: const [
+              Tab(text: 'Episodes'),
+              Tab(text: 'Comments'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildEpisodeListSidebar(),
+                CommentsContent(
+                  commentCount: episodeData['total_comments'] ?? 0,
+                  episodeData: episodeData,
+                  epNumber: _currentEpisodeNumber,
+                  animeId: widget.id,
+                  comments: comments,
+                  updateComments: updateComments,
+                  isDesktop: true,
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEpisodeListSidebar() {
+    if (isLoadingEpisodes) {
+      return Center(
+        child: LoadingAnimationWidget.fourRotatingDots(
+          color: Colors.red,
+          size: 50,
+        ),
+      );
+    }
+
+    final episodes = episodeData['all_episodes'] ?? [];
+    final totalEpisodes = episodes.length;
+    final pageGroups = _generatePageGroups(totalEpisodes);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              DropdownButton<int>(
+                dropdownColor: Colors.black,
+                value: _currentPageStart,
+                isExpanded: true,
+                items: pageGroups.map((start) {
+                  final end = start + _episodesPerPage - 1;
+                  return DropdownMenuItem(
+                    value: start,
+                    child: Text(
+                      '$start - $end',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _currentPageStart = value!;
+                  });
+                },
+                underline: Container(height: 1, color: Colors.white24),
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search episode...',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  filled: true,
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Colors.white38, size: 20),
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            controller: _episodeScrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _getFilteredEpisodes(episodes).length,
+            itemBuilder: (context, index) {
+              final filteredEpisodes = _getFilteredEpisodes(episodes);
+              final episode = filteredEpisodes[index];
+              final isCurrentEpisode =
+                  episode['number'] == _currentEpisodeNumber;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isCurrentEpisode
+                      ? Colors.red.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: isCurrentEpisode
+                        ? Colors.red
+                        : Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const Icon(Icons.play_circle_outline,
+                          color: Colors.white70),
+                    ],
+                  ),
+                  title: Text(
+                    '${episode['number']}. ${episode['titles'][0]}',
+                    style: TextStyle(
+                      color: isCurrentEpisode ? Colors.red : Colors.white,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => onEpisodeSelected(episode['number']),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -1112,7 +1319,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     return 'Unknown time ago';
   }
 
-  Widget _buildMainContent() {
+  Widget _buildMainContent({bool isDesktop = false}) {
     final animeInfo = animeData['anime_info'];
     final currentEpisode = (episodeData['all_episodes'] as List<dynamic>?)
         ?.firstWhere((episode) => episode['number'] == _currentEpisodeNumber,
@@ -1417,7 +1624,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                       ),
               ),
               const SizedBox(height: 16),
-              _buildCommentButton(),
+              if (!isDesktop) _buildCommentButton(),
             ],
           ),
         ),

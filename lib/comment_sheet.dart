@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:ui'; // For ImageFilter
 
 import 'package:kuudere/services/auth_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kuudere/services/http_service.dart';
+import 'package:kuudere/widgets/custom_dropdown.dart';
 
-class CommentBottomSheet extends StatefulWidget {
+class CommentBottomSheet extends StatelessWidget {
   final int commentCount;
   final Map<String, dynamic> episodeData;
   final dynamic epNumber;
@@ -24,10 +26,54 @@ class CommentBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<CommentBottomSheet> createState() => _CommentBottomSheetState();
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.9,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return CommentsContent(
+          commentCount: commentCount,
+          episodeData: episodeData,
+          epNumber: epNumber,
+          animeId: animeId,
+          comments: comments,
+          updateComments: updateComments,
+          scrollController: scrollController,
+          isDesktop: false,
+        );
+      },
+    );
+  }
 }
 
-class _CommentBottomSheetState extends State<CommentBottomSheet> {
+class CommentsContent extends StatefulWidget {
+  final int commentCount;
+  final Map<String, dynamic> episodeData;
+  final dynamic epNumber;
+  final dynamic animeId;
+  final List<Comment> comments;
+  final Function(List<Comment>) updateComments;
+  final ScrollController? scrollController;
+  final bool isDesktop;
+
+  const CommentsContent({
+    super.key,
+    required this.commentCount,
+    required this.episodeData,
+    required this.epNumber,
+    required this.animeId,
+    required this.comments,
+    required this.updateComments,
+    this.scrollController,
+    this.isDesktop = false,
+  });
+
+  @override
+  State<CommentsContent> createState() => _CommentsContentState();
+}
+
+class _CommentsContentState extends State<CommentsContent> {
   List<Comment> comments = [];
   final TextEditingController _commentController = TextEditingController();
   final Map<String, TextEditingController> _replyControllers = {};
@@ -69,8 +115,10 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response =
-            await httpService.get('/api/user/current', requireAuth: true);
+        final response = await httpService.get(
+          '/api/user/current',
+          requireAuth: true,
+        );
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -89,7 +137,11 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     }
   }
 
-  Future<void> _fetchComments(int page, String sort, {bool isInitialLoad = false}) async {
+  Future<void> _fetchComments(
+    int page,
+    String sort, {
+    bool isInitialLoad = false,
+  }) async {
     if (isInitialLoad) {
       setState(() {
         _isLoading = true;
@@ -106,7 +158,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       final authService = AuthService();
       final sessionInfo = await authService.getStoredSession();
 
-      final url = '/api/anime/comments/${widget.animeId}/${widget.epNumber}?page=$page&sort=$sort';
+      final url =
+          '/api/anime/comments/${widget.animeId}/${widget.epNumber}?page=$page&sort=$sort';
       final response = await httpService.get(
         url,
         requireAuth: sessionInfo != null,
@@ -125,7 +178,9 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
           } else {
             // Avoid duplicates when loading more
             final existingIds = comments.map((c) => c.id).toSet();
-            final newComments = fetchedComments.where((c) => !existingIds.contains(c.id)).toList();
+            final newComments = fetchedComments
+                .where((c) => !existingIds.contains(c.id))
+                .toList();
             comments.addAll(newComments);
           }
 
@@ -191,7 +246,9 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     if (sessionInfo == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to like/dislike comments')),
+          const SnackBar(
+            content: Text('Please log in to like/dislike comments'),
+          ),
         );
       }
       return;
@@ -248,203 +305,129 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     final controller =
         isReply ? _replyControllers[commentId]! : _commentController;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[900]?.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[800]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isReply) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey[800]?.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                "If you don't mind, please leave a comment and share your thoughts with everyone—it will make the website even more lively! Many people are eager to read your comments! 😊",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-          Row(
+    // We can use a FocusNode to detect focus if we want to show buttons only on focus
+    // For simplicity, we'll show buttons if text is not empty or if it's a reply form
+    final showButtons = isReply || controller.text.isNotEmpty;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildAvatar(_userAvatarUrl, size: isReply ? 24 : 40),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _userAvatarUrl != null &&
-                      _userAvatarUrl!.isNotEmpty &&
-                      _userAvatarUrl != '/placeholder.svg?height=32&width=32'
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.network(
-                        _userAvatarUrl!.startsWith('http')
-                            ? _userAvatarUrl!
-                            : 'https://kuudere.to$_userAvatarUrl',
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[800],
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.person,
-                              color: Colors.white70, size: 20),
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[800],
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.person,
-                          color: Colors.white70, size: 20),
-                    ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                maxLines: null,
+                minLines: 1,
+                onChanged: (val) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: isReply ? 'Add a reply...' : 'Add a comment...',
+                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  contentPadding: const EdgeInsets.only(bottom: 8),
+                  isDense: true,
+                  border: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey[800]!),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                  ),
+                ),
+              ),
+              if (showButtons || isReply) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextField(
-                      controller: controller,
-                      maxLines: isReply ? 3 : 5,
-                      style: const TextStyle(color: Colors.white),
-                      onChanged: (value) {
-                        setState(() {
-                          // Trigger rebuild to enable/disable button
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: isReply ? 'Write a reply...' : 'Write your comment...',
-                        hintStyle: TextStyle(color: Colors.grey[600]),
-                        filled: true,
-                        fillColor: Colors.grey[800]?.withOpacity(0.5),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey[700]!),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.red, width: 1),
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    // Spoiler Checkbox
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: isSpoiler,
-                              onChanged: (value) => setState(() => isSpoiler = value!),
-                              fillColor: WidgetStateProperty.all(Colors.red),
-                              checkColor: Colors.white,
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: isSpoiler,
+                            onChanged: (v) => setState(() => isSpoiler = v!),
+                            fillColor: WidgetStateProperty.resolveWith(
+                              (states) => states.contains(WidgetState.selected)
+                                  ? Colors.red
+                                  : Colors.transparent,
                             ),
-                            Row(
-                              children: [
-                                const Icon(Icons.warning_amber_rounded,
-                                    color: Colors.amber, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Mark as spoiler',
-                                  style: TextStyle(
-                                    color: Colors.grey[300],
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                            side: const BorderSide(color: Colors.grey),
+                          ),
                         ),
-                        Row(
-                          children: [
-                            if (!isReply)
-                              TextButton(
-                                onPressed: () {
-                                  controller.clear();
-                                  setState(() => isSpoiler = false);
-                                },
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _isSubmitting || controller.text.trim().isEmpty
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Spoiler',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            controller.clear();
+                            if (isReply) toggleReplyForm(commentId!);
+                            setState(() => isSpoiler = false);
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed:
+                              _isSubmitting || controller.text.trim().isEmpty
                                   ? null
                                   : () async {
-                                      if (controller.text.trim().isNotEmpty) {
-                                        setState(() {
-                                          _isSubmitting = true;
-                                        });
-                                        if (isReply) {
-                                          await _handleReplySubmit(commentId!);
-                                        } else {
-                                          await _handleCommentSubmit();
-                                        }
-                                        setState(() {
-                                          _isSubmitting = false;
-                                        });
+                                      if (isReply) {
+                                        await _handleReplySubmit(commentId!);
+                                      } else {
+                                        await _handleCommentSubmit();
                                       }
                                     },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: _isSubmitting
-                                  ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: LoadingAnimationWidget.threeArchedCircle(
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    )
-                                  : Text(
-                                      isReply ? 'Reply' : 'Comment',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            disabledBackgroundColor: Colors.grey[800],
+                            foregroundColor: Colors.black,
+                            disabledForegroundColor: Colors.grey[500],
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
                             ),
-                          ],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : Text(isReply ? 'Reply' : 'Comment'),
                         ),
                       ],
                     ),
                   ],
                 ),
-              ),
+              ],
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -489,7 +472,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         if (responseData['success'] == true) {
           // Refresh comments to get the new one with proper formatting
           await _fetchComments(1, _currentSort, isInitialLoad: true);
-          
+
           setState(() {
             _commentController.clear();
             isSpoiler = false;
@@ -509,9 +492,9 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -544,27 +527,27 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       final httpService = HttpService();
       final response = await httpService.post(
         '/api/anime/comments/reply',
-        body: {
-          'commentId': commentId,
-          'content': replyContent,
-        },
+        body: {'commentId': commentId, 'content': replyContent},
         requireAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
         setState(() {
-          final commentIndex =
-              comments.indexWhere((comment) => comment.id == commentId);
+          final commentIndex = comments.indexWhere(
+            (comment) => comment.id == commentId,
+          );
           if (commentIndex != -1) {
             // Create a Reply object from the response
             final newReply = Reply(
-              id: responseData['id'] ?? responseData['episodeCommentReplyId'] ?? '',
+              id: responseData['id'] ??
+                  responseData['episodeCommentReplyId'] ??
+                  '',
               author: responseData['author'] ?? 'You',
               content: replyContent, // Use the original content, not formatted
               time: responseData['time'] ?? 'Just now',
             );
-            
+
             comments[commentIndex].replies.add(newReply);
             _replyControllers[commentId]!.clear();
             showReplyForms[commentId] = false;
@@ -583,9 +566,9 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
@@ -602,222 +585,217 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     });
   }
 
-  Widget _buildCommentContent(Comment comment) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Profile picture
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: comment.authorPfp != null && comment.authorPfp!.isNotEmpty
-              ? Image.network(
-                  comment.authorPfp!,
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _buildDefaultAvatar(comment.author),
-                )
-              : _buildDefaultAvatar(comment.author),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    comment.author,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+  Widget _buildCommentItem(Comment comment) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildAvatar(comment.authorPfp, size: 40, fallback: comment.author),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Author & Time
+                Row(
+                  children: [
+                    Text(
+                      comment.author,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  if (comment.authorVerified == true) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.verified, color: Colors.blue, size: 16),
+                    if (comment.authorVerified == true) ...[
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.grey,
+                        size: 12,
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    Text(
+                      comment.time,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    ),
                   ],
-                  const SizedBox(width: 8),
-                  Text(
-                    '• ${comment.time}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (comment.isSpoiler)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
+                ),
+                const SizedBox(height: 4),
+
+                // Content
+                if (comment.isSpoiler)
+                  InkWell(
+                    onTap: () => setState(() => comment.isSpoiler = false),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.red,
+                        color: Colors.grey[900],
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
-                        'SPOILER',
+                        'Spoiler (Tap to reveal)',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
+                          color: Colors.redAccent,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (comment.isSpoiler)
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      comment.isSpoiler = false;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[800]!),
+                  )
+                else
+                  Text(
+                    comment.content,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.3,
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded,
-                            color: Colors.amber, size: 20),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'This comment contains spoilers. Tap to reveal.',
-                            style: TextStyle(color: Colors.white70),
+                  ),
+
+                const SizedBox(height: 8),
+
+                // Actions
+                Row(
+                  children: [
+                    _buildActionButton(
+                      icon: comment.isLiked
+                          ? Icons.thumb_up
+                          : Icons.thumb_up_outlined,
+                      label: comment.likes > 0 ? '${comment.likes}' : null,
+                      isActive: comment.isLiked,
+                      onTap: () => _handleInteraction(comment.id, 'like'),
+                    ),
+                    const SizedBox(width: 16),
+                    _buildActionButton(
+                      icon: comment.isDisliked
+                          ? Icons.thumb_down
+                          : Icons.thumb_down_outlined,
+                      isActive: comment.isDisliked,
+                      onTap: () => _handleInteraction(comment.id, 'dislike'),
+                    ),
+                    const SizedBox(width: 16),
+                    InkWell(
+                      onTap: () => toggleReplyForm(comment.id),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: const Text(
+                          'Reply',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Reply Form
+                if (showReplyForms[comment.id] ?? false)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _buildCommentForm(
+                      isReply: true,
+                      commentId: comment.id,
+                    ),
+                  ),
+
+                // Replies List
+                if (comment.replies.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: Column(
+                      children: [
+                        if (!(expandedReplies[comment.id] ?? false))
+                          InkWell(
+                            onTap: () => toggleReplies(comment.id),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Colors.blue,
+                                    size: 24,
+                                  ),
+                                  Text(
+                                    '${comment.replies.length} replies',
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          Column(
+                            children: [
+                              ...comment.replies.map(
+                                (reply) => _buildReplyItem(reply, comment.id),
+                              ),
+                              // Hide replies button
+                              InkWell(
+                                onTap: () => toggleReplies(comment.id),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.arrow_drop_up,
+                                        color: Colors.blue,
+                                        size: 24,
+                                      ),
+                                      const Text(
+                                        'Hide replies',
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
-                )
-              else
-                Text(
-                  comment.content,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _buildInteractionButton(
-                    icon: Icons.thumb_up_outlined,
-                    count: comment.likes,
-                    isActive: comment.isLiked,
-                    onTap: () => _handleInteraction(comment.id, 'like'),
-                  ),
-                  const SizedBox(width: 16),
-                  _buildInteractionButton(
-                    icon: Icons.thumb_down_outlined,
-                    count: comment.dislikes,
-                    isActive: comment.isDisliked,
-                    onTap: () => _handleInteraction(comment.id, 'dislike'),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton.icon(
-                    onPressed: () => toggleReplyForm(comment.id),
-                    icon: const Icon(Icons.reply, size: 16),
-                    label: const Text('Reply'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                  ),
-                  if (comment.replies.isNotEmpty)
-                    TextButton(
-                      onPressed: () => toggleReplies(comment.id),
-                      child: Text(
-                        (expandedReplies[comment.id] ?? false)
-                            ? 'Hide ${comment.replies.length} replies'
-                            : 'Show ${comment.replies.length} replies',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDefaultAvatar(String author) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Text(
-          author.isNotEmpty ? author[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommentItem(Comment comment) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCommentContent(comment),
-          if (showReplyForms[comment.id] ?? false)
-            Padding(
-              padding: const EdgeInsets.only(left: 40, top: 12),
-              child: _buildCommentForm(isReply: true, commentId: comment.id),
+              ],
             ),
-          if (comment.replies.isNotEmpty &&
-              (expandedReplies[comment.id] ?? false))
-            Padding(
-              padding: const EdgeInsets.only(left: 40, top: 12),
-              child: Column(
-                children: comment.replies
-                    .map((reply) => _buildReplyContent(reply))
-                    .toList(),
-              ),
-            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildReplyContent(Reply reply) {
+  Widget _buildReplyItem(Reply reply, String commentId) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, left: 16),
+      padding: const EdgeInsets.only(top: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: reply.authorPfp != null && reply.authorPfp!.isNotEmpty
-                ? Image.network(
-                    reply.authorPfp!,
-                    width: 32,
-                    height: 32,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildDefaultReplyAvatar(reply.author),
-                  )
-                : _buildDefaultReplyAvatar(reply.author),
-          ),
+          _buildAvatar(reply.authorPfp, size: 24, fallback: reply.author),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -833,28 +811,61 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (reply.authorVerified == true) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified, color: Colors.blue, size: 14),
-                    ],
                     const SizedBox(width: 8),
                     Text(
-                      '• ${reply.time}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                      reply.time,
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 Text(
                   reply.content,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
-                    height: 1.4,
+                    fontSize: 14,
+                    height: 1.3,
                   ),
+                ),
+                const SizedBox(height: 4),
+                // Reply actions (simplified)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.thumb_up_outlined,
+                      color: Colors.grey[400],
+                      size: 14,
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.thumb_down_outlined,
+                      color: Colors.grey[400],
+                      size: 14,
+                    ),
+                    const SizedBox(width: 16),
+                    InkWell(
+                      onTap: () {
+                        if (!(showReplyForms[commentId] ?? false)) {
+                          toggleReplyForm(commentId);
+                        }
+                        // Pre-fill @username
+                        final controller = _replyControllers[commentId];
+                        if (controller != null) {
+                          controller.text = '@${reply.author} ';
+                          controller.selection = TextSelection.fromPosition(
+                            TextPosition(offset: controller.text.length),
+                          );
+                        }
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          'Reply',
+                          style: TextStyle(color: Colors.white, fontSize: 11),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -864,72 +875,92 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
     );
   }
 
-  Widget _buildDefaultReplyAvatar(String author) {
+  Widget _buildAvatar(String? url, {double size = 40, String fallback = '?'}) {
+    if (url != null && url.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          url.startsWith('http') ? url : 'https://kuudere.to$url',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildFallbackAvatar(size, fallback),
+        ),
+      );
+    }
+    return _buildFallbackAvatar(size, fallback);
+  }
+
+  Widget _buildFallbackAvatar(double size, String name) {
     return Container(
-      width: 32,
-      height: 32,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: Colors.grey[800],
+        color: Colors.primaries[name.length % Colors.primaries.length],
         shape: BoxShape.circle,
       ),
-      child: Center(
-        child: Text(
-          author.isNotEmpty ? author[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
+      alignment: Alignment.center,
+      child: Text(
+        name.isNotEmpty ? name[0].toUpperCase() : '?',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.5,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
   }
 
-  Widget _buildInteractionButton({
+  Widget _buildActionButton({
     required IconData icon,
-    required int count,
+    String? label,
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: isActive ? Colors.blue : Colors.white70,
-            size: 20,
-          ),
-          if (count > 0) ...[
-            const SizedBox(width: 4),
-            Text(
-              count.toString(),
-              style: TextStyle(
-                color: isActive ? Colors.blue : Colors.white70,
-                fontSize: 14,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Icon(
+                icon,
+                key: ValueKey(icon),
+                size: 16,
+                color: isActive ? Colors.white : Colors.grey[400],
               ),
             ),
+            if (label != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF0A0A0A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Column(
-            children: [
-              Container(
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0F0F),
+        borderRadius: widget.isDesktop
+            ? BorderRadius.circular(16)
+            : const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        children: [
+          if (!widget.isDesktop)
+            Center(
+              child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 12),
                 width: 40,
                 height: 4,
@@ -938,166 +969,173 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'COMMENTS',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$_totalComments',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
+            ),
+
+          // Header: Count & Sort
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: Row(
+              children: [
+                Text(
+                  '$_totalComments',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              // Sort buttons
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    _buildSortButton('best', 'Best'),
-                    const SizedBox(width: 8),
-                    _buildSortButton('new', 'Newest'),
-                    const SizedBox(width: 8),
-                    _buildSortButton('oldest', 'Oldest'),
-                  ],
+                const SizedBox(width: 8),
+                const Text(
+                  'Comments',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const Divider(color: Color(0xFF2A2A2A)),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildCommentForm(),
-              ),
-              const Divider(color: Color(0xFF2A2A2A)),
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: Colors.red),
-                      )
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _error!,
-                                  style: const TextStyle(color: Colors.white70),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: () => _fetchComments(
-                                      1, _currentSort,
-                                      isInitialLoad: true),
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : comments.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No comments yet. Be the first to comment!',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              )
-                            : ListView.separated(
-                                controller: scrollController,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                itemCount: comments.length +
-                                    (_hasMore ? 1 : 0) +
-                                    (_isLoadingMore ? 1 : 0),
-                                separatorBuilder: (context, index) {
-                                  if (index >= comments.length) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return const Divider(
-                                    color: Color(0xFF2A2A2A),
-                                    height: 1,
-                                  );
-                                },
-                                itemBuilder: (context, index) {
-                                  if (index == comments.length && _isLoadingMore) {
-                                    return const Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                            color: Colors.red),
-                                      ),
-                                    );
-                                  }
-                                  if (index == comments.length && _hasMore) {
-                                    return Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Center(
-                                        child: ElevatedButton(
-                                          onPressed: _loadMoreComments,
-                                          child: const Text('Load more comments'),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return _buildCommentItem(comments[index]);
-                                },
-                              ),
-              ),
-            ],
+                const Spacer(),
+                _buildSortDropdown(),
+                if (!widget.isDesktop)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+              ],
+            ),
           ),
-        );
-      },
+
+          const Divider(color: Colors.white10, height: 1),
+
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: LoadingAnimationWidget.threeArchedCircle(
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.redAccent,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            TextButton(
+                              onPressed: () => _fetchComments(
+                                1,
+                                _currentSort,
+                                isInitialLoad: true,
+                              ),
+                              child: const Text(
+                                'Retry',
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: widget.scrollController,
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: comments.length +
+                            (_hasMore ? 1 : 0) +
+                            (_isLoadingMore ? 1 : 0) +
+                            1, // +1 for the input form at top
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              child: _buildCommentForm(),
+                            );
+                          }
+
+                          final commentIndex = index - 1;
+
+                          if (commentIndex == comments.length &&
+                              _isLoadingMore) {
+                            return Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Center(
+                                child: LoadingAnimationWidget.staggeredDotsWave(
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            );
+                          }
+                          if (commentIndex == comments.length && _hasMore) {
+                            return TextButton(
+                              onPressed: _loadMoreComments,
+                              child: const Text(
+                                'Load more comments',
+                                style: TextStyle(color: Colors.blue),
+                              ),
+                            );
+                          }
+                          if (commentIndex >= comments.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: Duration(
+                              milliseconds: 400 + (index * 50).clamp(0, 1000),
+                            ),
+                            curve: Curves.easeOutQuart,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 20 * (1 - value)),
+                                child: Opacity(opacity: value, child: child),
+                              );
+                            },
+                            child: _buildCommentItem(comments[commentIndex]),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSortButton(String sort, String label) {
-    final isSelected = _currentSort == sort;
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : () => _handleSortChange(sort),
-        style: ElevatedButton.styleFrom(
-          backgroundColor:
-              isSelected ? Colors.red : Colors.grey[800]?.withOpacity(0.5),
-          foregroundColor: isSelected ? Colors.white : Colors.grey[400],
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildSortDropdown() {
+    return CustomDropdown<String>(
+      value: _currentSort,
+      items: const ['best', 'new', 'oldest'],
+      itemBuilder: (value) {
+        switch (value) {
+          case 'best':
+            return 'Top comments';
+          case 'new':
+            return 'Newest first';
+          case 'oldest':
+            return 'Oldest first';
+          default:
+            return value;
+        }
+      },
+      onChanged: (value) => _handleSortChange(value),
+      width: 160,
+      child: Row(
+        children: [
+          const Icon(Icons.sort, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'Sort by',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
+        ],
       ),
     );
   }
