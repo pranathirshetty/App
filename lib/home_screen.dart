@@ -116,6 +116,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int ctotal = 0;
   final authService = AuthService();
   final RealtimeService _realtimeService = RealtimeService();
+  final CarouselSliderController _carouselController =
+      CarouselSliderController();
 
   @override
   void initState() {
@@ -431,150 +433,311 @@ class _HomeScreenState extends State<HomeScreen> {
             if (topAiring.isNotEmpty)
               Stack(
                 children: [
-                  // Top gradient for status bar and app bar area
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: MediaQuery.of(context).padding.top +
-                        kToolbarHeight +
-                        40,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.8),
-                            Colors.black.withValues(alpha: 0.6),
-                            Colors.black.withValues(alpha: 0.4),
-                            Colors.transparent,
-                          ],
-                          stops: [0.0, 0.3, 0.6, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
                   CarouselSlider(
+                    carouselController: _carouselController,
                     options: CarouselOptions(
-                      height: MediaQuery.of(context).size.height * 0.75,
+                      height: MediaQuery.of(context).size.height * 0.85,
                       viewportFraction: 1.0,
                       enlargeCenterPage: false,
                       autoPlay: true,
-                      autoPlayInterval: Duration(seconds: 5),
-                      autoPlayAnimationDuration: Duration(milliseconds: 800),
+                      autoPlayInterval: const Duration(seconds: 6),
+                      autoPlayAnimationDuration:
+                          const Duration(milliseconds: 800),
                       autoPlayCurve: Curves.fastOutSlowIn,
                       padEnds: false,
                     ),
-                    items: topAiring.map((item) {
+                    items: topAiring.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
                       return Builder(
                         builder: (BuildContext context) {
-                          // Use covers for small screens, banners for larger screens
                           final screenWidth = MediaQuery.of(context).size.width;
-                          final isSmallScreen = screenWidth <
-                              600; // Use covers on screens < 600px
-                          final imageUrl = isSmallScreen
-                              ? (item.imageUrl.isNotEmpty
-                                  ? item.imageUrl
-                                  : (item.bannerUrl ??
-                                      '')) // Prefer cover on small screens
-                              : (item.bannerUrl ??
+                          final isDesktop = screenWidth > 800;
+
+                          final imageUrl = isDesktop
+                              ? (item.bannerUrl ??
                                   (item.imageUrl.isNotEmpty
                                       ? item.imageUrl
-                                      : '')); // Prefer banner on larger screens
+                                      : ''))
+                              : (item.imageUrl.isNotEmpty
+                                  ? item.imageUrl
+                                  : (item.bannerUrl ?? ''));
 
                           return GestureDetector(
-                            onTap: () {},
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      AnimeInfoScreen(animeId: item.id),
+                                ),
+                              );
+                            },
                             child: Container(
                               width: MediaQuery.of(context).size.width,
                               decoration: BoxDecoration(
+                                color: Colors.black,
                                 image: DecorationImage(
                                   image: NetworkImage(imageUrl.isNotEmpty
                                       ? imageUrl
                                       : 'https://via.placeholder.com/800x400'),
                                   fit: BoxFit.cover,
+                                  alignment: isDesktop
+                                      ? Alignment.centerRight
+                                      : Alignment.center,
                                 ),
                               ),
                               child: Stack(
                                 children: [
-                                  // Main gradient overlay
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.black.withValues(alpha: 0.6),
-                                          Colors.transparent,
-                                          Colors.black.withValues(alpha: 0.3),
-                                          Colors.black.withValues(alpha: 0.7),
-                                          Colors.black.withValues(alpha: 0.9),
-                                          Colors.black,
-                                        ],
-                                        stops: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+                                  // Desktop: Angled Glass/Gradient Overlay on Left
+                                  if (isDesktop)
+                                    Positioned.fill(
+                                      child: ClipPath(
+                                        clipper: _HeroContentClipper(),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                              sigmaX: 20.0, sigmaY: 20.0),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                colors: [
+                                                  Colors.black
+                                                      .withValues(alpha: 0.9),
+                                                  Colors.black
+                                                      .withValues(alpha: 0.8),
+                                                  Colors.black
+                                                      .withValues(alpha: 0.6),
+                                                  Colors.black
+                                                      .withValues(alpha: 0.2),
+                                                ],
+                                                stops: const [
+                                                  0.0,
+                                                  0.4,
+                                                  0.8,
+                                                  1.0
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    // Mobile: Standard Bottom Gradient
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.black.withValues(alpha: 0.6),
+                                            Colors.transparent,
+                                            Colors.black.withValues(alpha: 0.3),
+                                            Colors.black.withValues(alpha: 0.7),
+                                            Colors.black.withValues(alpha: 0.9),
+                                            Colors.black,
+                                          ],
+                                          stops: const [
+                                            0.0,
+                                            0.2,
+                                            0.4,
+                                            0.6,
+                                            0.8,
+                                            1.0
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
+
                                   // Content
                                   Padding(
                                     padding: EdgeInsets.fromLTRB(
-                                      20,
+                                      isDesktop ? 60 : 20,
                                       MediaQuery.of(context).padding.top +
                                           kToolbarHeight +
-                                          40,
-                                      20,
+                                          (isDesktop ? 20 : 40),
+                                      isDesktop ? 60 : 20,
                                       20,
                                     ),
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      mainAxisAlignment: isDesktop
+                                          ? MainAxisAlignment.center
+                                          : MainAxisAlignment.end,
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        // Age rating and type tags
-                                        Row(
-                                          children: [
-                                            _buildTag('16+'),
-                                            const SizedBox(width: 8),
-                                            _buildTag(
-                                              '${item.type}'
-                                              '${item.subbedCount > 0 ? ' | SUB' : ''}'
-                                              '${item.dubbedCount > 0 ? ' | DUB' : ''}',
+                                        // Spotlight Tag (Desktop Only)
+                                        if (isDesktop) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(30),
+                                              border: Border.all(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.2)),
                                             ),
-                                          ],
-                                        ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.redAccent,
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.redAccent
+                                                            .withValues(
+                                                                alpha: 0.5),
+                                                        blurRadius: 6,
+                                                        spreadRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '#${index + 1} Spotlight',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 24),
+                                        ] else ...[
+                                          // Mobile Tags
+                                          Row(
+                                            children: [
+                                              _buildTag('16+'),
+                                              const SizedBox(width: 8),
+                                              _buildTag(
+                                                '${item.type}'
+                                                '${item.subbedCount > 0 ? ' | SUB' : ''}'
+                                                '${item.dubbedCount > 0 ? ' | DUB' : ''}',
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 12),
+                                        ],
 
-                                        const SizedBox(height: 12),
                                         // Title
-                                        Text(
-                                          item.title,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.bold,
-                                            height: 1.2,
+                                        SizedBox(
+                                          width: isDesktop
+                                              ? screenWidth * 0.45
+                                              : null,
+                                          child: Text(
+                                            item.title,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: isDesktop ? 56 : 28,
+                                              fontWeight: isDesktop
+                                                  ? FontWeight.w800
+                                                  : FontWeight.bold,
+                                              height: isDesktop ? 1.1 : 1.2,
+                                              letterSpacing:
+                                                  isDesktop ? -1.0 : 0.0,
+                                            ),
+                                            maxLines: isDesktop ? 3 : 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 16),
+
+                                        // Metadata (Desktop)
+                                        if (isDesktop) ...[
+                                          Row(
+                                            children: [
+                                              _buildMetaTag(
+                                                  item.type, Icons.movie),
+                                              const SizedBox(width: 12),
+                                              _buildMetaTag(
+                                                  '${item.epCount} Episodes',
+                                                  Icons.layers),
+                                              const SizedBox(width: 12),
+                                              if (item.malScore != null)
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                        0xFF00C853), // MAL Green
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            4),
+                                                  ),
+                                                  child: Text(
+                                                    'MAL ${item.malScore}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              const SizedBox(width: 12),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                      color: Colors.white70),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: const Text('HD',
+                                                    style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600)),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 24),
+                                        ],
+
                                         // Description
-                                        Text(
-                                          _stripHtmlTags(item.description),
-                                          style: TextStyle(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.9),
-                                            fontSize: 14,
-                                            height: 1.5,
+                                        SizedBox(
+                                          width: isDesktop
+                                              ? screenWidth * 0.4
+                                              : null,
+                                          child: Text(
+                                            _stripHtmlTags(item.description),
+                                            style: TextStyle(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.9),
+                                              fontSize: isDesktop ? 16 : 14,
+                                              height: 1.5,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                            maxLines: isDesktop ? 4 : 3,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 20),
-                                        // Watch button
+                                        SizedBox(height: isDesktop ? 32 : 20),
+
+                                        // Buttons
                                         Row(
                                           children: [
-                                            Expanded(
-                                              child: ElevatedButton.icon(
+                                            if (isDesktop) ...[
+                                              ElevatedButton.icon(
                                                 onPressed: () {
                                                   Navigator.push(
                                                     context,
@@ -586,39 +749,34 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   );
                                                 },
                                                 style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.redAccent,
-                                                  padding: EdgeInsets.symmetric(
-                                                    vertical: 16,
-                                                    horizontal: 24,
+                                                  backgroundColor: Colors.white,
+                                                  foregroundColor: Colors.black,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    vertical: 22,
+                                                    horizontal: 32,
                                                   ),
+                                                  elevation: 0,
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                            8),
+                                                            12),
                                                   ),
                                                 ),
-                                                icon: Icon(Icons.play_arrow,
-                                                    color: Colors.white),
-                                                label: Text(
-                                                  'Watch Now',
+                                                icon: const Icon(
+                                                    Icons.play_arrow,
+                                                    size: 24),
+                                                label: const Text(
+                                                  'Start Watching',
                                                   style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
                                                     fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    letterSpacing: 0.5,
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color: Colors.white),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: IconButton(
+                                              const SizedBox(width: 16),
+                                              TextButton.icon(
                                                 onPressed: () {
                                                   Navigator.push(
                                                     context,
@@ -629,16 +787,105 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     ),
                                                   );
                                                 },
-                                                icon: Icon(
-                                                  Icons.info_outline,
-                                                  color: Colors.white,
-                                                  size: 24,
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 24,
+                                                      vertical: 22),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12)),
+                                                  backgroundColor: Colors.white
+                                                      .withValues(alpha: 0.1),
                                                 ),
-                                                style: IconButton.styleFrom(
-                                                  padding: EdgeInsets.all(12),
+                                                icon: const Icon(
+                                                    Icons.info_outline,
+                                                    size: 24),
+                                                label: const Text('Details',
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 16)),
+                                              ),
+                                            ] else ...[
+                                              // Mobile Buttons
+                                              Expanded(
+                                                child: ElevatedButton.icon(
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            WatchAnimeScreen(
+                                                                id: item.id),
+                                                      ),
+                                                    );
+                                                  },
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.redAccent,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      vertical: 16,
+                                                      horizontal: 24,
+                                                    ),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                  ),
+                                                  icon: const Icon(
+                                                      Icons.play_arrow,
+                                                      color: Colors.white),
+                                                  label: const Text(
+                                                    'Watch Now',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
+                                              const SizedBox(width: 12),
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                      color: Colors.white),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: IconButton(
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            AnimeInfoScreen(
+                                                                animeId:
+                                                                    item.id),
+                                                      ),
+                                                    );
+                                                  },
+                                                  icon: const Icon(
+                                                    Icons.info_outline,
+                                                    color: Colors.white,
+                                                    size: 24,
+                                                  ),
+                                                  style: IconButton.styleFrom(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ],
@@ -652,6 +899,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }).toList(),
                   ),
+                  if (MediaQuery.of(context).size.width > 800)
+                    Positioned(
+                      bottom: 40,
+                      right: 60,
+                      child: Row(
+                        children: [
+                          _buildCarouselNavBtn(Icons.arrow_back,
+                              () => _carouselController.previousPage()),
+                          const SizedBox(width: 16),
+                          _buildCarouselNavBtn(Icons.arrow_forward,
+                              () => _carouselController.nextPage()),
+                        ],
+                      ),
+                    ),
                 ],
               ),
 
@@ -791,6 +1052,71 @@ class _HomeScreenState extends State<HomeScreen> {
         .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n');
     return text.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
+
+  Widget _buildMetaTag(String text, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCarouselNavBtn(IconData icon, VoidCallback onPressed) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, color: Colors.white),
+        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(),
+      ),
+    );
+  }
+}
+
+class _HeroContentClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    final w = size.width;
+    final h = size.height;
+
+    path.moveTo(0, 0);
+    // Top edge goes to 60% width
+    path.lineTo(w * 0.6, 0);
+    // Angled line down to 45% width at bottom
+    path.lineTo(w * 0.45, h);
+    // Bottom edge back to start
+    path.lineTo(0, h);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
 
 class ContinueWatchingCard extends StatefulWidget {
