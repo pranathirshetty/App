@@ -521,7 +521,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                     color: Colors.grey[900],
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -639,7 +639,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                       child:
                           _thumbnails.containsKey(episode['number'].toString())
                               ? Container(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   child: const Center(
                                     child: Icon(
                                       Icons.play_circle_outline,

@@ -76,8 +76,8 @@ class ErrorView extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    Colors.red.withOpacity(0.2),
-                    Colors.red.withOpacity(0.05),
+                    Colors.red.withValues(alpha: 0.2),
+                    Colors.red.withValues(alpha: 0.05),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -86,7 +86,7 @@ class ErrorView extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 60,
-                color: Colors.red.withOpacity(0.8),
+                color: Colors.red.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 32),

@@ -945,7 +945,7 @@ class _DrippingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFFFFFFF).withOpacity(0.9) // Pure white
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9) // Pure white
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -980,7 +980,7 @@ class _DrippingPainter extends CustomPainter {
 
     // Add some detached drops
     final dropPaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withOpacity(0.8) // Pure white
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.8) // Pure white
       ..style = PaintingStyle.fill;
 
     // Random drops based on time
