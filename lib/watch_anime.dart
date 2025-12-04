@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -18,9 +18,11 @@ import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/theme/app_theme.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'widgets/video_settings_overlay.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:kuudere/widgets/custom_player_controls.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -70,9 +72,22 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Map<String, String> _thumbnails = {}; // Store thumbnails
   List<dynamic> _availableSubtitles = [];
   Map<String, dynamic>? _currentSubtitle;
-  String _currentServer = 'zen'; // Default server
+  String _currentServer = 'hiya'; // Default server
   List<Map<String, dynamic>> _availableQualities = [];
   String? _currentQuality;
+  double _playbackSpeed = 1.0;
+
+  // Subtitle Settings
+  double _subtitleSize = 58.0;
+  Color _subtitleColor = Colors.white;
+  Color _subtitleBackgroundColor = Colors.black.withValues(alpha: 0.5);
+  double _subtitleDelay = 0.0;
+  double _subtitlePos = 100.0;
+
+  // Settings Overlay State
+  bool _showSettingsOverlay = false;
+  Offset? _settingsAnchor;
+  SettingsView _settingsInitialView = SettingsView.main;
 
   // Media Kit player
   late final Player _player;
@@ -1338,14 +1353,18 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             });
 
             // Set mpv properties before loading media
-            if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+            if (Platform.isLinux ||
+                Platform.isWindows ||
+                Platform.isMacOS ||
+                Platform.isAndroid ||
+                Platform.isIOS) {
               try {
                 await (_player.platform as dynamic)
                     .setProperty('sub-ass', 'yes');
                 await (_player.platform as dynamic)
                     .setProperty('embeddedfonts', 'yes');
                 await (_player.platform as dynamic)
-                    .setProperty('sub-ass-override', 'no');
+                    .setProperty('sub-ass-override', 'scale');
               } catch (e) {
                 // print('Error setting mpv properties: $e');
               }
@@ -1359,6 +1378,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               Media(m3u8Url),
               play: true,
             );
+            await _player.play();
 
             if (subtitles != null) {
               for (final sub in subtitles) {
@@ -1415,6 +1435,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       } else {
         throw Exception('Failed to fetch video data: ${response.statusCode}');
       }
+
+      // Apply subtitle settings
+      await _applySubtitleSettings();
 
       setState(() {
         isLoadingVideo = false;
@@ -1474,368 +1497,54 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         setState(() {
           _currentSubtitle = subtitle;
         });
+
+        // Apply current settings
+        _applySubtitleSettings();
       } catch (e) {
         // print('Error changing subtitle: $e');
       }
     }
   }
 
-  void _showSubtitleSelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Select Subtitle",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        Icons.subtitles_off,
-                        color: _currentSubtitle == null
-                            ? Colors.red
-                            : Colors.white,
-                      ),
-                      title: Text(
-                        "Off",
-                        style: TextStyle(
-                          color: _currentSubtitle == null
-                              ? Colors.red
-                              : Colors.white,
-                        ),
-                      ),
-                      onTap: () {
-                        _changeSubtitle(null);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    ..._availableSubtitles.map((sub) {
-                      final isSelected = _currentSubtitle == sub;
-                      return ListTile(
-                        leading: Icon(
-                          Icons.subtitles,
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                        title: Text(
-                          sub['title'] ?? sub['language_name'] ?? 'Unknown',
-                          style: TextStyle(
-                            color: isSelected ? Colors.red : Colors.white,
-                          ),
-                        ),
-                        onTap: () {
-                          _changeSubtitle(sub);
-                          Navigator.pop(context);
-                        },
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  Future<void> _applySubtitleSettings() async {
+    // Apply settings to all platforms (Android/iOS/Desktop)
+    try {
+      // Scale (default is 1.0)
+      // We map 28.0 (our default UI size) to 1.0 mpv scale roughly
+      double scale = _subtitleSize / 28.0;
+      await (_player.platform as dynamic)
+          .setProperty('sub-scale', scale.toString());
+
+      // Colors in MPV are BGR hex? No, usually #AARRGGBB or #RRGGBB
+      // mpv takes #AARRGGBB
+      await (_player.platform as dynamic)
+          .setProperty('sub-color', '#${_toHex(_subtitleColor)}');
+      await (_player.platform as dynamic).setProperty(
+          'sub-back-color', '#${_toHex(_subtitleBackgroundColor)}');
+
+      // Delay
+      await (_player.platform as dynamic)
+          .setProperty('sub-delay', _subtitleDelay.toString());
+
+      // Position (0-100, default 100 is bottom)
+      await (_player.platform as dynamic)
+          .setProperty('sub-pos', _subtitlePos.toString());
+    } catch (e) {
+      // print('Error applying subtitle settings: $e');
+    }
   }
 
-  void _showSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Settings",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (_availableQualities.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.hd, color: Colors.white),
-                  title: const Text("Quality",
-                      style: TextStyle(color: Colors.white)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _currentQuality ?? 'Auto',
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showQualitySelection();
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.dns, color: Colors.white),
-                title:
-                    const Text("Server", style: TextStyle(color: Colors.white)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _currentServer.toUpperCase(),
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 14),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_ios,
-                        color: Colors.white, size: 16),
-                  ],
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showServerSelection();
-                },
-              ),
-              if (_availableSubtitles.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.subtitles, color: Colors.white),
-                  title: const Text("Subtitles/CC",
-                      style: TextStyle(color: Colors.white)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _currentSubtitle?['title'] ??
-                            _currentSubtitle?['language_name'] ??
-                            "Off",
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSubtitleSelection();
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.speed, color: Colors.white),
-                title: const Text("Playback Speed",
-                    style: TextStyle(color: Colors.white)),
-                trailing: const Icon(Icons.arrow_forward_ios,
-                    color: Colors.white, size: 16),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showPlaybackSpeedSelection();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  String _toHex(Color color) {
+    return color.toARGB32().toRadixString(16).padLeft(8, '0');
   }
 
-  void _showPlaybackSpeedSelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Playback Speed",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children:
-                      [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map((speed) {
-                    final isSelected = _player.state.rate == speed;
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        "${speed}x",
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () {
-                        _player.setRate(speed);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showQualitySelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Quality",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _availableQualities.map((qual) {
-                    final isSelected = _currentQuality == qual['quality'];
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        qual['quality'],
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () async {
-                        setState(() {
-                          _currentQuality = qual['quality'];
-                        });
-                        await _player.open(Media(qual['url']), play: true);
-                        if (mounted) Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showServerSelection() {
-    final servers = [
-      'hiya',
-      'hiya-dub',
-      'zen',
-      'zen2',
-      'pahe',
-      'allmanga',
-      'allmanga-dub'
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Server",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: servers.map((server) {
-                    final isSelected = _currentServer == server;
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        server.toUpperCase(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await _loadVideo('', server: server);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  void _showSettings(
+      {SettingsView initialView = SettingsView.main, Offset? anchor}) {
+    setState(() {
+      _settingsInitialView = initialView;
+      _settingsAnchor = anchor;
+      _showSettingsOverlay = true;
+    });
   }
 
   Future<void> _loadFonts(List<dynamic> fonts) async {
@@ -1917,65 +1626,96 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       );
     }
 
+    final servers = [
+      'hiya',
+      'hiya-dub',
+      'zen',
+      'zen2',
+      'pahe',
+      'allmanga',
+      'allmanga-dub'
+    ];
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Video(
         key: ValueKey(_videoController),
         controller: _videoController,
         controls: (state) {
-          if (Platform.isAndroid || Platform.isIOS) {
-            // Mobile controls with custom top button bar
-            final topButtonBar = [
-              const Spacer(),
-              if (_availableSubtitles.isNotEmpty)
-                MaterialCustomButton(
-                  onPressed: _showSubtitleSelection,
-                  icon: const Icon(Icons.subtitles),
-                ),
-              MaterialCustomButton(
-                onPressed: _showSettings,
-                icon: const Icon(Icons.settings),
-              ),
-            ];
-
-            return MaterialVideoControlsTheme(
-              normal: MaterialVideoControlsThemeData(
-                topButtonBar: topButtonBar,
-              ),
-              fullscreen: MaterialVideoControlsThemeData(
-                topButtonBar: topButtonBar,
-              ),
-              child: MaterialVideoControls(state),
-            );
-          }
-
-          final buttonBar = [
-            const MaterialDesktopPlayOrPauseButton(),
-            const MaterialDesktopVolumeButton(),
-            const MaterialDesktopPositionIndicator(),
-            const Spacer(),
-            if (_availableSubtitles.isNotEmpty)
-              IconButton(
-                onPressed: _showSubtitleSelection,
-                icon: const Icon(Icons.subtitles, color: Colors.white),
-                tooltip: "Subtitles",
-              ),
-            IconButton(
-              onPressed: _showSettings,
-              icon: const Icon(Icons.settings, color: Colors.white),
-              tooltip: "Settings",
-            ),
-            const MaterialDesktopFullscreenButton(),
-          ];
-
-          return MaterialDesktopVideoControlsTheme(
-            normal: MaterialDesktopVideoControlsThemeData(
-              bottomButtonBar: buttonBar,
-            ),
-            fullscreen: MaterialDesktopVideoControlsThemeData(
-              bottomButtonBar: buttonBar,
-            ),
-            child: MaterialDesktopVideoControls(state),
+          return CustomVideoControls(
+            controller: _videoController,
+            videoState: state,
+            title: animeData['anime_info']['english'] ?? 'Unknown Anime',
+            episodeTitle: 'Episode $_currentEpisodeNumber',
+            onSettingsPressed: (anchor) => _showSettings(anchor: anchor),
+            onSubtitlePressed: (anchor) => _showSettings(
+                initialView: SettingsView.subtitles, anchor: anchor),
+            settingsOverlay: _showSettingsOverlay
+                ? VideoSettingsOverlay(
+                    initialView: _settingsInitialView,
+                    anchorPosition: _settingsAnchor,
+                    qualities: _availableQualities
+                        .map((q) => q['quality'].toString())
+                        .toList(),
+                    currentQuality: _currentQuality ?? 'Auto',
+                    onQualityChanged: (quality) async {
+                      final selected = _availableQualities
+                          .firstWhere((q) => q['quality'] == quality);
+                      setState(() {
+                        _currentQuality = quality;
+                      });
+                      await _player.open(Media(selected['url']), play: true);
+                    },
+                    speeds: speeds,
+                    currentSpeed: _playbackSpeed,
+                    onSpeedChanged: (speed) {
+                      setState(() {
+                        _playbackSpeed = speed;
+                      });
+                      _player.setRate(speed);
+                    },
+                    subtitles: _availableSubtitles.cast<Map<String, dynamic>>(),
+                    currentSubtitle: _currentSubtitle,
+                    onSubtitleChanged: (subtitle) {
+                      _changeSubtitle(subtitle);
+                    },
+                    servers: servers,
+                    currentServer: _currentServer,
+                    onServerChanged: (server) async {
+                      await _loadVideo('', server: server);
+                    },
+                    onSubtitleSettingsPressed: () {
+                      // Handled internally by VideoSettingsOverlay now
+                    },
+                    subtitleSize: _subtitleSize,
+                    onSubtitleSizeChanged: (size) {
+                      setState(() {
+                        _subtitleSize = size;
+                      });
+                      _applySubtitleSettings();
+                    },
+                    subtitleDelay: _subtitleDelay,
+                    onSubtitleDelayChanged: (delay) {
+                      setState(() {
+                        _subtitleDelay = delay;
+                      });
+                      _applySubtitleSettings();
+                    },
+                    subtitlePos: _subtitlePos,
+                    onSubtitlePosChanged: (pos) {
+                      setState(() {
+                        _subtitlePos = pos;
+                      });
+                      _applySubtitleSettings();
+                    },
+                    onClose: () {
+                      setState(() {
+                        _showSettingsOverlay = false;
+                      });
+                    },
+                  )
+                : null,
           );
         },
         fill: Colors.black,
@@ -2180,136 +1920,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red[500],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    const Text('You are watching',
-                        style: TextStyle(color: Colors.white)),
-                    Text(
-                      'Episode $_currentEpisodeNumber',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'If the current server doesn\'t work, please try other servers below.',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: isLoadingEpisodes
-                    ? Center(
-                        child: LoadingAnimationWidget.fourRotatingDots(
-                          color: Colors.red,
-                          size: 50,
-                        ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              const Text('SUB:',
-                                  style: TextStyle(color: Colors.white)),
-                              ...(episodeData['episode_links'] ?? [])
-                                  .where((link) =>
-                                      link['dataType'] == 'sub' &&
-                                      (link['serverName'] == 'Streamwish' ||
-                                          link['serverName'] == 'Vidhide' ||
-                                          link['serverName'] == 'Hianime' ||
-                                          link['serverName'] == 'StreamWish'))
-                                  .map((server) => ElevatedButton(
-                                        onPressed: () =>
-                                            _onServerSelected(server),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              server == currentSelectedServer
-                                                  ? Colors.red
-                                                  : const Color(0xFF1A1A1A),
-                                          side: BorderSide(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.red
-                                                    : Colors.grey[700]!,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _getDisplayServerName(server),
-                                          style: TextStyle(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.white
-                                                    : Colors.grey[400],
-                                          ),
-                                        ),
-                                      )),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              const Text('DUB:',
-                                  style: TextStyle(color: Colors.white)),
-                              ...(episodeData['episode_links'] ?? [])
-                                  .where((link) =>
-                                      link['dataType'] == 'dub' &&
-                                      (link['serverName'] == 'Streamwish' ||
-                                          link['serverName'] == 'Vidhide' ||
-                                          link['serverName'] == 'Hianime' ||
-                                          link['serverName'] == 'StreamWish'))
-                                  .map((server) => ElevatedButton(
-                                        onPressed: () =>
-                                            _onServerSelected(server),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              server == currentSelectedServer
-                                                  ? Colors.red
-                                                  : const Color(0xFF1A1A1A),
-                                          side: BorderSide(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.red
-                                                    : Colors.grey[700]!,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _getDisplayServerName(server),
-                                          style: TextStyle(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.white
-                                                    : Colors.grey[400],
-                                          ),
-                                        ),
-                                      )),
-                            ],
-                          ),
-                        ],
-                      ),
-              ),
-              const SizedBox(height: 16),
               if (!isDesktop) _buildCommentButton(),
             ],
           ),
@@ -2656,38 +2266,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
 
     return null;
-  }
-
-  String _getDisplayServerName(Map<String, dynamic> server) {
-    String prefix;
-
-    if (server['serverName'] == 'Streamwish') {
-      prefix = 'HD-';
-    } else if (server['serverName'] == 'StreamWish') {
-      prefix = 'HD-';
-    } else if (server['serverName'] == 'Hianime') {
-      prefix = 'HD-';
-    } else {
-      prefix = 'HD-';
-    }
-
-    return '$prefix${server['serverId']}';
-  }
-
-  Future<void> _onServerSelected(Map<String, dynamic> server) async {
-    setState(() {
-      currentSelectedServer = server;
-    });
-
-    // Save new preferred language
-    String selectedLang = server['dataType'];
-    _preferredLang = selectedLang;
-    await _secureStorage.write(key: "preferredLang", value: selectedLang);
-
-    // _selectedCategory = selectedLang;
-    // _selectedServerName = server['serverName'];
-
-    await _loadVideo(server['dataLink']);
   }
 
   Widget _buildCommentButton() {
