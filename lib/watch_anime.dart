@@ -24,6 +24,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:kuudere/widgets/custom_player_controls.dart';
+import 'package:kuudere/widgets/custom_dropdown.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -2300,7 +2301,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Widget _buildEpisodeListMobile() {
     if (isLoadingEpisodes) {
       return Center(
-        child: LoadingAnimationWidget.fourRotatingDots(
+        child: LoadingAnimationWidget.threeArchedCircle(
           color: Colors.red,
           size: 50,
         ),
@@ -2308,107 +2309,132 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
 
     final episodes = episodeData['all_episodes'] ?? [];
+    if (episodes.isEmpty) {
+      return const Center(
+        child: Text(
+          'No episodes found',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+    }
+
     final totalEpisodes = episodes.length;
     final pageGroups = _generatePageGroups(totalEpisodes);
 
     return Container(
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 0, 0, 0),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.grey[800]!,
-          width: 1,
-        ),
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text(
-                'Episodes',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              CustomDropdown<int>(
+                value: _currentPageStart,
+                items: pageGroups,
+                itemBuilder: (start) {
+                  final end = start + _episodesPerPage - 1;
+                  return '$start - $end';
+                },
+                onChanged: (value) {
+                  setState(() {
+                    _currentPageStart = value;
+                  });
+                },
+                width: 120,
+                maxHeight: 200, // Make episode dropdown scrollable
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_currentPageStart} - ${_currentPageStart + _episodesPerPage - 1}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: _currentPageStart >= 1000 ? 10 : 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
-              DropdownButton<int>(
-                dropdownColor: Colors.black,
-                value: _currentPageStart,
-                items: pageGroups.map((start) {
-                  final end = start + _episodesPerPage - 1;
-                  return DropdownMenuItem(
-                    value: start,
-                    child: Text(
-                      '$start - $end',
-                      style: const TextStyle(color: Colors.white),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search episode...',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    fillColor: Colors.grey[900],
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _currentPageStart = value!;
-                  });
-                },
-                underline: Container(
-                  height: 2,
-                  color: Colors.red,
+                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon:
+                                const Icon(Icons.clear, color: Colors.white70),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                 ),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by episode number or title...',
-              hintStyle: TextStyle(color: Colors.white70),
-              fillColor: Colors.black,
-              filled: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Colors.white, width: 1),
-              ),
-              prefixIcon: Icon(Icons.search, color: Colors.white70),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white70),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
-            ),
-            style: const TextStyle(color: Colors.white),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value.toLowerCase();
-              });
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.05),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
             },
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 400,
             child: ListView.builder(
-              controller: _episodeScrollController,
+              key: ValueKey(_searchQuery + _currentPageStart.toString()),
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: _getFilteredEpisodes(episodes).length,
               itemBuilder: (context, index) {
                 final filteredEpisodes = _getFilteredEpisodes(episodes);
@@ -2417,21 +2443,23 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                     episode['number'] == _currentEpisodeNumber;
 
                 return Container(
+                  key: ValueKey(episode['number']),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isCurrentEpisode ? Colors.red : Colors.grey[800]!,
-                      width: 1,
-                    ),
+                    color: isCurrentEpisode
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.grey[900],
                     borderRadius: BorderRadius.circular(8),
+                    border:
+                        isCurrentEpisode ? Border.all(color: Colors.red) : null,
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(8),
                     leading: Container(
-                      width: 100,
-                      height: 60,
+                      width: 90,
+                      height: 50,
                       decoration: BoxDecoration(
-                        color: Colors.grey[800],
+                        color: Colors.black,
                         borderRadius: BorderRadius.circular(4),
                         image: _thumbnails
                                 .containsKey(episode['number'].toString())
@@ -2457,27 +2485,23 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                               : const Center(
                                   child: Icon(
                                     Icons.play_circle_outline,
-                                    color: Colors.white70,
+                                    color: Colors.white54,
                                     size: 24,
                                   ),
                                 ),
                     ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${episode['number']}. ${episode['titles'][0]}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                    title: Text(
+                      'Episode ${episode['number']}',
+                      style: TextStyle(
+                        color: isCurrentEpisode ? Colors.red : Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     subtitle: Text(
-                      episode['aired'] ?? 'No air date',
-                      style: TextStyle(color: Colors.grey[600]),
+                      episode['titles'][0] ?? '',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () => onEpisodeSelected(episode['number']),
                   ),

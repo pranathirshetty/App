@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:flutter/foundation.dart';
+import 'package:kuudere/widgets/anime_schedule_popup.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'anime_info.dart';
 import 'dart:ui';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:kuudere/widgets/custom_dropdown.dart';
 
 class ScheduleTab extends StatefulWidget {
   const ScheduleTab({super.key});
@@ -144,8 +148,17 @@ class _ScheduleTabState extends State<ScheduleTab> {
                     ),
                   ),
                 ),
-                ...animeList.map((anime) =>
-                    AnimeScheduleCard(anime: anime, isToday: isToday)),
+                ...animeList.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final anime = entry.value;
+                  final uniqueId = '${date}_${anime.id}_$index';
+                  return AnimeScheduleCard(
+                    key: ValueKey(uniqueId),
+                    anime: anime,
+                    isToday: isToday,
+                    heroTag: 'schedule-$uniqueId',
+                  );
+                }),
               ],
             );
           },
@@ -155,201 +168,429 @@ class _ScheduleTabState extends State<ScheduleTab> {
   }
 }
 
-class AnimeScheduleCard extends StatelessWidget {
+class AnimeScheduleCard extends StatefulWidget {
   final AnimeSchedule anime;
   final bool isToday;
+  final String heroTag;
 
   const AnimeScheduleCard({
     super.key,
     required this.anime,
     required this.isToday,
+    required this.heroTag,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121212),
-        borderRadius: BorderRadius.circular(16),
-        border: isToday
-            ? Border.all(
-                color: Colors.redAccent.withValues(alpha: 0.5), width: 1)
-            : Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+  State<AnimeScheduleCard> createState() => _AnimeScheduleCardState();
+}
+
+class _AnimeScheduleCardState extends State<AnimeScheduleCard> {
+  late bool _inWatchlist;
+  String? _folder;
+  bool _isUpdatingWatchlist = false;
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+
+  @override
+  void initState() {
+    super.initState();
+    _inWatchlist = widget.anime.inWatchlist;
+    _folder = widget.anime.folder;
+  }
+
+  @override
+  void dispose() {
+    _removePopup();
+    super.dispose();
+  }
+
+  void _showPopup({bool isMobile = false}) {
+    if (_overlayEntry != null) return;
+
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final spaceBelow = screenHeight - (offset.dy + size.height);
+    final showAbove = spaceBelow < 250; // Popup height approx
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          if (isMobile)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _removePopup,
+                behavior: HitTestBehavior.translucent,
+                child: Container(color: Colors.black54),
+              ),
+            ),
+          Positioned(
+            width: 300,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: isMobile
+                  ? Offset(
+                      (size.width - 300) /
+                          2, // Center horizontally relative to card
+                      showAbove ? -260 : size.height + 10)
+                  : Offset(0, showAbove ? -260 : size.height + 10), // Desktop
+              child: AnimeSchedulePopup(
+                anime: widget.anime,
+                onClose: isMobile ? _removePopup : null,
+              ),
+            ),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AnimeInfoScreen(animeId: anime.id),
-              ),
-            );
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Stack(
-              children: [
-                // Background Banner (faded)
-                if (anime.banner != null)
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.15,
-                      child: ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
-                        child: Image.network(
-                          anime.banner!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox(),
-                        ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removePopup() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  Future<void> _updateWatchlistStatus(String newStatus) async {
+    final authService = AuthService();
+    final sessionInfo = await authService.getStoredSession();
+
+    if (sessionInfo == null) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingWatchlist = true;
+    });
+
+    final httpService = HttpService();
+
+    try {
+      final response = await httpService.post(
+        '/api/anime/watchlist',
+        body: {
+          'animeId': widget.anime.id,
+          'folder': newStatus,
+        },
+        requireAuth: true,
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _inWatchlist = newStatus != 'Remove';
+          _folder = newStatus != 'Remove' ? newStatus : null;
+          _isUpdatingWatchlist = false;
+        });
+      } else {
+        setState(() {
+          _isUpdatingWatchlist = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isUpdatingWatchlist = false;
+      });
+    }
+  }
+
+  Widget _buildWatchlistButton() {
+    final options = [
+      'Watching',
+      'On Hold',
+      'Plan To Watch',
+      'Dropped',
+      'Completed',
+      'Remove'
+    ];
+
+    return CustomDropdown<String>(
+      value: _folder,
+      items: options,
+      itemBuilder: (value) => value,
+      onChanged: (value) {
+        if (!_isUpdatingWatchlist) {
+          _updateWatchlistStatus(value);
+        }
+      },
+      width: 140, // Slightly smaller than anime_info
+      child: AbsorbPointer(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _isUpdatingWatchlist
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: LoadingAnimationWidget.threeArchedCircle(
+                        color: Colors.black,
+                        size: 14,
                       ),
+                    )
+                  : Icon(
+                      _inWatchlist ? Icons.bookmark : Icons.bookmark_border,
+                      color: Colors.black,
+                      size: 14,
                     ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  _isUpdatingWatchlist
+                      ? '...'
+                      : _inWatchlist
+                          ? (_folder ?? 'Saved')
+                          : 'Add to List',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                // Content
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    final isDesktop = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: isDesktop
+            ? (_) {
+                _showPopup(isMobile: false);
+              }
+            : null,
+        onExit: isDesktop
+            ? (_) {
+                _removePopup();
+              }
+            : null,
+        child: GestureDetector(
+          onLongPress: !isDesktop
+              ? () {
+                  _showPopup(isMobile: true);
+                }
+              : null,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF121212),
+              borderRadius: BorderRadius.circular(16),
+              border: widget.isToday
+                  ? Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.5), width: 1)
+                  : Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AnimeInfoScreen(animeId: widget.anime.id),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
                     children: [
-                      // Cover Image
-                      Hero(
-                        tag: 'schedule-${anime.id}',
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: anime.cover != null
-                              ? Image.network(
-                                  anime.cover!,
-                                  width: 85,
-                                  height: 125,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                    width: 85,
-                                    height: 125,
-                                    color: Colors.grey[900],
-                                    child: const Icon(Icons.movie,
-                                        color: Colors.white24),
-                                  ),
-                                )
-                              : Container(
-                                  width: 85,
-                                  height: 125,
-                                  color: Colors.grey[900],
-                                  child: const Icon(Icons.movie,
-                                      color: Colors.white24),
-                                ),
+                      // Background Banner (faded)
+                      if (widget.anime.banner != null)
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.15,
+                            child: ImageFiltered(
+                              imageFilter:
+                                  ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+                              child: Image.network(
+                                widget.anime.banner!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox(),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
 
-                      // Details
-                      Expanded(
-                        child: Column(
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Title
-                            Text(
-                              anime.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                height: 1.2,
+                            // Cover Image
+                            Hero(
+                              tag: widget.heroTag,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: widget.anime.cover != null
+                                    ? Image.network(
+                                        widget.anime.cover!,
+                                        width: 85,
+                                        height: 125,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                          width: 85,
+                                          height: 125,
+                                          color: Colors.grey[900],
+                                          child: const Icon(Icons.movie,
+                                              color: Colors.white24),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 85,
+                                        height: 125,
+                                        color: Colors.grey[900],
+                                        child: const Icon(Icons.movie,
+                                            color: Colors.white24),
+                                      ),
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(width: 16),
 
-                            // Time and Episode Badge
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        Colors.redAccent.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                        color: Colors.redAccent
-                                            .withValues(alpha: 0.3)),
+                            // Details
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Title
+                                  Text(
+                                    widget.anime.title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  const SizedBox(height: 8),
+
+                                  // Time and Episode Badge
+                                  Row(
                                     children: [
-                                      const Icon(Icons.access_time_rounded,
-                                          size: 12, color: Colors.redAccent),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        anime.time,
-                                        style: const TextStyle(
-                                          color: Colors.redAccent,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.redAccent
+                                              .withValues(alpha: 0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: Colors.redAccent
+                                                  .withValues(alpha: 0.3)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                                Icons.access_time_rounded,
+                                                size: 12,
+                                                color: Colors.redAccent),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              widget.anime.time,
+                                              style: const TextStyle(
+                                                color: Colors.redAccent,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'EP ${widget.anime.episode}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'EP ${anime.episode}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
 
-                            const SizedBox(height: 10),
+                                  const SizedBox(height: 10),
 
-                            // Genres
-                            if (anime.genres != null &&
-                                anime.genres!.isNotEmpty)
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: anime.genres!.take(3).map((genre) {
-                                  return Text(
-                                    genre,
-                                    style: TextStyle(
-                                      color: Colors.grey[400],
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
+                                  // Genres
+                                  if (widget.anime.genres != null &&
+                                      widget.anime.genres!.isNotEmpty)
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: widget.anime.genres!
+                                          .take(3)
+                                          .map((genre) {
+                                        return Text(
+                                          genre,
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
-                                  );
-                                }).toList(),
+
+                                  const SizedBox(height: 12),
+
+                                  // Watchlist Button
+                                  _buildWatchlistButton(),
+                                ],
                               ),
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -371,6 +612,8 @@ class AnimeSchedule {
   final List<String>? genres;
   final int? year;
   final String? type;
+  final bool inWatchlist;
+  final String? folder;
 
   AnimeSchedule({
     required this.id,
@@ -385,6 +628,8 @@ class AnimeSchedule {
     this.genres,
     this.year,
     this.type,
+    this.inWatchlist = false,
+    this.folder,
   });
 
   factory AnimeSchedule.fromJson(Map<String, dynamic> json) {
@@ -401,6 +646,8 @@ class AnimeSchedule {
       genres: json['genres'] != null ? List<String>.from(json['genres']) : null,
       year: json['year'],
       type: json['type'],
+      inWatchlist: json['in_watchlist'] ?? false,
+      folder: json['folder'],
     );
   }
 }
