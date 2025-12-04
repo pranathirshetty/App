@@ -12,7 +12,7 @@ class CommentBottomSheet extends StatelessWidget {
   final dynamic epNumber;
   final dynamic animeId;
   final List<Comment> comments;
-  final Function(List<Comment>) updateComments;
+  final Function(List<Comment>, int) updateComments;
 
   const CommentBottomSheet({
     super.key,
@@ -52,7 +52,7 @@ class CommentsContent extends StatefulWidget {
   final dynamic epNumber;
   final dynamic animeId;
   final List<Comment> comments;
-  final Function(List<Comment>) updateComments;
+  final Function(List<Comment>, int) updateComments;
   final ScrollController? scrollController;
   final bool isDesktop;
 
@@ -186,6 +186,12 @@ class _CommentsContentState extends State<CommentsContent> {
           _hasMore = data['has_more'] ?? false;
           _currentPage = page;
           _totalComments = data['total_comments'] ?? widget.commentCount;
+
+          // Fallback: if API says 0 but we have comments, use the list length
+          if (_totalComments == 0 && comments.isNotEmpty) {
+            _totalComments = comments.length;
+          }
+
           _isLoading = false;
           _isLoadingMore = false;
 
@@ -199,7 +205,7 @@ class _CommentsContentState extends State<CommentsContent> {
           }
         });
 
-        widget.updateComments(comments);
+        widget.updateComments(comments, _totalComments);
       } else {
         throw Exception('Failed to fetch comments: ${response.statusCode}');
       }
@@ -553,7 +559,7 @@ class _CommentsContentState extends State<CommentsContent> {
             expandedReplies[commentId] = true;
           }
         });
-        widget.updateComments(comments);
+        widget.updateComments(comments, _totalComments);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

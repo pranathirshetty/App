@@ -98,11 +98,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   // Side Panel & Fullscreen State
   String? _activeSidePanel;
+  Timer? _saveProgressTimer;
   bool _isCustomFullscreen = false;
 
   @override
   void dispose() {
     _progressTimer?.cancel();
+    _saveProgressTimer?.cancel();
     _searchController.dispose();
 
     // Restore system UI overlays if we were in fullscreen
@@ -264,6 +266,51 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         _scrollToCurrentEpisode(episodeNumber);
       });
     });
+
+    _startSaveProgressTimer();
+  }
+
+  void _startSaveProgressTimer() {
+    _saveProgressTimer?.cancel();
+    _saveProgressTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_player.state.playing) {
+        _saveProgress();
+      }
+    });
+  }
+
+  Future<void> _saveProgress() async {
+    if (_selectedEpisodeId == null || episodeData.isEmpty) return;
+
+    try {
+      final sessionInfo = await authService.getStoredSession();
+      if (sessionInfo == null) return;
+
+      final position = _player.state.position.inSeconds.toDouble();
+      final duration = _player.state.duration.inSeconds.toDouble();
+
+      if (duration <= 0) return;
+
+      final httpService = HttpService();
+      print(
+          'Saving progress: Anime: ${widget.id}, Ep: $_selectedEpisodeId, Time: $position / $duration');
+
+      await httpService.post(
+        '/api/save-progress',
+        body: {
+          'animeId': widget.id,
+          'episodeId': _selectedEpisodeId,
+          'currentTime': position,
+          'duration': duration,
+          'server': _currentServer,
+          'language':
+              'sub', // Defaulting to sub for now, can be dynamic if needed
+        },
+        requireAuth: true,
+      );
+    } catch (e) {
+      // print('Error saving progress: $e');
+    }
   }
 
   /*
@@ -1429,11 +1476,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               await _loadFonts(fonts);
             }
 
+            // Fetch saved position before playing
+            Duration? savedDuration;
+            try {
+              final httpService = HttpService();
+              final historyResponse = await httpService.post(
+                '/api/watch/${widget.id}/$_selectedEpisodeId',
+                body: {}, // Empty body as per curl request
+                requireAuth: true,
+              );
+
+              if (historyResponse.statusCode == 200) {
+                final historyData = json.decode(historyResponse.body);
+                if (historyData['success'] == true &&
+                    historyData['data'] != null) {
+                  final savedTime = historyData['data']['currentTime'];
+                  if (savedTime != null) {
+                    savedDuration =
+                        Duration(seconds: (savedTime as num).toInt());
+                  }
+                }
+              }
+            } catch (e) {
+              // print('Error fetching watch history: $e');
+            }
+
             await _player.open(
               Media(m3u8Url),
               play: true,
             );
-            await _player.play();
+
+            if (savedDuration != null) {
+              // Wait for duration to be available to ensure player is ready
+              if (_player.state.duration == Duration.zero) {
+                await _player.stream.duration
+                    .firstWhere((duration) => duration > Duration.zero);
+              }
+              // print('Seeking to saved time: $savedDuration');
+              await _player.seek(savedDuration);
+            }
 
             if (subtitles != null) {
               for (final sub in subtitles) {
@@ -1671,7 +1752,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   Widget _buildVideoPlayer({bool isFullscreen = false}) {
-    if (currentSelectedServer == null) {
+    if (currentSelectedServer == null || isLoadingVideo) {
       return AspectRatio(
         aspectRatio: 16 / 9,
         child: Container(
@@ -1686,7 +1767,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  "Loading Player...",
+                  "Fetching Episode...",
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
@@ -1827,35 +1908,42 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             Container(
               width: 320,
               color: Colors.black.withValues(alpha: 0.9),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _activeSidePanel == 'comments'
-                              ? 'Comments'
-                              : 'Episodes',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TabBar(
+                              indicatorColor: Colors.red,
+                              indicatorSize: TabBarIndicatorSize.tab,
+                              labelColor: Colors.white,
+                              unselectedLabelColor: Colors.grey,
+                              dividerColor: Colors.transparent,
+                              tabs: const [
+                                Tab(text: 'Episodes'),
+                                Tab(text: 'Comments'),
+                              ],
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () {
-                            _toggleSidePanel(null);
-                          },
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              _toggleSidePanel(null);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _activeSidePanel == 'comments'
-                        ? CommentsContent(
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildSidePanelEpisodeList(),
+                          CommentsContent(
                             commentCount: episodeData['total_comments'] ?? 0,
                             episodeData: episodeData,
                             epNumber: _currentEpisodeNumber,
@@ -1863,10 +1951,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                             comments: comments,
                             updateComments: updateComments,
                             isDesktop: true,
-                          )
-                        : _buildSidePanelEpisodeList(),
-                  ),
-                ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -2762,9 +2852,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
-  void updateComments(List<Comment> updatedComments) {
+  void updateComments(List<Comment> updatedComments, int totalCount) {
     setState(() {
       comments = updatedComments;
+      if (episodeData.isNotEmpty) {
+        episodeData['total_comments'] = totalCount;
+      }
     });
   }
 
