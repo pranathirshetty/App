@@ -25,6 +25,11 @@ class _ScheduleTabState extends State<ScheduleTab> {
   final RealtimeService _realtimeService = RealtimeService();
   final authService = AuthService();
 
+  // Static cache to persist data across tab switches
+  static Map<String, List<AnimeSchedule>>? _cachedRawSchedule;
+  static DateTime? _lastCacheTime;
+  static String? _lastCacheTimezone;
+
   @override
   void initState() {
     super.initState();
@@ -37,36 +42,132 @@ class _ScheduleTabState extends State<ScheduleTab> {
     final httpService = HttpService();
     final sessionInfo = await authService.getStoredSession();
 
-    // Schedule can be viewed without auth, but user preferences might require it
-    try {
-      final response = await httpService.get(
-        '/api/schedule',
-        queryParams: {'timezone': currentTimeZone},
-        requireAuth: sessionInfo != null,
-      );
+    Map<String, List<AnimeSchedule>> rawSchedule;
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body);
-        final Map<String, List<AnimeSchedule>> scheduleData = {};
+    // Check if cache is valid (same timezone, less than 24 hours old)
+    if (_cachedRawSchedule != null &&
+        _lastCacheTime != null &&
+        _lastCacheTimezone == currentTimeZone &&
+        DateTime.now().difference(_lastCacheTime!) <
+            const Duration(hours: 24)) {
+      rawSchedule = _cachedRawSchedule!;
+    } else {
+      try {
+        // 1. Fetch Schedule from API
+        final response = await httpService.get(
+          '/api/schedule',
+          queryParams: {'timezone': currentTimeZone},
+          requireAuth: sessionInfo != null,
+        );
 
-        // Handle both direct object and wrapped response
-        final data = jsonData['data'] ?? jsonData;
-        if (data is Map) {
-          data.forEach((date, animeList) {
-            scheduleData[date] = (animeList as List)
-                .map((anime) => AnimeSchedule.fromJson(anime))
-                .toList();
-          });
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+          final Map<String, List<AnimeSchedule>> scheduleData = {};
+
+          final data = jsonData['data'] ?? jsonData;
+          if (data is Map) {
+            data.forEach((date, animeList) {
+              scheduleData[date] = (animeList as List)
+                  .map((anime) => AnimeSchedule.fromJson(anime))
+                  .toList();
+            });
+          }
+
+          // Update Cache
+          rawSchedule = scheduleData;
+          _cachedRawSchedule = scheduleData;
+          _lastCacheTime = DateTime.now();
+          _lastCacheTimezone = currentTimeZone;
+        } else {
+          throw Exception(
+              'Failed to load schedule data (Status: ${response.statusCode})');
         }
-
-        return scheduleData;
-      } else {
-        throw Exception(
-            'Failed to load schedule data (Status: ${response.statusCode})');
+      } catch (e) {
+        throw Exception('Error fetching data: $e');
       }
-    } catch (e) {
-      throw Exception('Error fetching data: $e');
     }
+
+    // 2. Fetch Watchlist Map (if logged in) & Merge
+    // We always do this to ensure the "Add to List" buttons are up-to-date
+    // even if the schedule itself is cached.
+    if (sessionInfo != null) {
+      try {
+        final watchlistMap = await _fetchWatchlistMap();
+
+        // Create a new map to avoid modifying the cached rawSchedule directly
+        final Map<String, List<AnimeSchedule>> mergedSchedule = {};
+
+        rawSchedule.forEach((date, animeList) {
+          mergedSchedule[date] = animeList.map((anime) {
+            if (watchlistMap.containsKey(anime.id)) {
+              return anime.copyWith(
+                inWatchlist: true,
+                folder: watchlistMap[anime.id],
+              );
+            }
+            return anime;
+          }).toList();
+        });
+
+        return mergedSchedule;
+      } catch (e) {
+        // If watchlist fetch fails, just return raw schedule
+        return rawSchedule;
+      }
+    }
+
+    return rawSchedule;
+  }
+
+  Future<Map<String, String>> _fetchWatchlistMap() async {
+    final httpService = HttpService();
+    final Map<String, String> watchlistMap = {};
+    int page = 1;
+    bool hasMore = true;
+    const int maxPages = 5; // Limit to 5 pages to prevent slow loading
+
+    while (hasMore && page <= maxPages) {
+      try {
+        final response = await httpService.get(
+          '/api/anime/watchlist',
+          queryParams: {
+            'page': page.toString(),
+            'perPage': '50'
+          }, // Fetch 50 at a time
+          requireAuth: true,
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final items = data['data'] ?? data['watchlist'] ?? [];
+
+          if (items.isEmpty) {
+            hasMore = false;
+            break;
+          }
+
+          for (var item in items) {
+            final id = item['id'] ?? item['mainId'];
+            final folder = item['folder'] ?? item['status'];
+            if (id != null && folder != null) {
+              watchlistMap[id.toString()] = folder.toString();
+            }
+          }
+
+          final totalPages = data['total_pages'] ?? data['totalPages'] ?? 1;
+          if (page >= totalPages) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      } catch (e) {
+        hasMore = false;
+      }
+    }
+    return watchlistMap;
   }
 
   void retryFetchingData() {
@@ -648,6 +749,40 @@ class AnimeSchedule {
       type: json['type'],
       inWatchlist: json['in_watchlist'] ?? false,
       folder: json['folder'],
+    );
+  }
+
+  AnimeSchedule copyWith({
+    String? id,
+    String? title,
+    int? episode,
+    String? time,
+    String? description,
+    String? cover,
+    String? banner,
+    int? epCount,
+    String? status,
+    List<String>? genres,
+    int? year,
+    String? type,
+    bool? inWatchlist,
+    String? folder,
+  }) {
+    return AnimeSchedule(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      episode: episode ?? this.episode,
+      time: time ?? this.time,
+      description: description ?? this.description,
+      cover: cover ?? this.cover,
+      banner: banner ?? this.banner,
+      epCount: epCount ?? this.epCount,
+      status: status ?? this.status,
+      genres: genres ?? this.genres,
+      year: year ?? this.year,
+      type: type ?? this.type,
+      inWatchlist: inWatchlist ?? this.inWatchlist,
+      folder: folder ?? this.folder,
     );
   }
 }
