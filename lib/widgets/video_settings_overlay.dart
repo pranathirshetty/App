@@ -66,11 +66,17 @@ class VideoSettingsOverlay extends StatefulWidget {
 
 enum SettingsView { main, quality, speed, subtitles, server, subtitleSettings }
 
-class _VideoSettingsOverlayState extends State<VideoSettingsOverlay> {
+class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
+    with SingleTickerProviderStateMixin {
   late SettingsView _currentView;
   late double _localSubtitleSize;
   late double _localSubtitleDelay;
   late double _localSubtitlePos;
+
+  // Animation controllers
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -79,6 +85,29 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay> {
     _localSubtitleSize = widget.subtitleSize;
     _localSubtitleDelay = widget.subtitleDelay;
     _localSubtitlePos = widget.subtitlePos;
+
+    // Initialize animation controller
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    // Start the animation
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -95,21 +124,35 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay> {
     }
   }
 
+  void _closeWithAnimation() {
+    _animationController.reverse().then((_) {
+      widget.onClose();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: widget.onClose,
-                behavior: HitTestBehavior.translucent,
-                child: Container(color: Colors.black.withValues(alpha: 0.5)),
-              ),
-            ),
-            _buildBottomSheet(constraints.biggest),
-          ],
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _closeWithAnimation,
+                    behavior: HitTestBehavior.translucent,
+                    child: Container(
+                      color: Colors.black
+                          .withValues(alpha: 0.5 * _fadeAnimation.value),
+                    ),
+                  ),
+                ),
+                _buildBottomSheet(constraints.biggest),
+              ],
+            );
+          },
         );
       },
     );
@@ -123,57 +166,81 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay> {
 
     return Align(
       alignment: Alignment.bottomCenter,
-      child: Container(
-        width: width,
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.80),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 8, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
+      child: Transform.translate(
+        offset: Offset(0, maxHeight * _slideAnimation.value),
+        child: Container(
+          width: width,
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.80),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[600],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            Flexible(
-              child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
-                child: _buildCurrentView(),
+              Flexible(
+                child: ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: _buildCurrentView(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCurrentView() {
+    Widget view;
     switch (_currentView) {
       case SettingsView.main:
-        return _buildMainView();
+        view = _buildMainView();
+        break;
       case SettingsView.quality:
-        return _buildQualityView();
+        view = _buildQualityView();
+        break;
       case SettingsView.speed:
-        return _buildSpeedView();
+        view = _buildSpeedView();
+        break;
       case SettingsView.subtitles:
-        return _buildSubtitlesView();
+        view = _buildSubtitlesView();
+        break;
       case SettingsView.server:
-        return _buildServerView();
+        view = _buildServerView();
+        break;
       case SettingsView.subtitleSettings:
-        return _buildSubtitleSettingsView();
+        view = _buildSubtitleSettingsView();
+        break;
     }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey<SettingsView>(_currentView),
+        child: view,
+      ),
+    );
   }
 
   Widget _buildMainView() {

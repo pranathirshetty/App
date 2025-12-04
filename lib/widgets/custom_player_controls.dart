@@ -76,7 +76,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
     if (widget.settingsOverlay != null || widget.activeSidePanel != null)
       return; // Don't hide if settings or side panel are open
 
-    _hideTimer = Timer(const Duration(seconds: 3), () {
+    _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
         setState(() {
           _visible = false;
@@ -258,10 +258,13 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
           ],
         ),
 
-        // Gradient Overlay
-        if (_controlsVisible)
-          Positioned.fill(
-            child: IgnorePointer(
+        // Gradient Overlay with fade animation
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _controlsVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -278,6 +281,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
               ),
             ),
           ),
+        ),
 
         // Buffering Indicator (Always visible if buffering)
         Center(
@@ -308,388 +312,403 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
           ),
         ),
 
-        // Controls
-        if (_controlsVisible)
-          Row(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    // Top Bar
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 8),
-                              if (widget.videoState.isFullscreen())
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.title,
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+        // Controls with fade animation
+        AnimatedOpacity(
+          opacity: _controlsVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: IgnorePointer(
+            ignoring: !_controlsVisible,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Top Bar
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 8),
+                                if (widget.videoState.isFullscreen())
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.title,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        widget.episodeTitle,
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.7),
-                                          fontSize: 12,
+                                        Text(
+                                          widget.episodeTitle,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.7),
+                                            fontSize: 12,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              else
-                                const Spacer(),
-                              if (widget.isFullscreen) ...[
-                                if (widget.episodesBuilder != null ||
-                                    widget.commentsBuilder != null)
-                                  IconButton(
-                                    icon: Icon(Icons.view_sidebar,
-                                        color: widget.activeSidePanel != null
-                                            ? Colors.red
-                                            : Colors.white),
-                                    onPressed: () {
-                                      _onUserInteraction();
-                                      widget.onSidePanelToggled?.call(
-                                          widget.activeSidePanel != null
-                                              ? null
-                                              : 'sidePanel');
-                                    },
-                                  ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+                                if (widget.isFullscreen) ...[
+                                  if (widget.episodesBuilder != null ||
+                                      widget.commentsBuilder != null)
+                                    IconButton(
+                                      icon: Icon(Icons.view_sidebar,
+                                          color: widget.activeSidePanel != null
+                                              ? Colors.red
+                                              : Colors.white),
+                                      onPressed: () {
+                                        _onUserInteraction();
+                                        widget.onSidePanelToggled?.call(
+                                            widget.activeSidePanel != null
+                                                ? null
+                                                : 'sidePanel');
+                                      },
+                                    ),
+                                ],
+                                IconButton(
+                                  key: _settingsButtonKey,
+                                  icon: const Icon(Icons.settings_outlined,
+                                      color: Colors.white),
+                                  onPressed: () {
+                                    _onUserInteraction();
+                                    final RenderBox renderBox =
+                                        _settingsButtonKey.currentContext!
+                                            .findRenderObject() as RenderBox;
+                                    final RenderBox parentRenderBox =
+                                        context.findRenderObject() as RenderBox;
+                                    final offset = renderBox.localToGlobal(
+                                        Offset.zero,
+                                        ancestor: parentRenderBox);
+                                    widget.onSettingsPressed(offset);
+                                  },
+                                ),
                               ],
-                              IconButton(
-                                key: _settingsButtonKey,
-                                icon: const Icon(Icons.settings_outlined,
-                                    color: Colors.white),
-                                onPressed: () {
-                                  _onUserInteraction();
-                                  final RenderBox renderBox = _settingsButtonKey
-                                      .currentContext!
-                                      .findRenderObject() as RenderBox;
-                                  final RenderBox parentRenderBox =
-                                      context.findRenderObject() as RenderBox;
-                                  final offset = renderBox.localToGlobal(
-                                      Offset.zero,
-                                      ancestor: parentRenderBox);
-                                  widget.onSettingsPressed(offset);
-                                },
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    // Center Play/Pause & Seek Buttons
-                    Align(
-                      alignment: const Alignment(0, -0.2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Previous Episode
-                          IconButton(
-                            iconSize: 32,
-                            icon: Icon(
-                              Icons.skip_previous,
-                              color: widget.onPrevEpisode != null
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.3),
-                            ),
-                            onPressed: () {
-                              if (widget.onPrevEpisode != null) {
-                                _onUserInteraction();
-                                widget.onPrevEpisode!();
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          IconButton(
-                            iconSize: 32,
-                            icon: const Icon(Icons.replay_10,
-                                color: Colors.white),
-                            onPressed: () {
-                              _onUserInteraction();
-                              final position =
-                                  widget.controller.player.state.position;
-                              widget.controller.player
-                                  .seek(position - const Duration(seconds: 10));
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          StreamBuilder<bool>(
-                            stream: widget.controller.player.stream.playing,
-                            initialData: widget.controller.player.state.playing,
-                            builder: (context, snapshot) {
-                              final playing = snapshot.data ?? false;
-                              return IconButton(
-                                iconSize: 64,
-                                icon: Icon(
-                                  playing
-                                      ? Icons.pause_circle_filled
-                                      : Icons.play_circle_filled,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                                onPressed: () {
+                      // Center Play/Pause & Seek Buttons
+                      Align(
+                        alignment: const Alignment(0, -0.2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Previous Episode
+                            IconButton(
+                              iconSize: 32,
+                              icon: Icon(
+                                Icons.skip_previous,
+                                color: widget.onPrevEpisode != null
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.3),
+                              ),
+                              onPressed: () {
+                                if (widget.onPrevEpisode != null) {
                                   _onUserInteraction();
-                                  widget.controller.player.playOrPause();
-                                },
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            iconSize: 32,
-                            icon: const Icon(Icons.forward_10,
-                                color: Colors.white),
-                            onPressed: () {
-                              _onUserInteraction();
-                              final position =
-                                  widget.controller.player.state.position;
-                              widget.controller.player
-                                  .seek(position + const Duration(seconds: 10));
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          // Next Episode
-                          IconButton(
-                            iconSize: 32,
-                            icon: Icon(
-                              Icons.skip_next,
-                              color: widget.onNextEpisode != null
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.3),
+                                  widget.onPrevEpisode!();
+                                }
+                              },
                             ),
-                            onPressed: () {
-                              if (widget.onNextEpisode != null) {
+                            const SizedBox(width: 4),
+                            IconButton(
+                              iconSize: 32,
+                              icon: const Icon(Icons.replay_10,
+                                  color: Colors.white),
+                              onPressed: () {
                                 _onUserInteraction();
-                                widget.onNextEpisode!();
-                              }
-                            },
-                          ),
-                        ],
+                                final position =
+                                    widget.controller.player.state.position;
+                                widget.controller.player.seek(
+                                    position - const Duration(seconds: 10));
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            StreamBuilder<bool>(
+                              stream: widget.controller.player.stream.playing,
+                              initialData:
+                                  widget.controller.player.state.playing,
+                              builder: (context, snapshot) {
+                                final playing = snapshot.data ?? false;
+                                return IconButton(
+                                  iconSize: 64,
+                                  icon: Icon(
+                                    playing
+                                        ? Icons.pause_circle_filled
+                                        : Icons.play_circle_filled,
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                  ),
+                                  onPressed: () {
+                                    _onUserInteraction();
+                                    widget.controller.player.playOrPause();
+                                  },
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              iconSize: 32,
+                              icon: const Icon(Icons.forward_10,
+                                  color: Colors.white),
+                              onPressed: () {
+                                _onUserInteraction();
+                                final position =
+                                    widget.controller.player.state.position;
+                                widget.controller.player.seek(
+                                    position + const Duration(seconds: 10));
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            // Next Episode
+                            IconButton(
+                              iconSize: 32,
+                              icon: Icon(
+                                Icons.skip_next,
+                                color: widget.onNextEpisode != null
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.3),
+                              ),
+                              onPressed: () {
+                                if (widget.onNextEpisode != null) {
+                                  _onUserInteraction();
+                                  widget.onNextEpisode!();
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    // Bottom Bar
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Progress Bar
-                              StreamBuilder<Duration>(
-                                stream:
-                                    widget.controller.player.stream.position,
-                                builder: (context, snapshot) {
-                                  final position =
-                                      snapshot.data ?? Duration.zero;
-                                  final duration =
-                                      widget.controller.player.state.duration;
-                                  return Row(
-                                    children: [
-                                      Text(
-                                        _formatDuration(position),
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 12),
-                                      ),
-                                      Expanded(
-                                        child: SliderTheme(
-                                          data: SliderThemeData(
-                                            trackHeight: 2,
-                                            thumbShape:
-                                                const RoundSliderThumbShape(
-                                                    enabledThumbRadius: 6),
-                                            overlayShape:
-                                                const RoundSliderOverlayShape(
-                                                    overlayRadius: 12),
-                                            activeTrackColor: Colors.red,
-                                            inactiveTrackColor: Colors.white
-                                                .withValues(alpha: 0.3),
-                                            thumbColor: Colors.red,
-                                            overlayColor: Colors.red
-                                                .withValues(alpha: 0.3),
-                                          ),
-                                          child: Slider(
-                                            value: position.inSeconds
-                                                .toDouble()
-                                                .clamp(
-                                                    0,
-                                                    duration.inSeconds
-                                                        .toDouble()),
-                                            min: 0,
-                                            max: duration.inSeconds.toDouble(),
-                                            onChanged: (value) {
-                                              _onUserInteraction();
-                                              widget.controller.player.seek(
-                                                  Duration(
-                                                      seconds: value.toInt()));
-                                            },
+                      // Bottom Bar
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          top: false,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Progress Bar
+                                StreamBuilder<Duration>(
+                                  stream:
+                                      widget.controller.player.stream.position,
+                                  builder: (context, snapshot) {
+                                    final position =
+                                        snapshot.data ?? Duration.zero;
+                                    final duration =
+                                        widget.controller.player.state.duration;
+                                    return Row(
+                                      children: [
+                                        Text(
+                                          _formatDuration(position),
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12),
+                                        ),
+                                        Expanded(
+                                          child: SliderTheme(
+                                            data: SliderThemeData(
+                                              trackHeight: 2,
+                                              thumbShape:
+                                                  const RoundSliderThumbShape(
+                                                      enabledThumbRadius: 6),
+                                              overlayShape:
+                                                  const RoundSliderOverlayShape(
+                                                      overlayRadius: 12),
+                                              activeTrackColor: Colors.red,
+                                              inactiveTrackColor: Colors.white
+                                                  .withValues(alpha: 0.3),
+                                              thumbColor: Colors.red,
+                                              overlayColor: Colors.red
+                                                  .withValues(alpha: 0.3),
+                                            ),
+                                            child: Slider(
+                                              value: position.inSeconds
+                                                  .toDouble()
+                                                  .clamp(
+                                                      0,
+                                                      duration.inSeconds
+                                                          .toDouble()),
+                                              min: 0,
+                                              max:
+                                                  duration.inSeconds.toDouble(),
+                                              onChanged: (value) {
+                                                _onUserInteraction();
+                                                widget.controller.player.seek(
+                                                    Duration(
+                                                        seconds:
+                                                            value.toInt()));
+                                              },
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      Text(
-                                        _formatDuration(duration),
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 12),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                        Text(
+                                          _formatDuration(duration),
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
 
-                              // Bottom Controls Row
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      StreamBuilder<double>(
-                                        stream: widget
-                                            .controller.player.stream.volume,
-                                        initialData: widget
-                                            .controller.player.state.volume,
-                                        builder: (context, snapshot) {
-                                          final volume = snapshot.data ?? 100.0;
-                                          return Row(
-                                            children: [
-                                              IconButton(
-                                                icon: Icon(
-                                                  volume == 0
-                                                      ? Icons.volume_off
-                                                      : Icons.volume_up,
-                                                  color: Colors.white,
+                                // Bottom Controls Row
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        StreamBuilder<double>(
+                                          stream: widget
+                                              .controller.player.stream.volume,
+                                          initialData: widget
+                                              .controller.player.state.volume,
+                                          builder: (context, snapshot) {
+                                            final volume =
+                                                snapshot.data ?? 100.0;
+                                            return Row(
+                                              children: [
+                                                IconButton(
+                                                  icon: Icon(
+                                                    volume == 0
+                                                        ? Icons.volume_off
+                                                        : Icons.volume_up,
+                                                    color: Colors.white,
+                                                  ),
+                                                  onPressed: () {
+                                                    _onUserInteraction();
+                                                    setState(() {
+                                                      _showVolumeSliderInline =
+                                                          !_showVolumeSliderInline;
+                                                    });
+                                                  },
                                                 ),
-                                                onPressed: () {
-                                                  _onUserInteraction();
-                                                  setState(() {
-                                                    _showVolumeSliderInline =
-                                                        !_showVolumeSliderInline;
-                                                  });
-                                                },
-                                              ),
-                                              if (_showVolumeSliderInline)
-                                                SizedBox(
-                                                  width: 100,
-                                                  child: SliderTheme(
-                                                    data: SliderThemeData(
-                                                      activeTrackColor:
-                                                          Colors.red,
-                                                      inactiveTrackColor: Colors
-                                                          .white
-                                                          .withValues(
-                                                              alpha: 0.3),
-                                                      thumbColor: Colors.red,
-                                                      overlayColor: Colors.red
-                                                          .withValues(
-                                                              alpha: 0.3),
-                                                      thumbShape:
-                                                          const RoundSliderThumbShape(
-                                                              enabledThumbRadius:
-                                                                  6),
-                                                      trackHeight: 2,
-                                                    ),
-                                                    child: Slider(
-                                                      value: volume.clamp(
-                                                          0.0, 100.0),
-                                                      min: 0,
-                                                      max: 100,
-                                                      onChanged: (value) {
-                                                        _onUserInteraction();
-                                                        widget.controller.player
-                                                            .setVolume(value);
-                                                      },
+                                                if (_showVolumeSliderInline)
+                                                  SizedBox(
+                                                    width: 100,
+                                                    child: SliderTheme(
+                                                      data: SliderThemeData(
+                                                        activeTrackColor:
+                                                            Colors.red,
+                                                        inactiveTrackColor:
+                                                            Colors.white
+                                                                .withValues(
+                                                                    alpha: 0.3),
+                                                        thumbColor: Colors.red,
+                                                        overlayColor: Colors.red
+                                                            .withValues(
+                                                                alpha: 0.3),
+                                                        thumbShape:
+                                                            const RoundSliderThumbShape(
+                                                                enabledThumbRadius:
+                                                                    6),
+                                                        trackHeight: 2,
+                                                      ),
+                                                      child: Slider(
+                                                        value: volume.clamp(
+                                                            0.0, 100.0),
+                                                        min: 0,
+                                                        max: 100,
+                                                        onChanged: (value) {
+                                                          _onUserInteraction();
+                                                          widget
+                                                              .controller.player
+                                                              .setVolume(value);
+                                                        },
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        key: _subtitleButtonKey,
-                                        icon: const Icon(Icons.subtitles,
-                                            color: Colors.white),
-                                        onPressed: () {
-                                          _onUserInteraction();
-                                          final RenderBox renderBox =
-                                              _subtitleButtonKey.currentContext!
-                                                      .findRenderObject()
-                                                  as RenderBox;
-                                          final RenderBox parentRenderBox =
-                                              context.findRenderObject()
-                                                  as RenderBox;
-                                          final offset = renderBox
-                                              .localToGlobal(Offset.zero,
-                                                  ancestor: parentRenderBox);
-                                          widget.onSubtitlePressed(offset);
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          widget.isFullscreen
-                                              ? Icons.fullscreen_exit
-                                              : Icons.fullscreen,
-                                          color: Colors.white,
+                                              ],
+                                            );
+                                          },
                                         ),
-                                        onPressed: () {
-                                          _onUserInteraction();
-                                          if (widget.onFullscreenToggle !=
-                                              null) {
-                                            widget.onFullscreenToggle!();
-                                          } else {
-                                            if (widget.videoState
-                                                .isFullscreen()) {
-                                              widget.videoState
-                                                  .exitFullscreen();
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          key: _subtitleButtonKey,
+                                          icon: const Icon(Icons.subtitles,
+                                              color: Colors.white),
+                                          onPressed: () {
+                                            _onUserInteraction();
+                                            final RenderBox renderBox =
+                                                _subtitleButtonKey
+                                                        .currentContext!
+                                                        .findRenderObject()
+                                                    as RenderBox;
+                                            final RenderBox parentRenderBox =
+                                                context.findRenderObject()
+                                                    as RenderBox;
+                                            final offset = renderBox
+                                                .localToGlobal(Offset.zero,
+                                                    ancestor: parentRenderBox);
+                                            widget.onSubtitlePressed(offset);
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            widget.isFullscreen
+                                                ? Icons.fullscreen_exit
+                                                : Icons.fullscreen,
+                                            color: Colors.white,
+                                          ),
+                                          onPressed: () {
+                                            _onUserInteraction();
+                                            if (widget.onFullscreenToggle !=
+                                                null) {
+                                              widget.onFullscreenToggle!();
                                             } else {
-                                              widget.videoState
-                                                  .enterFullscreen();
+                                              if (widget.videoState
+                                                  .isFullscreen()) {
+                                                widget.videoState
+                                                    .exitFullscreen();
+                                              } else {
+                                                widget.videoState
+                                                    .enterFullscreen();
+                                              }
                                             }
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
 
         // Settings Overlay
         if (widget.settingsOverlay != null) widget.settingsOverlay!,

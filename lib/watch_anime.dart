@@ -25,6 +25,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:kuudere/widgets/custom_player_controls.dart';
 import 'package:kuudere/widgets/custom_dropdown.dart';
+import 'package:window_manager/window_manager.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -128,25 +129,37 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     });
   }
 
-  void _toggleFullscreen() {
+  void _toggleFullscreen() async {
     setState(() {
       _isCustomFullscreen = !_isCustomFullscreen;
     });
 
     if (_isCustomFullscreen) {
       // Enter fullscreen
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // Desktop: Use window_manager for true fullscreen
+        await windowManager.setFullScreen(true);
+      } else {
+        // Mobile: Use system UI mode
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
     } else {
       // Exit fullscreen
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // Desktop: Exit window fullscreen
+        await windowManager.setFullScreen(false);
+      } else {
+        // Mobile: Restore system UI
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+      }
       // Also close side panel when exiting fullscreen
       _activeSidePanel = null;
     }
@@ -1901,10 +1914,63 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       resumeUponEnteringForegroundMode: true,
     );
 
+    // Loading overlay widget that shows while video is initializing
+    Widget buildLoadingOverlay() {
+      return StreamBuilder<Duration>(
+        stream: _player.stream.duration,
+        initialData: _player.state.duration,
+        builder: (context, durationSnapshot) {
+          return StreamBuilder<bool>(
+            stream: _player.stream.buffering,
+            initialData: _player.state.buffering,
+            builder: (context, bufferingSnapshot) {
+              final duration = durationSnapshot.data ?? Duration.zero;
+              final isBuffering = bufferingSnapshot.data ?? false;
+
+              // Show loading overlay when video hasn't loaded yet (duration is zero)
+              // The buffering indicator in CustomVideoControls handles mid-playback buffering
+              if (duration == Duration.zero && !isBuffering) {
+                return Positioned.fill(
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          LoadingAnimationWidget.threeArchedCircle(
+                            color: Colors.red,
+                            size: 50,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            "Starting Playback...",
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          );
+        },
+      );
+    }
+
     if (isFullscreen) {
       return Row(
         children: [
-          Expanded(child: videoWidget),
+          Expanded(
+            child: Stack(
+              children: [
+                videoWidget,
+                buildLoadingOverlay(),
+              ],
+            ),
+          ),
           if (_activeSidePanel != null)
             Container(
               width: 320,
@@ -1966,7 +2032,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: videoWidget,
+      child: Stack(
+        children: [
+          videoWidget,
+          buildLoadingOverlay(),
+        ],
+      ),
     );
   }
 
