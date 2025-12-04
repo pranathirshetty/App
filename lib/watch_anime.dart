@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -95,13 +96,57 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   final authService = AuthService();
 
+  // Side Panel & Fullscreen State
+  String? _activeSidePanel;
+  bool _isCustomFullscreen = false;
+
   @override
   void dispose() {
     _progressTimer?.cancel();
     _searchController.dispose();
+
+    // Restore system UI overlays if we were in fullscreen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     _player.dispose();
     super.dispose();
     // socket.dispose();
+  }
+
+  void _toggleSidePanel(String? panel) {
+    setState(() {
+      _activeSidePanel = panel;
+    });
+  }
+
+  void _toggleFullscreen() {
+    setState(() {
+      _isCustomFullscreen = !_isCustomFullscreen;
+    });
+
+    if (_isCustomFullscreen) {
+      // Enter fullscreen
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      // Exit fullscreen
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      // Also close side panel when exiting fullscreen
+      _activeSidePanel = null;
+    }
   }
 
   @override
@@ -1019,7 +1064,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    if (_isCustomFullscreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: _buildVideoPlayer(isFullscreen: true),
+        ),
+      );
+    }
+
     if (isLoading) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -1538,15 +1593,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     return color.toARGB32().toRadixString(16).padLeft(8, '0');
   }
 
-  void _showSettings(
-      {SettingsView initialView = SettingsView.main, Offset? anchor}) {
-    setState(() {
-      _settingsInitialView = initialView;
-      _settingsAnchor = anchor;
-      _showSettingsOverlay = true;
-    });
-  }
-
   Future<void> _loadFonts(List<dynamic> fonts) async {
     try {
       final tempDir = await getTemporaryDirectory();
@@ -1600,7 +1646,31 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
   }
 
-  Widget _buildVideoPlayer() {
+  bool _hasNextEpisode() {
+    if (episodeData['all_episodes'] == null) return false;
+    final episodes = episodeData['all_episodes'] as List<dynamic>;
+    return episodes.any((e) => e['number'] == (_currentEpisodeNumber ?? 0) + 1);
+  }
+
+  bool _hasPrevEpisode() {
+    if (episodeData['all_episodes'] == null) return false;
+    final episodes = episodeData['all_episodes'] as List<dynamic>;
+    return episodes.any((e) => e['number'] == (_currentEpisodeNumber ?? 0) - 1);
+  }
+
+  void _playNextEpisode() {
+    if (_hasNextEpisode()) {
+      onEpisodeSelected((_currentEpisodeNumber ?? 0) + 1);
+    }
+  }
+
+  void _playPrevEpisode() {
+    if (_hasPrevEpisode()) {
+      onEpisodeSelected((_currentEpisodeNumber ?? 0) - 1);
+    }
+  }
+
+  Widget _buildVideoPlayer({bool isFullscreen = false}) {
     if (currentSelectedServer == null) {
       return AspectRatio(
         aspectRatio: 16 / 9,
@@ -1637,93 +1707,277 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     ];
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
+    final videoWidget = Video(
+      controller: _videoController,
+      controls: (state) {
+        return CustomVideoControls(
+          videoState: state,
+          controller: _videoController,
+          onSettingsPressed: (anchor) {
+            setState(() {
+              _settingsAnchor = anchor;
+              _showSettingsOverlay = true;
+              _settingsInitialView = SettingsView.main;
+            });
+          },
+          onSubtitlePressed: (anchor) {
+            setState(() {
+              _settingsAnchor = anchor;
+              _showSettingsOverlay = true;
+              _settingsInitialView = SettingsView.subtitles;
+            });
+          },
+          title: animeData['anime_info']['english'] ?? 'Unknown Anime',
+          episodeTitle: 'Episode $_currentEpisodeNumber',
+          onNextEpisode: _hasNextEpisode() ? _playNextEpisode : null,
+          onPrevEpisode: _hasPrevEpisode() ? _playPrevEpisode : null,
+          commentsBuilder: (context) => CommentsContent(
+            commentCount: episodeData['total_comments'] ?? 0,
+            episodeData: episodeData,
+            epNumber: _currentEpisodeNumber,
+            animeId: widget.id,
+            comments: comments,
+            updateComments: updateComments,
+            isDesktop: true,
+          ),
+          episodesBuilder: (context) => _buildSidePanelEpisodeList(),
+          onSidePanelToggled: _toggleSidePanel,
+          activeSidePanel: _activeSidePanel,
+          onFullscreenToggle: _toggleFullscreen,
+          isFullscreen: isFullscreen,
+          settingsOverlay: _showSettingsOverlay
+              ? VideoSettingsOverlay(
+                  initialView: _settingsInitialView,
+                  anchorPosition: _settingsAnchor,
+                  qualities: _availableQualities
+                      .map((q) => q['quality'].toString())
+                      .toList(),
+                  currentQuality: _currentQuality ?? 'Auto',
+                  onQualityChanged: (quality) async {
+                    final selected = _availableQualities
+                        .firstWhere((q) => q['quality'] == quality);
+                    setState(() {
+                      _currentQuality = quality;
+                    });
+                    await _player.open(Media(selected['url']), play: true);
+                  },
+                  speeds: speeds,
+                  currentSpeed: _playbackSpeed,
+                  onSpeedChanged: (speed) {
+                    setState(() {
+                      _playbackSpeed = speed;
+                    });
+                    _player.setRate(speed);
+                  },
+                  subtitles: _availableSubtitles.cast<Map<String, dynamic>>(),
+                  currentSubtitle: _currentSubtitle,
+                  onSubtitleChanged: (subtitle) {
+                    _changeSubtitle(subtitle);
+                  },
+                  servers: servers,
+                  currentServer: _currentServer,
+                  onServerChanged: (server) async {
+                    await _loadVideo('', server: server);
+                  },
+                  onSubtitleSettingsPressed: () {
+                    // Handled internally by VideoSettingsOverlay now
+                  },
+                  subtitleSize: _subtitleSize,
+                  onSubtitleSizeChanged: (size) {
+                    setState(() {
+                      _subtitleSize = size;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  subtitleDelay: _subtitleDelay,
+                  onSubtitleDelayChanged: (delay) {
+                    setState(() {
+                      _subtitleDelay = delay;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  subtitlePos: _subtitlePos,
+                  onSubtitlePosChanged: (pos) {
+                    setState(() {
+                      _subtitlePos = pos;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  onClose: () {
+                    setState(() {
+                      _showSettingsOverlay = false;
+                    });
+                  },
+                )
+              : null,
+        );
+      },
+      fill: Colors.black,
+      filterQuality: FilterQuality.high,
+      wakelock: true,
+      pauseUponEnteringBackgroundMode: false,
+      resumeUponEnteringForegroundMode: true,
+    );
+
+    if (isFullscreen) {
+      return Row(
+        children: [
+          Expanded(child: videoWidget),
+          if (_activeSidePanel != null)
+            Container(
+              width: 320,
+              color: Colors.black.withValues(alpha: 0.9),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _activeSidePanel == 'comments'
+                              ? 'Comments'
+                              : 'Episodes',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () {
+                            _toggleSidePanel(null);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _activeSidePanel == 'comments'
+                        ? CommentsContent(
+                            commentCount: episodeData['total_comments'] ?? 0,
+                            episodeData: episodeData,
+                            epNumber: _currentEpisodeNumber,
+                            animeId: widget.id,
+                            comments: comments,
+                            updateComments: updateComments,
+                            isDesktop: true,
+                          )
+                        : _buildSidePanelEpisodeList(),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Video(
-        key: ValueKey(_videoController),
-        controller: _videoController,
-        controls: (state) {
-          return CustomVideoControls(
-            controller: _videoController,
-            videoState: state,
-            title: animeData['anime_info']['english'] ?? 'Unknown Anime',
-            episodeTitle: 'Episode $_currentEpisodeNumber',
-            onSettingsPressed: (anchor) => _showSettings(anchor: anchor),
-            onSubtitlePressed: (anchor) => _showSettings(
-                initialView: SettingsView.subtitles, anchor: anchor),
-            settingsOverlay: _showSettingsOverlay
-                ? VideoSettingsOverlay(
-                    initialView: _settingsInitialView,
-                    anchorPosition: _settingsAnchor,
-                    qualities: _availableQualities
-                        .map((q) => q['quality'].toString())
-                        .toList(),
-                    currentQuality: _currentQuality ?? 'Auto',
-                    onQualityChanged: (quality) async {
-                      final selected = _availableQualities
-                          .firstWhere((q) => q['quality'] == quality);
-                      setState(() {
-                        _currentQuality = quality;
-                      });
-                      await _player.open(Media(selected['url']), play: true);
-                    },
-                    speeds: speeds,
-                    currentSpeed: _playbackSpeed,
-                    onSpeedChanged: (speed) {
-                      setState(() {
-                        _playbackSpeed = speed;
-                      });
-                      _player.setRate(speed);
-                    },
-                    subtitles: _availableSubtitles.cast<Map<String, dynamic>>(),
-                    currentSubtitle: _currentSubtitle,
-                    onSubtitleChanged: (subtitle) {
-                      _changeSubtitle(subtitle);
-                    },
-                    servers: servers,
-                    currentServer: _currentServer,
-                    onServerChanged: (server) async {
-                      await _loadVideo('', server: server);
-                    },
-                    onSubtitleSettingsPressed: () {
-                      // Handled internally by VideoSettingsOverlay now
-                    },
-                    subtitleSize: _subtitleSize,
-                    onSubtitleSizeChanged: (size) {
-                      setState(() {
-                        _subtitleSize = size;
-                      });
-                      _applySubtitleSettings();
-                    },
-                    subtitleDelay: _subtitleDelay,
-                    onSubtitleDelayChanged: (delay) {
-                      setState(() {
-                        _subtitleDelay = delay;
-                      });
-                      _applySubtitleSettings();
-                    },
-                    subtitlePos: _subtitlePos,
-                    onSubtitlePosChanged: (pos) {
-                      setState(() {
-                        _subtitlePos = pos;
-                      });
-                      _applySubtitleSettings();
-                    },
-                    onClose: () {
-                      setState(() {
-                        _showSettingsOverlay = false;
-                      });
-                    },
-                  )
-                : null,
-          );
-        },
-        fill: Colors.black,
-        filterQuality: FilterQuality.high,
-        wakelock: true,
-        pauseUponEnteringBackgroundMode: false,
-        resumeUponEnteringForegroundMode: true,
-      ),
+      child: videoWidget,
+    );
+  }
+
+  Widget _buildSidePanelEpisodeList() {
+    if (isLoadingEpisodes) {
+      return Center(
+        child: LoadingAnimationWidget.fourRotatingDots(
+          color: Colors.red,
+          size: 50,
+        ),
+      );
+    }
+
+    final episodes = episodeData['all_episodes'] ?? [];
+    // Sort episodes by number
+    episodes.sort((a, b) => (a['number'] as int).compareTo(b['number'] as int));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search episode...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              fillColor: Colors.white.withValues(alpha: 0.1),
+              filled: true,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              prefixIcon:
+                  const Icon(Icons.search, color: Colors.white38, size: 20),
+            ),
+            style: const TextStyle(color: Colors.white),
+            onChanged: (value) {
+              // Simple local search filtering if needed, or just rely on scrolling
+              // For now, let's just filter the list locally
+              setState(() {
+                // We might need a local state for this search if we want it to update
+                // But setState here will rebuild the whole player which is fine
+                _searchQuery = value.toLowerCase();
+              });
+            },
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              childAspectRatio: 1,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: episodes.length,
+            itemBuilder: (context, index) {
+              final episode = episodes[index];
+              final epNumber = episode['number'];
+              final isSelected = epNumber == _currentEpisodeNumber;
+
+              // Filter based on search
+              if (_searchQuery.isNotEmpty &&
+                  !epNumber.toString().contains(_searchQuery)) {
+                return const SizedBox.shrink();
+              }
+
+              return InkWell(
+                onTap: () => onEpisodeSelected(epNumber),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.red
+                        : Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? Colors.red
+                          : Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$epNumber',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
