@@ -1,8 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,9 +19,12 @@ import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/theme/app_theme.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'widgets/video_settings_overlay.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:kuudere/widgets/custom_player_controls.dart';
+import 'package:kuudere/widgets/custom_dropdown.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -70,9 +74,22 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Map<String, String> _thumbnails = {}; // Store thumbnails
   List<dynamic> _availableSubtitles = [];
   Map<String, dynamic>? _currentSubtitle;
-  String _currentServer = 'zen'; // Default server
+  String _currentServer = 'hiya'; // Default server
   List<Map<String, dynamic>> _availableQualities = [];
   String? _currentQuality;
+  double _playbackSpeed = 1.0;
+
+  // Subtitle Settings
+  double _subtitleSize = 58.0;
+  Color _subtitleColor = Colors.white;
+  Color _subtitleBackgroundColor = Colors.black.withValues(alpha: 0.5);
+  double _subtitleDelay = 0.0;
+  double _subtitlePos = 100.0;
+
+  // Settings Overlay State
+  bool _showSettingsOverlay = false;
+  Offset? _settingsAnchor;
+  SettingsView _settingsInitialView = SettingsView.main;
 
   // Media Kit player
   late final Player _player;
@@ -80,13 +97,59 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   final authService = AuthService();
 
+  // Side Panel & Fullscreen State
+  String? _activeSidePanel;
+  Timer? _saveProgressTimer;
+  bool _isCustomFullscreen = false;
+
   @override
   void dispose() {
     _progressTimer?.cancel();
+    _saveProgressTimer?.cancel();
     _searchController.dispose();
+
+    // Restore system UI overlays if we were in fullscreen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
     _player.dispose();
     super.dispose();
     // socket.dispose();
+  }
+
+  void _toggleSidePanel(String? panel) {
+    setState(() {
+      _activeSidePanel = panel;
+    });
+  }
+
+  void _toggleFullscreen() {
+    setState(() {
+      _isCustomFullscreen = !_isCustomFullscreen;
+    });
+
+    if (_isCustomFullscreen) {
+      // Enter fullscreen
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      // Exit fullscreen
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      // Also close side panel when exiting fullscreen
+      _activeSidePanel = null;
+    }
   }
 
   @override
@@ -204,6 +267,51 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         _scrollToCurrentEpisode(episodeNumber);
       });
     });
+
+    _startSaveProgressTimer();
+  }
+
+  void _startSaveProgressTimer() {
+    _saveProgressTimer?.cancel();
+    _saveProgressTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_player.state.playing) {
+        _saveProgress();
+      }
+    });
+  }
+
+  Future<void> _saveProgress() async {
+    if (_selectedEpisodeId == null || episodeData.isEmpty) return;
+
+    try {
+      final sessionInfo = await authService.getStoredSession();
+      if (sessionInfo == null) return;
+
+      final position = _player.state.position.inSeconds.toDouble();
+      final duration = _player.state.duration.inSeconds.toDouble();
+
+      if (duration <= 0) return;
+
+      final httpService = HttpService();
+      print(
+          'Saving progress: Anime: ${widget.id}, Ep: $_selectedEpisodeId, Time: $position / $duration');
+
+      await httpService.post(
+        '/api/save-progress',
+        body: {
+          'animeId': widget.id,
+          'episodeId': _selectedEpisodeId,
+          'currentTime': position,
+          'duration': duration,
+          'server': _currentServer,
+          'language':
+              'sub', // Defaulting to sub for now, can be dynamic if needed
+        },
+        requireAuth: true,
+      );
+    } catch (e) {
+      // print('Error saving progress: $e');
+    }
   }
 
   /*
@@ -1004,7 +1112,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    if (_isCustomFullscreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: _buildVideoPlayer(isFullscreen: true),
+        ),
+      );
+    }
+
     if (isLoading) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -1338,14 +1456,18 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             });
 
             // Set mpv properties before loading media
-            if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+            if (Platform.isLinux ||
+                Platform.isWindows ||
+                Platform.isMacOS ||
+                Platform.isAndroid ||
+                Platform.isIOS) {
               try {
                 await (_player.platform as dynamic)
                     .setProperty('sub-ass', 'yes');
                 await (_player.platform as dynamic)
                     .setProperty('embeddedfonts', 'yes');
                 await (_player.platform as dynamic)
-                    .setProperty('sub-ass-override', 'no');
+                    .setProperty('sub-ass-override', 'scale');
               } catch (e) {
                 // print('Error setting mpv properties: $e');
               }
@@ -1355,10 +1477,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               await _loadFonts(fonts);
             }
 
+            // Fetch saved position before playing
+            Duration? savedDuration;
+            try {
+              final httpService = HttpService();
+              final historyResponse = await httpService.post(
+                '/api/watch/${widget.id}/$_selectedEpisodeId',
+                body: {}, // Empty body as per curl request
+                requireAuth: true,
+              );
+
+              if (historyResponse.statusCode == 200) {
+                final historyData = json.decode(historyResponse.body);
+                if (historyData['success'] == true &&
+                    historyData['data'] != null) {
+                  final savedTime = historyData['data']['currentTime'];
+                  if (savedTime != null) {
+                    savedDuration =
+                        Duration(seconds: (savedTime as num).toInt());
+                  }
+                }
+              }
+            } catch (e) {
+              // print('Error fetching watch history: $e');
+            }
+
             await _player.open(
               Media(m3u8Url),
               play: true,
             );
+
+            if (savedDuration != null) {
+              // Wait for duration to be available to ensure player is ready
+              if (_player.state.duration == Duration.zero) {
+                await _player.stream.duration
+                    .firstWhere((duration) => duration > Duration.zero);
+              }
+              // print('Seeking to saved time: $savedDuration');
+              await _player.seek(savedDuration);
+            }
 
             if (subtitles != null) {
               for (final sub in subtitles) {
@@ -1415,6 +1572,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       } else {
         throw Exception('Failed to fetch video data: ${response.statusCode}');
       }
+
+      // Apply subtitle settings
+      await _applySubtitleSettings();
 
       setState(() {
         isLoadingVideo = false;
@@ -1474,368 +1634,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         setState(() {
           _currentSubtitle = subtitle;
         });
+
+        // Apply current settings
+        _applySubtitleSettings();
       } catch (e) {
         // print('Error changing subtitle: $e');
       }
     }
   }
 
-  void _showSubtitleSelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Select Subtitle",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ListTile(
-                      leading: Icon(
-                        Icons.subtitles_off,
-                        color: _currentSubtitle == null
-                            ? Colors.red
-                            : Colors.white,
-                      ),
-                      title: Text(
-                        "Off",
-                        style: TextStyle(
-                          color: _currentSubtitle == null
-                              ? Colors.red
-                              : Colors.white,
-                        ),
-                      ),
-                      onTap: () {
-                        _changeSubtitle(null);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    ..._availableSubtitles.map((sub) {
-                      final isSelected = _currentSubtitle == sub;
-                      return ListTile(
-                        leading: Icon(
-                          Icons.subtitles,
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                        title: Text(
-                          sub['title'] ?? sub['language_name'] ?? 'Unknown',
-                          style: TextStyle(
-                            color: isSelected ? Colors.red : Colors.white,
-                          ),
-                        ),
-                        onTap: () {
-                          _changeSubtitle(sub);
-                          Navigator.pop(context);
-                        },
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  Future<void> _applySubtitleSettings() async {
+    // Apply settings to all platforms (Android/iOS/Desktop)
+    try {
+      // Scale (default is 1.0)
+      // We map 28.0 (our default UI size) to 1.0 mpv scale roughly
+      double scale = _subtitleSize / 28.0;
+      await (_player.platform as dynamic)
+          .setProperty('sub-scale', scale.toString());
+
+      // Colors in MPV are BGR hex? No, usually #AARRGGBB or #RRGGBB
+      // mpv takes #AARRGGBB
+      await (_player.platform as dynamic)
+          .setProperty('sub-color', '#${_toHex(_subtitleColor)}');
+      await (_player.platform as dynamic).setProperty(
+          'sub-back-color', '#${_toHex(_subtitleBackgroundColor)}');
+
+      // Delay
+      await (_player.platform as dynamic)
+          .setProperty('sub-delay', _subtitleDelay.toString());
+
+      // Position (0-100, default 100 is bottom)
+      await (_player.platform as dynamic)
+          .setProperty('sub-pos', _subtitlePos.toString());
+    } catch (e) {
+      // print('Error applying subtitle settings: $e');
+    }
   }
 
-  void _showSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Settings",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (_availableQualities.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.hd, color: Colors.white),
-                  title: const Text("Quality",
-                      style: TextStyle(color: Colors.white)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _currentQuality ?? 'Auto',
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showQualitySelection();
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.dns, color: Colors.white),
-                title:
-                    const Text("Server", style: TextStyle(color: Colors.white)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _currentServer.toUpperCase(),
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 14),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_ios,
-                        color: Colors.white, size: 16),
-                  ],
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showServerSelection();
-                },
-              ),
-              if (_availableSubtitles.isNotEmpty)
-                ListTile(
-                  leading: const Icon(Icons.subtitles, color: Colors.white),
-                  title: const Text("Subtitles/CC",
-                      style: TextStyle(color: Colors.white)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _currentSubtitle?['title'] ??
-                            _currentSubtitle?['language_name'] ??
-                            "Off",
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showSubtitleSelection();
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.speed, color: Colors.white),
-                title: const Text("Playback Speed",
-                    style: TextStyle(color: Colors.white)),
-                trailing: const Icon(Icons.arrow_forward_ios,
-                    color: Colors.white, size: 16),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showPlaybackSpeedSelection();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showPlaybackSpeedSelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Playback Speed",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children:
-                      [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map((speed) {
-                    final isSelected = _player.state.rate == speed;
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        "${speed}x",
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () {
-                        _player.setRate(speed);
-                        Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showQualitySelection() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Quality",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _availableQualities.map((qual) {
-                    final isSelected = _currentQuality == qual['quality'];
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        qual['quality'],
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () async {
-                        setState(() {
-                          _currentQuality = qual['quality'];
-                        });
-                        await _player.open(Media(qual['url']), play: true);
-                        if (mounted) Navigator.pop(context);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showServerSelection() {
-    final servers = [
-      'hiya',
-      'hiya-dub',
-      'zen',
-      'zen2',
-      'pahe',
-      'allmanga',
-      'allmanga-dub'
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Server",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: servers.map((server) {
-                    final isSelected = _currentServer == server;
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check, color: Colors.red)
-                          : const SizedBox(width: 24),
-                      title: Text(
-                        server.toUpperCase(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.red : Colors.white,
-                        ),
-                      ),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await _loadVideo('', server: server);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  String _toHex(Color color) {
+    return color.toARGB32().toRadixString(16).padLeft(8, '0');
   }
 
   Future<void> _loadFonts(List<dynamic> fonts) async {
@@ -1891,8 +1728,32 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
   }
 
-  Widget _buildVideoPlayer() {
-    if (currentSelectedServer == null) {
+  bool _hasNextEpisode() {
+    if (episodeData['all_episodes'] == null) return false;
+    final episodes = episodeData['all_episodes'] as List<dynamic>;
+    return episodes.any((e) => e['number'] == (_currentEpisodeNumber ?? 0) + 1);
+  }
+
+  bool _hasPrevEpisode() {
+    if (episodeData['all_episodes'] == null) return false;
+    final episodes = episodeData['all_episodes'] as List<dynamic>;
+    return episodes.any((e) => e['number'] == (_currentEpisodeNumber ?? 0) - 1);
+  }
+
+  void _playNextEpisode() {
+    if (_hasNextEpisode()) {
+      onEpisodeSelected((_currentEpisodeNumber ?? 0) + 1);
+    }
+  }
+
+  void _playPrevEpisode() {
+    if (_hasPrevEpisode()) {
+      onEpisodeSelected((_currentEpisodeNumber ?? 0) - 1);
+    }
+  }
+
+  Widget _buildVideoPlayer({bool isFullscreen = false}) {
+    if (currentSelectedServer == null || isLoadingVideo) {
       return AspectRatio(
         aspectRatio: 16 / 9,
         child: Container(
@@ -1907,7 +1768,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  "Loading Player...",
+                  "Fetching Episode...",
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ],
@@ -1917,73 +1778,297 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       );
     }
 
+    final servers = [
+      'hiya',
+      'hiya-dub',
+      'zen',
+      'zen2',
+      'pahe',
+      'allmanga',
+      'allmanga-dub'
+    ];
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+    final videoWidget = Video(
+      controller: _videoController,
+      controls: (state) {
+        return CustomVideoControls(
+          videoState: state,
+          controller: _videoController,
+          onSettingsPressed: (anchor) {
+            setState(() {
+              _settingsAnchor = anchor;
+              _showSettingsOverlay = true;
+              _settingsInitialView = SettingsView.main;
+            });
+          },
+          onSubtitlePressed: (anchor) {
+            setState(() {
+              _settingsAnchor = anchor;
+              _showSettingsOverlay = true;
+              _settingsInitialView = SettingsView.subtitles;
+            });
+          },
+          title: animeData['anime_info']['english'] ?? 'Unknown Anime',
+          episodeTitle: 'Episode $_currentEpisodeNumber',
+          onNextEpisode: _hasNextEpisode() ? _playNextEpisode : null,
+          onPrevEpisode: _hasPrevEpisode() ? _playPrevEpisode : null,
+          commentsBuilder: (context) => CommentsContent(
+            commentCount: episodeData['total_comments'] ?? 0,
+            episodeData: episodeData,
+            epNumber: _currentEpisodeNumber,
+            animeId: widget.id,
+            comments: comments,
+            updateComments: updateComments,
+            isDesktop: true,
+          ),
+          episodesBuilder: (context) => _buildSidePanelEpisodeList(),
+          onSidePanelToggled: _toggleSidePanel,
+          activeSidePanel: _activeSidePanel,
+          onFullscreenToggle: _toggleFullscreen,
+          isFullscreen: isFullscreen,
+          settingsOverlay: _showSettingsOverlay
+              ? VideoSettingsOverlay(
+                  initialView: _settingsInitialView,
+                  anchorPosition: _settingsAnchor,
+                  qualities: _availableQualities
+                      .map((q) => q['quality'].toString())
+                      .toList(),
+                  currentQuality: _currentQuality ?? 'Auto',
+                  onQualityChanged: (quality) async {
+                    final selected = _availableQualities
+                        .firstWhere((q) => q['quality'] == quality);
+                    setState(() {
+                      _currentQuality = quality;
+                    });
+                    await _player.open(Media(selected['url']), play: true);
+                  },
+                  speeds: speeds,
+                  currentSpeed: _playbackSpeed,
+                  onSpeedChanged: (speed) {
+                    setState(() {
+                      _playbackSpeed = speed;
+                    });
+                    _player.setRate(speed);
+                  },
+                  subtitles: _availableSubtitles.cast<Map<String, dynamic>>(),
+                  currentSubtitle: _currentSubtitle,
+                  onSubtitleChanged: (subtitle) {
+                    _changeSubtitle(subtitle);
+                  },
+                  servers: servers,
+                  currentServer: _currentServer,
+                  onServerChanged: (server) async {
+                    await _loadVideo('', server: server);
+                  },
+                  onSubtitleSettingsPressed: () {
+                    // Handled internally by VideoSettingsOverlay now
+                  },
+                  subtitleSize: _subtitleSize,
+                  onSubtitleSizeChanged: (size) {
+                    setState(() {
+                      _subtitleSize = size;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  subtitleDelay: _subtitleDelay,
+                  onSubtitleDelayChanged: (delay) {
+                    setState(() {
+                      _subtitleDelay = delay;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  subtitlePos: _subtitlePos,
+                  onSubtitlePosChanged: (pos) {
+                    setState(() {
+                      _subtitlePos = pos;
+                    });
+                    _applySubtitleSettings();
+                  },
+                  onClose: () {
+                    setState(() {
+                      _showSettingsOverlay = false;
+                    });
+                  },
+                )
+              : null,
+        );
+      },
+      fill: Colors.black,
+      filterQuality: FilterQuality.high,
+      wakelock: true,
+      pauseUponEnteringBackgroundMode: false,
+      resumeUponEnteringForegroundMode: true,
+    );
+
+    if (isFullscreen) {
+      return Row(
+        children: [
+          Expanded(child: videoWidget),
+          if (_activeSidePanel != null)
+            Container(
+              width: 320,
+              color: Colors.black.withValues(alpha: 0.9),
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TabBar(
+                              indicatorColor: Colors.red,
+                              indicatorSize: TabBarIndicatorSize.tab,
+                              labelColor: Colors.white,
+                              unselectedLabelColor: Colors.grey,
+                              dividerColor: Colors.transparent,
+                              tabs: const [
+                                Tab(text: 'Episodes'),
+                                Tab(text: 'Comments'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              _toggleSidePanel(null);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildSidePanelEpisodeList(),
+                          CommentsContent(
+                            commentCount: episodeData['total_comments'] ?? 0,
+                            episodeData: episodeData,
+                            epNumber: _currentEpisodeNumber,
+                            animeId: widget.id,
+                            comments: comments,
+                            updateComments: updateComments,
+                            isDesktop: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Video(
-        key: ValueKey(_videoController),
-        controller: _videoController,
-        controls: (state) {
-          if (Platform.isAndroid || Platform.isIOS) {
-            // Mobile controls with custom top button bar
-            final topButtonBar = [
-              const Spacer(),
-              if (_availableSubtitles.isNotEmpty)
-                MaterialCustomButton(
-                  onPressed: _showSubtitleSelection,
-                  icon: const Icon(Icons.subtitles),
+      child: videoWidget,
+    );
+  }
+
+  Widget _buildSidePanelEpisodeList() {
+    if (isLoadingEpisodes) {
+      return Center(
+        child: LoadingAnimationWidget.fourRotatingDots(
+          color: Colors.red,
+          size: 50,
+        ),
+      );
+    }
+
+    final episodes = episodeData['all_episodes'] ?? [];
+    // Sort episodes by number
+    episodes.sort((a, b) => (a['number'] as int).compareTo(b['number'] as int));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search episode...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              fillColor: Colors.white.withValues(alpha: 0.1),
+              filled: true,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              prefixIcon:
+                  const Icon(Icons.search, color: Colors.white38, size: 20),
+            ),
+            style: const TextStyle(color: Colors.white),
+            onChanged: (value) {
+              // Simple local search filtering if needed, or just rely on scrolling
+              // For now, let's just filter the list locally
+              setState(() {
+                // We might need a local state for this search if we want it to update
+                // But setState here will rebuild the whole player which is fine
+                _searchQuery = value.toLowerCase();
+              });
+            },
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              childAspectRatio: 1,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: episodes.length,
+            itemBuilder: (context, index) {
+              final episode = episodes[index];
+              final epNumber = episode['number'];
+              final isSelected = epNumber == _currentEpisodeNumber;
+
+              // Filter based on search
+              if (_searchQuery.isNotEmpty &&
+                  !epNumber.toString().contains(_searchQuery)) {
+                return const SizedBox.shrink();
+              }
+
+              return InkWell(
+                onTap: () => onEpisodeSelected(epNumber),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.red
+                        : Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? Colors.red
+                          : Colors.white.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$epNumber',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 ),
-              MaterialCustomButton(
-                onPressed: _showSettings,
-                icon: const Icon(Icons.settings),
-              ),
-            ];
-
-            return MaterialVideoControlsTheme(
-              normal: MaterialVideoControlsThemeData(
-                topButtonBar: topButtonBar,
-              ),
-              fullscreen: MaterialVideoControlsThemeData(
-                topButtonBar: topButtonBar,
-              ),
-              child: MaterialVideoControls(state),
-            );
-          }
-
-          final buttonBar = [
-            const MaterialDesktopPlayOrPauseButton(),
-            const MaterialDesktopVolumeButton(),
-            const MaterialDesktopPositionIndicator(),
-            const Spacer(),
-            if (_availableSubtitles.isNotEmpty)
-              IconButton(
-                onPressed: _showSubtitleSelection,
-                icon: const Icon(Icons.subtitles, color: Colors.white),
-                tooltip: "Subtitles",
-              ),
-            IconButton(
-              onPressed: _showSettings,
-              icon: const Icon(Icons.settings, color: Colors.white),
-              tooltip: "Settings",
-            ),
-            const MaterialDesktopFullscreenButton(),
-          ];
-
-          return MaterialDesktopVideoControlsTheme(
-            normal: MaterialDesktopVideoControlsThemeData(
-              bottomButtonBar: buttonBar,
-            ),
-            fullscreen: MaterialDesktopVideoControlsThemeData(
-              bottomButtonBar: buttonBar,
-            ),
-            child: MaterialDesktopVideoControls(state),
-          );
-        },
-        fill: Colors.black,
-        filterQuality: FilterQuality.high,
-        wakelock: true,
-        pauseUponEnteringBackgroundMode: false,
-        resumeUponEnteringForegroundMode: true,
-      ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -2180,136 +2265,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red[500],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    const Text('You are watching',
-                        style: TextStyle(color: Colors.white)),
-                    Text(
-                      'Episode $_currentEpisodeNumber',
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'If the current server doesn\'t work, please try other servers below.',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: isLoadingEpisodes
-                    ? Center(
-                        child: LoadingAnimationWidget.fourRotatingDots(
-                          color: Colors.red,
-                          size: 50,
-                        ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              const Text('SUB:',
-                                  style: TextStyle(color: Colors.white)),
-                              ...(episodeData['episode_links'] ?? [])
-                                  .where((link) =>
-                                      link['dataType'] == 'sub' &&
-                                      (link['serverName'] == 'Streamwish' ||
-                                          link['serverName'] == 'Vidhide' ||
-                                          link['serverName'] == 'Hianime' ||
-                                          link['serverName'] == 'StreamWish'))
-                                  .map((server) => ElevatedButton(
-                                        onPressed: () =>
-                                            _onServerSelected(server),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              server == currentSelectedServer
-                                                  ? Colors.red
-                                                  : const Color(0xFF1A1A1A),
-                                          side: BorderSide(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.red
-                                                    : Colors.grey[700]!,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _getDisplayServerName(server),
-                                          style: TextStyle(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.white
-                                                    : Colors.grey[400],
-                                          ),
-                                        ),
-                                      )),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              const Text('DUB:',
-                                  style: TextStyle(color: Colors.white)),
-                              ...(episodeData['episode_links'] ?? [])
-                                  .where((link) =>
-                                      link['dataType'] == 'dub' &&
-                                      (link['serverName'] == 'Streamwish' ||
-                                          link['serverName'] == 'Vidhide' ||
-                                          link['serverName'] == 'Hianime' ||
-                                          link['serverName'] == 'StreamWish'))
-                                  .map((server) => ElevatedButton(
-                                        onPressed: () =>
-                                            _onServerSelected(server),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              server == currentSelectedServer
-                                                  ? Colors.red
-                                                  : const Color(0xFF1A1A1A),
-                                          side: BorderSide(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.red
-                                                    : Colors.grey[700]!,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _getDisplayServerName(server),
-                                          style: TextStyle(
-                                            color:
-                                                server == currentSelectedServer
-                                                    ? Colors.white
-                                                    : Colors.grey[400],
-                                          ),
-                                        ),
-                                      )),
-                            ],
-                          ),
-                        ],
-                      ),
-              ),
-              const SizedBox(height: 16),
               if (!isDesktop) _buildCommentButton(),
             ],
           ),
@@ -2346,7 +2301,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Widget _buildEpisodeListMobile() {
     if (isLoadingEpisodes) {
       return Center(
-        child: LoadingAnimationWidget.fourRotatingDots(
+        child: LoadingAnimationWidget.threeArchedCircle(
           color: Colors.red,
           size: 50,
         ),
@@ -2354,107 +2309,132 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
 
     final episodes = episodeData['all_episodes'] ?? [];
+    if (episodes.isEmpty) {
+      return const Center(
+        child: Text(
+          'No episodes found',
+          style: TextStyle(color: Colors.white),
+        ),
+      );
+    }
+
     final totalEpisodes = episodes.length;
     final pageGroups = _generatePageGroups(totalEpisodes);
 
     return Container(
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 0, 0, 0),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.grey[800]!,
-          width: 1,
-        ),
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text(
-                'Episodes',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              CustomDropdown<int>(
+                value: _currentPageStart,
+                items: pageGroups,
+                itemBuilder: (start) {
+                  final end = start + _episodesPerPage - 1;
+                  return '$start - $end';
+                },
+                onChanged: (value) {
+                  setState(() {
+                    _currentPageStart = value;
+                  });
+                },
+                width: 120,
+                maxHeight: 200, // Make episode dropdown scrollable
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_currentPageStart} - ${_currentPageStart + _episodesPerPage - 1}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: _currentPageStart >= 1000 ? 10 : 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
-              DropdownButton<int>(
-                dropdownColor: Colors.black,
-                value: _currentPageStart,
-                items: pageGroups.map((start) {
-                  final end = start + _episodesPerPage - 1;
-                  return DropdownMenuItem(
-                    value: start,
-                    child: Text(
-                      '$start - $end',
-                      style: const TextStyle(color: Colors.white),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search episode...',
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    fillColor: Colors.grey[900],
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _currentPageStart = value!;
-                  });
-                },
-                underline: Container(
-                  height: 2,
-                  color: Colors.red,
+                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon:
+                                const Icon(Icons.clear, color: Colors.white70),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
                 ),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by episode number or title...',
-              hintStyle: TextStyle(color: Colors.white70),
-              fillColor: Colors.black,
-              filled: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey[700]!, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Colors.white, width: 1),
-              ),
-              prefixIcon: Icon(Icons.search, color: Colors.white70),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white70),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : null,
-            ),
-            style: const TextStyle(color: Colors.white),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value.toLowerCase();
-              });
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.05),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
             },
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 400,
             child: ListView.builder(
-              controller: _episodeScrollController,
+              key: ValueKey(_searchQuery + _currentPageStart.toString()),
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: _getFilteredEpisodes(episodes).length,
               itemBuilder: (context, index) {
                 final filteredEpisodes = _getFilteredEpisodes(episodes);
@@ -2463,21 +2443,23 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                     episode['number'] == _currentEpisodeNumber;
 
                 return Container(
+                  key: ValueKey(episode['number']),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isCurrentEpisode ? Colors.red : Colors.grey[800]!,
-                      width: 1,
-                    ),
+                    color: isCurrentEpisode
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.grey[900],
                     borderRadius: BorderRadius.circular(8),
+                    border:
+                        isCurrentEpisode ? Border.all(color: Colors.red) : null,
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(8),
                     leading: Container(
-                      width: 100,
-                      height: 60,
+                      width: 90,
+                      height: 50,
                       decoration: BoxDecoration(
-                        color: Colors.grey[800],
+                        color: Colors.black,
                         borderRadius: BorderRadius.circular(4),
                         image: _thumbnails
                                 .containsKey(episode['number'].toString())
@@ -2503,27 +2485,23 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                               : const Center(
                                   child: Icon(
                                     Icons.play_circle_outline,
-                                    color: Colors.white70,
+                                    color: Colors.white54,
                                     size: 24,
                                   ),
                                 ),
                     ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${episode['number']}. ${episode['titles'][0]}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                    title: Text(
+                      'Episode ${episode['number']}',
+                      style: TextStyle(
+                        color: isCurrentEpisode ? Colors.red : Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     subtitle: Text(
-                      episode['aired'] ?? 'No air date',
-                      style: TextStyle(color: Colors.grey[600]),
+                      episode['titles'][0] ?? '',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () => onEpisodeSelected(episode['number']),
                   ),
@@ -2656,38 +2634,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     }
 
     return null;
-  }
-
-  String _getDisplayServerName(Map<String, dynamic> server) {
-    String prefix;
-
-    if (server['serverName'] == 'Streamwish') {
-      prefix = 'HD-';
-    } else if (server['serverName'] == 'StreamWish') {
-      prefix = 'HD-';
-    } else if (server['serverName'] == 'Hianime') {
-      prefix = 'HD-';
-    } else {
-      prefix = 'HD-';
-    }
-
-    return '$prefix${server['serverId']}';
-  }
-
-  Future<void> _onServerSelected(Map<String, dynamic> server) async {
-    setState(() {
-      currentSelectedServer = server;
-    });
-
-    // Save new preferred language
-    String selectedLang = server['dataType'];
-    _preferredLang = selectedLang;
-    await _secureStorage.write(key: "preferredLang", value: selectedLang);
-
-    // _selectedCategory = selectedLang;
-    // _selectedServerName = server['serverName'];
-
-    await _loadVideo(server['dataLink']);
   }
 
   Widget _buildCommentButton() {
@@ -2930,9 +2876,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
-  void updateComments(List<Comment> updatedComments) {
+  void updateComments(List<Comment> updatedComments, int totalCount) {
     setState(() {
       comments = updatedComments;
+      if (episodeData.isNotEmpty) {
+        episodeData['total_comments'] = totalCount;
+      }
     });
   }
 
