@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kuudere/services/notification.dart';
@@ -12,11 +11,11 @@ void main() async {
   // Initialize media_kit (ensure bundled native libs are loaded on all platforms)
   MediaKit.ensureInitialized();
 
-  // Register fvp (FFmpeg video player) for Linux only
-  // This fixes video rendering issues with media_kit on Linux
-  if (!kIsWeb && Platform.isLinux) {
+  // Register fvp (FFmpeg video player) for all platforms
+  // This provides consistent video playback and subtitle rendering across all platforms
+  if (!kIsWeb) {
     fvp.registerWith(options: {
-      'platforms': ['linux'],
+      'platforms': ['linux', 'windows', 'macos', 'android', 'ios'],
       // Enable subtitle font for ASS/SSA subtitles
       'subtitleFontFile':
           'https://github.com/mpv-android/mpv-android/raw/master/app/src/main/assets/subfont.ttf',

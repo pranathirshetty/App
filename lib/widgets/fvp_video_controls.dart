@@ -4,7 +4,9 @@ import 'package:video_player/video_player.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
-class LinuxVideoControls extends StatefulWidget {
+/// Universal video controls widget that works with video_player + fvp backend
+/// on all platforms (Linux, Windows, macOS, Android, iOS).
+class FvpVideoControls extends StatefulWidget {
   final VideoPlayerController controller;
   final Function(Offset anchor) onSettingsPressed;
   final Function(Offset anchor) onSubtitlePressed;
@@ -14,8 +16,12 @@ class LinuxVideoControls extends StatefulWidget {
   final VoidCallback? onCommentsPressed;
   final String? activeSidePanel;
   final Widget? settingsOverlay;
+  final String? title;
+  final String? episodeTitle;
+  final VoidCallback? onNextEpisode;
+  final VoidCallback? onPrevEpisode;
 
-  const LinuxVideoControls({
+  const FvpVideoControls({
     super.key,
     required this.controller,
     required this.onSettingsPressed,
@@ -26,13 +32,17 @@ class LinuxVideoControls extends StatefulWidget {
     this.onCommentsPressed,
     this.activeSidePanel,
     this.settingsOverlay,
+    this.title,
+    this.episodeTitle,
+    this.onNextEpisode,
+    this.onPrevEpisode,
   });
 
   @override
-  State<LinuxVideoControls> createState() => _LinuxVideoControlsState();
+  State<FvpVideoControls> createState() => _FvpVideoControlsState();
 }
 
-class _LinuxVideoControlsState extends State<LinuxVideoControls> {
+class _FvpVideoControlsState extends State<FvpVideoControls> {
   bool _visible = true;
   bool _showVolumeSliderInline = false;
   Timer? _hideTimer;
@@ -69,8 +79,9 @@ class _LinuxVideoControlsState extends State<LinuxVideoControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    if (widget.settingsOverlay != null || widget.activeSidePanel != null)
+    if (widget.settingsOverlay != null || widget.activeSidePanel != null) {
       return;
+    }
 
     _hideTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
@@ -276,27 +287,75 @@ class _LinuxVideoControlsState extends State<LinuxVideoControls> {
               child: AnimatedOpacity(
                 opacity: _controlsVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
-                child: GestureDetector(
-                  onTap: () {
-                    _onUserInteraction();
-                    if (isPlaying) {
-                      widget.controller.pause();
-                    } else {
-                      widget.controller.play();
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Previous Episode button
+                    if (widget.onPrevEpisode != null)
+                      GestureDetector(
+                        onTap: () {
+                          _onUserInteraction();
+                          widget.onPrevEpisode?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(right: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.skip_previous,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                    // Play/Pause button
+                    GestureDetector(
+                      onTap: () {
+                        _onUserInteraction();
+                        if (isPlaying) {
+                          widget.controller.pause();
+                        } else {
+                          widget.controller.play();
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: Colors.white,
-                      size: 48,
-                    ),
-                  ),
+                    // Next Episode button
+                    if (widget.onNextEpisode != null)
+                      GestureDetector(
+                        onTap: () {
+                          _onUserInteraction();
+                          widget.onNextEpisode?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(left: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.skip_next,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -328,7 +387,40 @@ class _LinuxVideoControlsState extends State<LinuxVideoControls> {
                                 widget.onFullscreenToggle?.call();
                               },
                             ),
-                          const Spacer(),
+                          // Title and Episode Title
+                          if (widget.title != null ||
+                              widget.episodeTitle != null)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (widget.title != null)
+                                    Text(
+                                      widget.title!,
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  if (widget.episodeTitle != null)
+                                    Text(
+                                      widget.episodeTitle!,
+                                      style: GoogleFonts.poppins(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.7),
+                                        fontSize: 12,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            )
+                          else
+                            const Spacer(),
                           if (widget.isFullscreen) ...[
                             IconButton(
                               icon: Icon(
