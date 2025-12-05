@@ -86,6 +86,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   List<Map<String, dynamic>> _availableQualities = [];
   String? _currentQuality;
   double _playbackSpeed = 1.0;
+  int? _savedWatchPosition; // Continue watching position from API
 
   // Subtitle Settings
   double _subtitleSize = 58.0;
@@ -740,14 +741,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 currentEpisode?['id'] ?? episodeData['episode_id'];
           }
 
+          // Store continue watching position from API (will be used by fvp player)
           if (episodeData['current'] != null && episodeData['current'] != 0) {
-            final savedPosition = episodeData['current'] as int;
-            // Seek to saved position once video is loaded
-            _player.stream.duration.listen((duration) {
-              if (duration != Duration.zero && savedPosition > 0) {
-                _player.seek(Duration(seconds: savedPosition));
-              }
-            });
+            _savedWatchPosition = episodeData['current'] as int;
+          } else {
+            _savedWatchPosition = null;
           }
         });
 
@@ -1598,29 +1596,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               await _loadFonts(fonts);
             }
 
-            // Fetch saved position before playing
+            // Use saved position from initial API response
             Duration? savedDuration;
-            try {
-              final httpService = HttpService();
-              final historyResponse = await httpService.post(
-                '/api/watch/${widget.id}/$_selectedEpisodeId',
-                body: {}, // Empty body as per curl request
-                requireAuth: true,
-              );
-
-              if (historyResponse.statusCode == 200) {
-                final historyData = json.decode(historyResponse.body);
-                if (historyData['success'] == true &&
-                    historyData['data'] != null) {
-                  final savedTime = historyData['data']['currentTime'];
-                  if (savedTime != null) {
-                    savedDuration =
-                        Duration(seconds: (savedTime as num).toInt());
-                  }
-                }
-              }
-            } catch (e) {
-              // print('Error fetching watch history: $e');
+            if (_savedWatchPosition != null && _savedWatchPosition! > 0) {
+              savedDuration = Duration(seconds: _savedWatchPosition!);
             }
 
             // Use video_player with fvp backend (universal for all platforms)
