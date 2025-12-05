@@ -29,6 +29,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:video_player/video_player.dart' as vp;
 import 'package:kuudere/widgets/linux_video_controls.dart';
 import 'package:fvp/fvp.dart'; // Import without alias for VideoPlayerController extensions
+import 'package:fvp/mdk.dart'
+    as mdk; // For setGlobalOption (subtitle fonts dir)
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -1615,6 +1617,14 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               );
 
               await _linuxVideoController!.initialize();
+
+              // Enable ASS subtitle rendering with libass
+              try {
+                _linuxVideoController!.setProperty('subtitle', '1');
+              } catch (e) {
+                debugPrint('Error setting subtitle properties: $e');
+              }
+
               _linuxVideoController!.play();
 
               if (savedDuration != null) {
@@ -1811,11 +1821,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Future<void> _loadFonts(List<dynamic> fonts) async {
     try {
       final tempDir = await getTemporaryDirectory();
-      final fontsDir = Directory('${tempDir.path}/fonts');
+      final fontsDir = Directory('${tempDir.path}/subtitle_fonts');
       if (!await fontsDir.exists()) {
         await fontsDir.create(recursive: true);
       }
 
+      // Download all fonts to the fonts directory
       for (final font in fonts) {
         final fontUrl = font['url'];
         final fontName = font['name'];
@@ -1828,36 +1839,98 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             if (pathSegments.isNotEmpty) {
               final filename = pathSegments.last;
               if (filename.contains('.')) {
-                extension = filename.substring(filename.lastIndexOf('.'));
+                // Get extension without query params
+                final pathPart = filename.split('?').first;
+                if (pathPart.contains('.')) {
+                  extension = pathPart.substring(pathPart.lastIndexOf('.'));
+                }
               }
             }
           } catch (_) {}
 
           String fileNameWithExt = fontName;
-          if (!fontName.toLowerCase().endsWith(extension)) {
+          if (!fontName.toLowerCase().endsWith(extension.toLowerCase())) {
             fileNameWithExt = '$fontName$extension';
           }
 
           final fontFile = File('${fontsDir.path}/$fileNameWithExt');
           if (!await fontFile.exists()) {
             // Download font
+            debugPrint('Downloading font: $fontName from $fontUrl');
             final response = await http.get(Uri.parse(fontUrl));
             if (response.statusCode == 200) {
               await fontFile.writeAsBytes(response.bodyBytes);
+              debugPrint('Font saved: ${fontFile.path}');
+            } else {
+              debugPrint(
+                  'Failed to download font $fontName: ${response.statusCode}');
             }
+          } else {
+            debugPrint('Font already exists: ${fontFile.path}');
           }
         }
       }
 
       // Configure player to use fonts directory and enable ASS
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      if (Platform.isLinux) {
+        // For Linux with fvp/mdk, we need to configure fonts for libass
+        // libass uses fontconfig to find fonts, so we need to make fonts available
+
+        // Approach 1: Copy fonts to user's local fonts directory
+        // ~/.local/share/fonts is automatically scanned by fontconfig
+        try {
+          final homeDir = Platform.environment['HOME'] ?? '/tmp';
+          final userFontsDir =
+              Directory('$homeDir/.local/share/fonts/kuudere-subs');
+          if (!await userFontsDir.exists()) {
+            await userFontsDir.create(recursive: true);
+          }
+
+          // Copy all fonts to user fonts directory
+          final fontsList = await fontsDir.list().toList();
+          for (final file in fontsList) {
+            if (file is File) {
+              final fileName = file.path.split('/').last;
+              final destFile = File('${userFontsDir.path}/$fileName');
+              if (!await destFile.exists()) {
+                await file.copy(destFile.path);
+                debugPrint('Copied font to user fonts: ${destFile.path}');
+              }
+            }
+          }
+
+          // Update font cache (run in background, don't wait)
+          Process.run('fc-cache', ['-f', userFontsDir.path]).then((_) {
+            debugPrint('Font cache updated');
+          }).catchError((e) {
+            debugPrint('Error updating font cache: $e');
+          });
+        } catch (e) {
+          debugPrint('Error installing fonts to user directory: $e');
+        }
+
+        // Approach 2: Set MDK global option for fonts directory
+        debugPrint('Setting subtitle.fonts.dir to: ${fontsDir.path}');
+        mdk.setGlobalOption('subtitle.fonts.dir', fontsDir.path);
+
+        // Approach 3: Set controller properties if available
+        if (_linuxVideoController != null) {
+          try {
+            _linuxVideoController!
+                .setProperty('subtitle.fonts.dir', fontsDir.path);
+          } catch (e) {
+            debugPrint('Error setting controller property: $e');
+          }
+        }
+      } else if (Platform.isWindows || Platform.isMacOS) {
+        // For other desktop platforms with media_kit
         await (_player.platform as dynamic)
             .setProperty('sub-fonts-dir', fontsDir.path);
         await (_player.platform as dynamic).setProperty('sub-ass', 'yes');
         await (_player.platform as dynamic).setProperty('embeddedfonts', 'yes');
       }
     } catch (e) {
-      // print('Error loading fonts: $e');
+      debugPrint('Error loading fonts: $e');
     }
   }
 
