@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:kuudere/services/auth_service.dart';
+import 'package:kuudere/services/settings_service.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,6 +32,7 @@ import 'package:kuudere/widgets/fvp_video_controls.dart';
 import 'package:fvp/fvp.dart'; // Import without alias for VideoPlayerController extensions
 import 'package:fvp/mdk.dart'
     as mdk; // For setGlobalOption (subtitle fonts dir)
+import 'package:kuudere/utils/subtitle_utils.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -182,6 +184,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     _currentEpisodeNumber =
         widget.episodeNumber; // Initialize _currentEpisodeNumber
 
+    // Load persistent subtitle settings
+    _loadSubtitleSettings();
+
     _initializePlayer(); // Extracted player initialization
     _loadPreferredLang().then((_) {
       if (_currentEpisodeNumber == null || _currentEpisodeNumber == 0) {
@@ -190,6 +195,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         initializeScreen(_currentEpisodeNumber!);
       }
     });
+  }
+
+  void _loadSubtitleSettings() {
+    final settings = SettingsService();
+    _subtitleSize = settings.subtitleSize.value;
+    _subtitleDelay = settings.subtitleDelay.value;
+    _subtitlePos = settings.subtitlePos.value;
   }
 
   void _initializePlayer() {
@@ -1488,6 +1500,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   Future<void> _loadVideo(String url, {String? server}) async {
+    // Save current position before switching (for server switches)
+    Duration? resumePosition;
+    if (_fvpVideoController != null && _fvpVideoInitialized) {
+      resumePosition = _fvpVideoController!.value.position;
+    }
+
     setState(() {
       isLoadingVideo = true;
     });
@@ -1624,8 +1642,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
             _fvpVideoController!.play();
 
-            if (savedDuration != null) {
-              await _fvpVideoController!.seekTo(savedDuration);
+            // Seek to position: prioritize resumePosition (server switch) over savedDuration (watch history)
+            final seekPosition = resumePosition ?? savedDuration;
+            if (seekPosition != null && seekPosition.inSeconds > 0) {
+              await _fvpVideoController!.seekTo(seekPosition);
             }
 
             setState(() {
@@ -1639,9 +1659,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                   try {
                     final subUrl = sub['url'];
 
-                    // Use fvp extension for all platforms
+                    // Apply subtitle delay if needed
                     if (_fvpVideoController != null) {
-                      _fvpVideoController!.setExternalSubtitle(subUrl);
+                      final effectiveUrl = await _getDelayedSubtitleUrl(subUrl);
+                      _fvpVideoController!.setExternalSubtitle(effectiveUrl);
                       setState(() {
                         _currentSubtitle = sub;
                       });
@@ -1734,35 +1755,75 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   Future<void> _applySubtitleSettings() async {
-    // Apply settings to all platforms (Android/iOS/Desktop)
+    // Apply settings using fvp controller (universal for all platforms)
+    // Note: mdk-sdk uses different property names than mpv
+    if (_fvpVideoController == null) return;
+
     try {
       // Scale (default is 1.0)
-      // We map 28.0 (our default UI size) to 1.0 mpv scale roughly
+      // We map 28.0 (our default UI size) to 1.0 scale roughly
       double scale = _subtitleSize / 28.0;
-      await (_player.platform as dynamic)
-          .setProperty('sub-scale', scale.toString());
+      _fvpVideoController!.setProperty('subtitle.scale', scale.toString());
 
-      // Colors in MPV are BGR hex? No, usually #AARRGGBB or #RRGGBB
-      // mpv takes #AARRGGBB
-      await (_player.platform as dynamic)
-          .setProperty('sub-color', '#${_toHex(_subtitleColor)}');
-      await (_player.platform as dynamic).setProperty(
-          'sub-back-color', '#${_toHex(_subtitleBackgroundColor)}');
+      // Subtitle colors use RGBA hex format in mdk-sdk
+      // Convert our Color to mdk format (0xRRGGBBAA as decimal string)
+      int colorValue = _subtitleColor.toARGB32();
+      _fvpVideoController!.setProperty('subtitle.color', colorValue.toString());
 
-      // Delay
-      await (_player.platform as dynamic)
-          .setProperty('sub-delay', _subtitleDelay.toString());
+      int bgColorValue = _subtitleBackgroundColor.toARGB32();
+      _fvpVideoController!
+          .setProperty('subtitle.color.background', bgColorValue.toString());
 
-      // Position (0-100, default 100 is bottom)
-      await (_player.platform as dynamic)
-          .setProperty('sub-pos', _subtitlePos.toString());
+      // Subtitle position via alignment
+      // Convert _subtitlePos (0-100, 100=bottom) to alignment
+      // mdk uses subtitle.alignment.y: -1=top, 0=center, 1=bottom
+      // and subtitle.margin.y for fine-tuning
+      if (_subtitlePos <= 33) {
+        _fvpVideoController!.setProperty('subtitle.alignment.y', '-1'); // top
+      } else if (_subtitlePos <= 66) {
+        _fvpVideoController!.setProperty('subtitle.alignment.y', '0'); // center
+      } else {
+        _fvpVideoController!.setProperty('subtitle.alignment.y', '1'); // bottom
+      }
+
+      // Subtitle delay is now handled by modifying the subtitle file
+      // See _getDelayedSubtitleUrl() method
     } catch (e) {
-      // print('Error applying subtitle settings: $e');
+      debugPrint('Error applying subtitle settings: $e');
     }
   }
 
-  String _toHex(Color color) {
-    return color.toARGB32().toRadixString(16).padLeft(8, '0');
+  /// Get subtitle URL with delay applied by modifying the subtitle file
+  Future<String> _getDelayedSubtitleUrl(String originalUrl) async {
+    if (_subtitleDelay == 0) {
+      return originalUrl;
+    }
+
+    try {
+      final modifiedPath =
+          await SubtitleUtils.applyDelay(originalUrl, _subtitleDelay);
+      if (modifiedPath != null) {
+        return modifiedPath;
+      }
+    } catch (e) {
+      debugPrint('Error applying subtitle delay: $e');
+    }
+
+    // Fall back to original URL if delay application fails
+    return originalUrl;
+  }
+
+  /// Reload current subtitle with updated delay
+  Future<void> _reloadSubtitleWithDelay() async {
+    if (_currentSubtitle == null || _currentSubtitle!['url'] == null) return;
+
+    try {
+      final effectiveUrl =
+          await _getDelayedSubtitleUrl(_currentSubtitle!['url']);
+      _fvpVideoController?.setExternalSubtitle(effectiveUrl);
+    } catch (e) {
+      debugPrint('Error reloading subtitle with delay: $e');
+    }
   }
 
   Future<void> _loadFonts(List<dynamic> fonts) async {
@@ -1975,10 +2036,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               _currentSubtitle = subtitle;
               _showSettingsOverlay = false;
             });
-            // Load subtitle using fvp extension
+            // Load subtitle using fvp extension with delay applied
             if (subtitle != null && subtitle['url'] != null) {
               try {
-                _fvpVideoController?.setExternalSubtitle(subtitle['url']);
+                final effectiveUrl =
+                    await _getDelayedSubtitleUrl(subtitle['url']);
+                _fvpVideoController?.setExternalSubtitle(effectiveUrl);
               } catch (e) {
                 debugPrint('Error setting subtitle: $e');
               }
@@ -1992,16 +2055,23 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             setState(() {
               _subtitleSize = size;
             });
+            _applySubtitleSettings();
+            SettingsService().setSubtitleSize(size);
           },
-          onSubtitleDelayChanged: (delay) {
+          onSubtitleDelayChanged: (delay) async {
             setState(() {
               _subtitleDelay = delay;
             });
+            // Reload subtitle with new delay applied
+            await _reloadSubtitleWithDelay();
+            SettingsService().setSubtitleDelay(delay);
           },
           onSubtitlePosChanged: (pos) {
             setState(() {
               _subtitlePos = pos;
             });
+            _applySubtitleSettings();
+            SettingsService().setSubtitlePos(pos);
           },
           qualities:
               _availableQualities.map((q) => q['quality'].toString()).toList(),

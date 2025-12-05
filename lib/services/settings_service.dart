@@ -13,10 +13,18 @@ class SettingsService {
   final ValueNotifier<bool> autoNext = ValueNotifier<bool>(true);
   final ValueNotifier<String> defaultAudio = ValueNotifier<String>('sub');
 
+  // Subtitle settings
+  final ValueNotifier<double> subtitleSize = ValueNotifier<double>(58.0);
+  final ValueNotifier<double> subtitleDelay = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> subtitlePos = ValueNotifier<double>(90.0);
+
   // Keys
   static const String _keyAutoPlay = 'settings_auto_play';
   static const String _keyAutoNext = 'settings_auto_next';
   static const String _keyDefaultAudio = 'settings_default_audio';
+  static const String _keySubtitleSize = 'settings_subtitle_size';
+  static const String _keySubtitleDelay = 'settings_subtitle_delay';
+  static const String _keySubtitlePos = 'settings_subtitle_pos';
 
   Future<void> loadSettings() async {
     try {
@@ -33,6 +41,22 @@ class SettingsService {
       String? defaultAudioStr = await _storage.read(key: _keyDefaultAudio);
       if (defaultAudioStr != null) {
         defaultAudio.value = defaultAudioStr;
+      }
+
+      // Load subtitle settings
+      String? subtitleSizeStr = await _storage.read(key: _keySubtitleSize);
+      if (subtitleSizeStr != null) {
+        subtitleSize.value = double.tryParse(subtitleSizeStr) ?? 58.0;
+      }
+
+      String? subtitleDelayStr = await _storage.read(key: _keySubtitleDelay);
+      if (subtitleDelayStr != null) {
+        subtitleDelay.value = double.tryParse(subtitleDelayStr) ?? 0.0;
+      }
+
+      String? subtitlePosStr = await _storage.read(key: _keySubtitlePos);
+      if (subtitlePosStr != null) {
+        subtitlePos.value = double.tryParse(subtitlePosStr) ?? 90.0;
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -52,5 +76,20 @@ class SettingsService {
   Future<void> setDefaultAudio(String value) async {
     defaultAudio.value = value;
     await _storage.write(key: _keyDefaultAudio, value: value);
+  }
+
+  Future<void> setSubtitleSize(double value) async {
+    subtitleSize.value = value;
+    await _storage.write(key: _keySubtitleSize, value: value.toString());
+  }
+
+  Future<void> setSubtitleDelay(double value) async {
+    subtitleDelay.value = value;
+    await _storage.write(key: _keySubtitleDelay, value: value.toString());
+  }
+
+  Future<void> setSubtitlePos(double value) async {
+    subtitlePos.value = value;
+    await _storage.write(key: _keySubtitlePos, value: value.toString());
   }
 }

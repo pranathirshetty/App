@@ -320,8 +320,8 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
   Widget _buildSubtitlesView() {
     return _buildSubMenu(
       title: 'Captions',
-      // onCustomize: () =>
-      //     setState(() => _currentView = SettingsView.subtitleSettings),
+      onCustomize: () =>
+          setState(() => _currentView = SettingsView.subtitleSettings),
       children: [
         _buildRadioItem(
           title: 'Off',
@@ -415,7 +415,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                           child: Slider(
                             value: _localSubtitleSize,
                             min: 12.0,
-                            max: 48.0,
+                            max: 64.0,
                             onChanged: (value) {
                               setState(() {
                                 _localSubtitleSize = value;
