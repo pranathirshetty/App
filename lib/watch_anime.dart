@@ -26,6 +26,9 @@ import 'package:http/http.dart' as http;
 import 'package:kuudere/widgets/custom_player_controls.dart';
 import 'package:kuudere/widgets/custom_dropdown.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:video_player/video_player.dart' as vp;
+import 'package:kuudere/widgets/linux_video_controls.dart';
+import 'package:fvp/fvp.dart'; // Import without alias for VideoPlayerController extensions
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -92,9 +95,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   Offset? _settingsAnchor;
   SettingsView _settingsInitialView = SettingsView.main;
 
-  // Media Kit player
+  // Media Kit player (used on non-Linux platforms)
   late final Player _player;
   late final VideoController _videoController;
+
+  // Linux-specific video player using fvp backend
+  vp.VideoPlayerController? _linuxVideoController;
+  bool _linuxVideoInitialized = false;
 
   final authService = AuthService();
 
@@ -118,6 +125,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       DeviceOrientation.landscapeRight,
     ]);
 
+    // Dispose Linux video controller if exists
+    _linuxVideoController?.dispose();
     _player.dispose();
     super.dispose();
     // socket.dispose();
@@ -187,6 +196,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     _videoController = VideoController(
       _player,
       configuration: VideoControllerConfiguration(
+        // Disable hardware acceleration on Linux (causes blue screen)
         enableHardwareAcceleration: !isLinux,
         androidAttachSurfaceAfterVideoParameters:
             Platform.isAndroid ? false : true,
@@ -287,7 +297,15 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   void _startSaveProgressTimer() {
     _saveProgressTimer?.cancel();
     _saveProgressTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_player.state.playing) {
+      // Check if video is playing (for both Linux and other platforms)
+      bool isPlaying = false;
+      if (Platform.isLinux && _linuxVideoController != null) {
+        isPlaying = _linuxVideoController!.value.isPlaying;
+      } else {
+        isPlaying = _player.state.playing;
+      }
+
+      if (isPlaying) {
         _saveProgress();
       }
     });
@@ -300,8 +318,16 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo == null) return;
 
-      final position = _player.state.position.inSeconds.toDouble();
-      final duration = _player.state.duration.inSeconds.toDouble();
+      double position;
+      double duration;
+
+      if (Platform.isLinux && _linuxVideoController != null) {
+        position = _linuxVideoController!.value.position.inSeconds.toDouble();
+        duration = _linuxVideoController!.value.duration.inSeconds.toDouble();
+      } else {
+        position = _player.state.position.inSeconds.toDouble();
+        duration = _player.state.duration.inSeconds.toDouble();
+      }
 
       if (duration <= 0) return;
 
@@ -1130,9 +1156,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     if (_isCustomFullscreen) {
       return Scaffold(
         backgroundColor: Colors.black,
-        body: SafeArea(
-          child: _buildVideoPlayer(isFullscreen: true),
-        ),
+        body: Platform.isLinux
+            ? SizedBox.expand(
+                child: _buildVideoPlayer(isFullscreen: true),
+              )
+            : SafeArea(
+                child: _buildVideoPlayer(isFullscreen: true),
+              ),
       );
     }
 
@@ -1161,6 +1191,27 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   Widget _buildMobileLayout() {
+    // On Linux with software rendering, keeping video inside ScrollView causes
+    // black screen issues. Use a fixed layout instead.
+    if (Platform.isLinux) {
+      return Column(
+        children: [
+          _buildVideoPlayer(),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildMainContent(isDesktop: false),
+                  _buildEpisodeListMobile(),
+                  _buildAnimeDetailsCard(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Stack(
       children: [
         SingleChildScrollView(
@@ -1178,6 +1229,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   Widget _buildDesktopLayout() {
+    // On Linux with software rendering, keeping video inside ScrollView causes
+    // black screen issues. Use a fixed layout instead.
+    if (Platform.isLinux) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              children: [
+                _buildVideoPlayer(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(right: 24),
+                    child: Column(
+                      children: [
+                        _buildMainContent(isDesktop: true),
+                        _buildAnimeDetailsCard(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 400,
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              color: const Color(0xFF0F0F0F),
+            ),
+            child: _buildSidebar(),
+          ),
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1515,62 +1605,92 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               // print('Error fetching watch history: $e');
             }
 
-            await _player.open(
-              Media(m3u8Url),
-              play: true,
-            );
+            // On Linux, use video_player with fvp backend
+            if (Platform.isLinux) {
+              // Dispose previous controller if exists
+              _linuxVideoController?.dispose();
 
-            if (savedDuration != null) {
-              // Wait for duration to be available to ensure player is ready
-              if (_player.state.duration == Duration.zero) {
-                await _player.stream.duration
-                    .firstWhere((duration) => duration > Duration.zero);
+              _linuxVideoController = vp.VideoPlayerController.networkUrl(
+                Uri.parse(m3u8Url),
+              );
+
+              await _linuxVideoController!.initialize();
+              _linuxVideoController!.play();
+
+              if (savedDuration != null) {
+                await _linuxVideoController!.seekTo(savedDuration);
               }
-              // print('Seeking to saved time: $savedDuration');
-              await _player.seek(savedDuration);
+
+              setState(() {
+                _linuxVideoInitialized = true;
+              });
+            } else {
+              // Non-Linux: use media_kit
+              await _player.open(
+                Media(m3u8Url),
+                play: true,
+              );
+
+              if (savedDuration != null) {
+                // Wait for duration to be available to ensure player is ready
+                if (_player.state.duration == Duration.zero) {
+                  await _player.stream.duration
+                      .firstWhere((duration) => duration > Duration.zero);
+                }
+                await _player.seek(savedDuration);
+              }
             }
 
+            // Load default subtitle
             if (subtitles != null) {
               for (final sub in subtitles) {
                 if (sub['is_default'] == true) {
                   try {
-                    // Download subtitle file to temp directory
                     final subUrl = sub['url'];
                     final format = sub['format'] ?? 'srt';
 
-                    if (format == 'ass') {
-                      // Download ASS file to preserve formatting
-                      final tempDir = await getTemporaryDirectory();
-                      final subFile = File(
-                          '${tempDir.path}/subtitle_${DateTime.now().millisecondsSinceEpoch}.ass');
+                    if (Platform.isLinux && _linuxVideoController != null) {
+                      // Use fvp extension for Linux
+                      _linuxVideoController!.setExternalSubtitle(subUrl);
+                      setState(() {
+                        _currentSubtitle = sub;
+                      });
+                    } else {
+                      // Use media_kit for other platforms
+                      if (format == 'ass') {
+                        // Download ASS file to preserve formatting
+                        final tempDir = await getTemporaryDirectory();
+                        final subFile = File(
+                            '${tempDir.path}/subtitle_${DateTime.now().millisecondsSinceEpoch}.ass');
 
-                      final response = await http.get(Uri.parse(subUrl));
-                      if (response.statusCode == 200) {
-                        await subFile.writeAsBytes(response.bodyBytes);
+                        final response = await http.get(Uri.parse(subUrl));
+                        if (response.statusCode == 200) {
+                          await subFile.writeAsBytes(response.bodyBytes);
 
+                          await _player.setSubtitleTrack(
+                            SubtitleTrack.uri(
+                              subFile.path,
+                              title: sub['title'],
+                              language: sub['language'],
+                            ),
+                          );
+                        }
+                      } else {
                         await _player.setSubtitleTrack(
                           SubtitleTrack.uri(
-                            subFile.path,
+                            subUrl,
                             title: sub['title'],
                             language: sub['language'],
                           ),
                         );
                       }
-                    } else {
-                      await _player.setSubtitleTrack(
-                        SubtitleTrack.uri(
-                          subUrl,
-                          title: sub['title'],
-                          language: sub['language'],
-                        ),
-                      );
-                    }
 
-                    setState(() {
-                      _currentSubtitle = sub;
-                    });
+                      setState(() {
+                        _currentSubtitle = sub;
+                      });
+                    }
                   } catch (e) {
-                    // print('Error setting subtitle: $e');
+                    debugPrint('Error setting subtitle: $e');
                   }
                   break; // Set only the default one
                 }
@@ -1802,6 +1922,272 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     ];
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
+    // On Linux, use video_player with fvp backend
+    if (Platform.isLinux) {
+      Widget linuxVideoWidget;
+
+      if (_linuxVideoInitialized && _linuxVideoController != null) {
+        // Build the settings overlay for Linux
+        Widget? linuxSettingsOverlay;
+        if (_showSettingsOverlay) {
+          linuxSettingsOverlay = VideoSettingsOverlay(
+            onClose: () {
+              setState(() {
+                _showSettingsOverlay = false;
+              });
+            },
+            servers: servers,
+            currentServer: _currentServer,
+            onServerChanged: (server) async {
+              setState(() {
+                _showSettingsOverlay = false;
+              });
+              await _loadVideo('', server: server);
+            },
+            speeds: speeds,
+            currentSpeed: _playbackSpeed,
+            onSpeedChanged: (speed) {
+              setState(() {
+                _playbackSpeed = speed;
+                _showSettingsOverlay = false;
+              });
+              _linuxVideoController?.setPlaybackSpeed(speed);
+            },
+            subtitles: _availableSubtitles.cast<Map<String, dynamic>>(),
+            currentSubtitle: _currentSubtitle,
+            onSubtitleChanged: (subtitle) async {
+              setState(() {
+                _currentSubtitle = subtitle;
+                _showSettingsOverlay = false;
+              });
+              // Load subtitle using fvp extension
+              if (subtitle != null && subtitle['url'] != null) {
+                try {
+                  _linuxVideoController?.setExternalSubtitle(subtitle['url']);
+                } catch (e) {
+                  debugPrint('Error setting subtitle: $e');
+                }
+              }
+            },
+            initialView: _settingsInitialView,
+            subtitleSize: _subtitleSize,
+            subtitleDelay: _subtitleDelay,
+            subtitlePos: _subtitlePos,
+            onSubtitleSizeChanged: (size) {
+              setState(() {
+                _subtitleSize = size;
+              });
+            },
+            onSubtitleDelayChanged: (delay) {
+              setState(() {
+                _subtitleDelay = delay;
+              });
+            },
+            onSubtitlePosChanged: (pos) {
+              setState(() {
+                _subtitlePos = pos;
+              });
+            },
+            qualities: _availableQualities
+                .map((q) => q['quality'].toString())
+                .toList(),
+            currentQuality: _currentQuality ?? 'Auto',
+            onQualityChanged: (quality) async {
+              final selected = _availableQualities.firstWhere(
+                (q) => q['quality'] == quality,
+                orElse: () => {'url': ''},
+              );
+              setState(() {
+                _currentQuality = quality;
+                _showSettingsOverlay = false;
+              });
+              if (selected['url'] != null && selected['url'].isNotEmpty) {
+                // Dispose and reload with new quality
+                final currentPosition = _linuxVideoController?.value.position;
+                _linuxVideoController?.dispose();
+                _linuxVideoController = vp.VideoPlayerController.networkUrl(
+                  Uri.parse(selected['url']),
+                );
+                await _linuxVideoController!.initialize();
+                if (currentPosition != null) {
+                  await _linuxVideoController!.seekTo(currentPosition);
+                }
+                _linuxVideoController!.play();
+                setState(() {});
+              }
+            },
+            onSubtitleSettingsPressed: () {
+              // Handled internally by VideoSettingsOverlay
+            },
+          );
+        }
+
+        // Build video container - different for fullscreen vs normal
+        Widget videoContainer;
+        if (isFullscreen) {
+          // In fullscreen, fill the space and fit the video while maintaining aspect ratio
+          videoContainer = SizedBox.expand(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: _linuxVideoController!.value.size.width > 0
+                    ? _linuxVideoController!.value.size.width
+                    : 1920,
+                height: _linuxVideoController!.value.size.height > 0
+                    ? _linuxVideoController!.value.size.height
+                    : 1080,
+                child: vp.VideoPlayer(_linuxVideoController!),
+              ),
+            ),
+          );
+        } else {
+          // In normal mode, use fixed 16:9 aspect ratio
+          videoContainer = AspectRatio(
+            aspectRatio: 16 / 9,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: _linuxVideoController!.value.size.width > 0
+                    ? _linuxVideoController!.value.size.width
+                    : 1920,
+                height: _linuxVideoController!.value.size.height > 0
+                    ? _linuxVideoController!.value.size.height
+                    : 1080,
+                child: vp.VideoPlayer(_linuxVideoController!),
+              ),
+            ),
+          );
+        }
+
+        linuxVideoWidget = Stack(
+          children: [
+            // Video - fills available space in fullscreen
+            if (isFullscreen)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black,
+                  child: videoContainer,
+                ),
+              )
+            else
+              videoContainer,
+            // Controls
+            Positioned.fill(
+              child: LinuxVideoControls(
+                controller: _linuxVideoController!,
+                onSettingsPressed: (anchor) {
+                  setState(() {
+                    _settingsAnchor = anchor;
+                    _showSettingsOverlay = true;
+                    _settingsInitialView = SettingsView.main;
+                  });
+                },
+                onSubtitlePressed: (anchor) {
+                  setState(() {
+                    _settingsAnchor = anchor;
+                    _showSettingsOverlay = true;
+                    _settingsInitialView = SettingsView.subtitles;
+                  });
+                },
+                isFullscreen: isFullscreen,
+                onFullscreenToggle: _toggleFullscreen,
+                onEpisodesPressed: () => _toggleSidePanel('episodes'),
+                onCommentsPressed: () => _toggleSidePanel('comments'),
+                activeSidePanel: _activeSidePanel,
+                settingsOverlay: linuxSettingsOverlay,
+              ),
+            ),
+          ],
+        );
+      } else {
+        // Show loading while initializing
+        linuxVideoWidget = Container(
+          color: Colors.black,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                LoadingAnimationWidget.threeArchedCircle(
+                  color: Colors.red,
+                  size: 50,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Loading Video...",
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // Fullscreen layout for Linux
+      if (isFullscreen) {
+        return Row(
+          children: [
+            Expanded(child: linuxVideoWidget),
+            if (_activeSidePanel != null)
+              Container(
+                width: 320,
+                color: Colors.black.withValues(alpha: 0.9),
+                child: DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _activeSidePanel == 'episodes'
+                                    ? 'Episodes'
+                                    : 'Comments',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
+                              onPressed: () => _toggleSidePanel(null),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: _activeSidePanel == 'episodes'
+                            ? _buildSidePanelEpisodeList()
+                            : CommentsContent(
+                                commentCount:
+                                    episodeData['total_comments'] ?? 0,
+                                episodeData: episodeData,
+                                epNumber: _currentEpisodeNumber,
+                                animeId: widget.id,
+                                comments: comments,
+                                updateComments: updateComments,
+                                isDesktop: true,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      }
+
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: linuxVideoWidget,
+      );
+    }
+
+    // Non-Linux: use media_kit
     final videoWidget = Video(
       controller: _videoController,
       controls: (state) {
@@ -1907,6 +2293,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               : null,
         );
       },
+      fit: BoxFit.contain,
       fill: Colors.black,
       filterQuality: FilterQuality.high,
       wakelock: true,
@@ -1964,12 +2351,15 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
       return Row(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                videoWidget,
-                buildLoadingOverlay(),
-              ],
-            ),
+            // On Linux, avoid Stack to prevent video texture rendering issues
+            child: Platform.isLinux
+                ? videoWidget
+                : Stack(
+                    children: [
+                      videoWidget,
+                      buildLoadingOverlay(),
+                    ],
+                  ),
           ),
           if (_activeSidePanel != null)
             Container(
@@ -2027,6 +2417,16 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               ),
             ),
         ],
+      );
+    }
+
+    // On Linux, wrap in RepaintBoundary to fix texture rendering in ScrollView
+    if (Platform.isLinux) {
+      return RepaintBoundary(
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: videoWidget,
+        ),
       );
     }
 
