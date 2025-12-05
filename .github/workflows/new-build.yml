@@ -1,0 +1,536 @@
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "App Version (e.g. 1.0.0)"
+        required: true
+      build_number:
+        description: "Build Number (e.g. 1)"
+        required: true
+      type:
+        description: "Release Type"
+        required: true
+        default: "beta"
+        type: choice
+        options:
+          - latest
+          - beta
+      build_android:
+        description: "Build Android"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      build_ios:
+        description: "Build iOS"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      build_linux:
+        description: "Build Linux"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      build_windows:
+        description: "Build Windows"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      build_macos:
+        description: "Build macOS"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      build_web:
+        description: "Build Web"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+jobs:
+  # ==================== ANDROID BUILD ====================
+  build-android:
+    name: Build Android APK & AAB
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_android == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ vars.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\r\n' | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        run: |
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "storePassword=${{ vars.ANDROID_STORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ vars.ANDROID_KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ vars.ANDROID_KEY_PASSWORD }}" >> android/key.properties
+
+      - name: Build Split APKs (Recommended - Smaller Size)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build Universal APK (ARM only - for compatibility)
+        env:
+          ARM_ONLY: true
+        run: |
+          flutter build apk --release --target-platform android-arm,android-arm64
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/AniSurge-universal.apk
+
+      - name: Rename APKs
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd build/app/outputs/flutter-apk
+          mv AniSurge-universal.apk AniSurge-universal-$VERSION.apk
+
+          for f in app-*-release.apk; do
+            if [ -f "$f" ]; then
+              arch=$(echo "$f" | sed 's/app-\(.*\)-release.apk/\1/')
+              mv "$f" "AniSurge-$arch-$VERSION.apk"
+            fi
+          done
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: build/app/outputs/flutter-apk/*.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  # ==================== iOS BUILD ====================
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    if: ${{ github.event.inputs.build_ios == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS (unsigned)
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Create IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r AniSurge-ios-unsigned.ipa Payload
+          mv AniSurge-ios-unsigned.ipa ../../..
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: AniSurge-ios-unsigned.ipa
+
+  # ==================== LINUX BUILD ====================
+  build-linux:
+    name: Build Linux (Deb, Rpm, AppImage, Pacman)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_linux == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libsecret-1-dev libasound2-dev libmpv-dev mpv ruby-full build-essential rpm libarchive-tools libayatana-appindicator3-dev
+
+      - name: Install Packaging Tools
+        run: |
+          sudo gem install fpm
+          # Install AppImageTool
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+          echo "$PWD/squashfs-root/usr/bin" >> $GITHUB_PATH
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux
+        run: flutter build linux --release
+
+      - name: Prepare Packaging
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          BUILD_DIR="build/linux/x64/release/bundle"
+          PKG_DIR="packaging"
+
+          # Create directory structure
+          mkdir -p $PKG_DIR/usr/bin
+          mkdir -p $PKG_DIR/usr/lib/anisurge
+          mkdir -p $PKG_DIR/usr/share/applications
+          mkdir -p $PKG_DIR/usr/share/icons/hicolor/192x192/apps
+
+          # Copy files
+          cp -r $BUILD_DIR/* $PKG_DIR/usr/lib/anisurge/
+          cp web/icons/Icon-192.png $PKG_DIR/usr/share/icons/hicolor/192x192/apps/anisuge.png
+
+          # Create executable wrapper
+          echo '#!/bin/bash' > $PKG_DIR/usr/bin/anisurge
+          echo '/usr/lib/anisurge/AniSurge "$@"' >> $PKG_DIR/usr/bin/anisurge
+          chmod +x $PKG_DIR/usr/bin/anisurge
+
+          # Create Desktop file
+          cat > $PKG_DIR/usr/share/applications/anisurge.desktop <<EOF
+          [Desktop Entry]
+          Name=AniSurge
+          Comment=Anime Streaming App
+          Exec=anisurge
+          Icon=anisuge
+          Terminal=false
+          Type=Application
+          Categories=Video;
+          EOF
+
+      - name: Build Packages (Deb, Rpm, Pacman)
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd packaging
+
+          # DEB (Debian/Ubuntu)
+          # Added dependencies so it works out of the box
+          fpm -s dir -t deb -n anisurge -v "$VERSION" \
+            --maintainer "AniSurge <support@anisurge.com>" \
+            --description "AniSurge Anime App" \
+            --url "https://github.com/iotserver24/Anisurge-new" \
+            -d "libmpv1" -d "libgtk-3-0" -d "libayatana-appindicator3-1" \
+            -p ../AniSurge-linux-amd64.deb .
+
+          # RPM (Fedora/OpenSUSE)
+          fpm -s dir -t rpm -n anisurge -v "$VERSION" \
+            --maintainer "AniSurge <support@anisurge.com>" \
+            --description "AniSurge Anime App" \
+            --url "https://github.com/iotserver24/Anisurge-new" \
+            -d "mpv-libs" -d "gtk3" \
+            -p ../AniSurge-linux-x86_64.rpm .
+
+          # PACMAN (Arch Linux)
+          fpm -s dir -t pacman -n anisurge -v "$VERSION" \
+            --maintainer "AniSurge <support@anisurge.com>" \
+            --description "AniSurge Anime App" \
+            --url "https://github.com/iotserver24/Anisurge-new" \
+            -d "mpv" -d "gtk3" \
+            -p ../AniSurge-linux-x86_64.pkg.tar.zst .
+
+      - name: Build AppImage
+        env:
+          ARCH: x86_64
+        run: |
+          mkdir -p AppDir
+          cp -r build/linux/x64/release/bundle/* AppDir/
+          cp web/icons/Icon-192.png AppDir/anisuge.png
+
+          # Create AppRun
+          cat > AppDir/AppRun <<EOF
+          #!/bin/sh
+          cd "\$(dirname "\$0")"
+          export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$PWD/lib"
+          exec ./AniSurge "\$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # Desktop file for AppImage
+          cat > AppDir/anisurge.desktop <<EOF
+          [Desktop Entry]
+          Name=AniSurge
+          Exec=anisuge
+          Icon=anisuge
+          Type=Application
+          Categories=Video;
+          EOF
+
+          appimagetool AppDir AniSurge-x86_64.AppImage
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            AniSurge-linux-amd64.deb
+            AniSurge-linux-x86_64.rpm
+            AniSurge-linux-x86_64.pkg.tar.zst
+            AniSurge-x86_64.AppImage
+
+  # ==================== WINDOWS BUILD ====================
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    if: ${{ github.event.inputs.build_windows == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          (Get-Content pubspec.yaml) -replace '^version: .*', 'version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}' | Set-Content pubspec.yaml
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress
+
+      - name: Create Inno Setup Script
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          $script = @"
+          [Setup]
+          AppName=AniSurge
+          AppVersion=$version
+          AppPublisher=AniSurge
+          AppSupportURL=https://github.com/iotserver24/Anisurge-new
+          DefaultDirName={autopf}\AniSurge
+          DefaultGroupName=AniSurge
+          OutputDir=.
+          OutputBaseFilename=AniSurge-Setup-Windows-x64
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+          SetupIconFile=windows\runner\resources\app_icon.ico
+          UninstallDisplayIcon={app}\AniSurge.exe
+
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{group}\AniSurge"; Filename: "{app}\AniSurge.exe"
+          "@
+          Set-Content -Path setup.iss -Value $script
+
+      - name: Compile Inno Setup Script
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss'
+
+      - name: Upload Windows Setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: AniSurge-Setup-Windows-x64.exe
+
+  # ==================== MACOS BUILD ====================
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    if: ${{ github.event.inputs.build_macos == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS (unsigned)
+        run: flutter build macos --release
+
+      - name: Package macOS build
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../AniSurge-macos.zip *.app
+
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: AniSurge-macos.zip
+
+  # ==================== WEB BUILD ====================
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_web == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update version in pubspec.yaml
+        run: |
+          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Enable web
+        run: flutter config --enable-web
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release
+
+      - name: Package Web build
+        run: |
+          cd build/web
+          tar -czf ../../AniSurge-web.tar.gz .
+
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: AniSurge-web.tar.gz
+
+  # ==================== CREATE RELEASE ====================
+  create-release:
+    name: Create Release
+    needs:
+      - build-android
+      - build-ios
+      - build-linux
+      - build-windows
+      - build-macos
+      - build-web
+    if: |
+      always() && 
+      (needs.build-android.result == 'success' || 
+       needs.build-ios.result == 'success' || 
+       needs.build-linux.result == 'success' || 
+       needs.build-windows.result == 'success' || 
+       needs.build-macos.result == 'success' || 
+       needs.build-web.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          if-no-artifacts-found: ignore
+
+      - name: Display structure of downloaded files
+        run: ls -R
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
+          name: Release v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
+          prerelease: ${{ github.event.inputs.type == 'beta' }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.apk
+            artifacts/**/*.aab
+            artifacts/**/*.ipa
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.zst
+            artifacts/**/*.exe
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+
+      - name: Delete Artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            android-apks
+            android-aab
+            ios-ipa
+            linux-artifacts
+            windows-setup
+            macos-app
+            web-build
+          failOnError: false
