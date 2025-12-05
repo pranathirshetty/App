@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:kuudere/utils/app_fonts.dart';
 
 class VideoSettingsOverlay extends StatefulWidget {
   final List<String> qualities;
@@ -377,7 +377,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
               ),
               Text(
                 "Subtitle Settings",
-                style: GoogleFonts.poppins(
+                style: AppFonts.poppins(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -397,7 +397,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                   Text(
                     "Size",
                     style:
-                        GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+                        AppFonts.poppins(color: Colors.white, fontSize: 14),
                   ),
                   Row(
                     children: [
@@ -434,7 +434,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                   Text(
                     "Delay (seconds)",
                     style:
-                        GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+                        AppFonts.poppins(color: Colors.white, fontSize: 14),
                   ),
                   Row(
                     children: [
@@ -473,7 +473,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                   Text(
                     "Position (Vertical)",
                     style:
-                        GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+                        AppFonts.poppins(color: Colors.white, fontSize: 14),
                   ),
                   Row(
                     children: [
@@ -533,7 +533,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
             Expanded(
               child: Text(
                 title,
-                style: GoogleFonts.poppins(
+                style: AppFonts.poppins(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -543,7 +543,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
             if (value.isNotEmpty)
               Text(
                 value,
-                style: GoogleFonts.poppins(
+                style: AppFonts.poppins(
                   color: Colors.grey[400],
                   fontSize: 14,
                 ),
@@ -577,7 +577,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
               ),
               Text(
                 title,
-                style: GoogleFonts.poppins(
+                style: AppFonts.poppins(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -589,7 +589,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                   onPressed: onCustomize,
                   child: Text(
                     "Customize",
-                    style: GoogleFonts.poppins(
+                    style: AppFonts.poppins(
                         color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -627,7 +627,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
             Expanded(
               child: Text(
                 title,
-                style: GoogleFonts.poppins(
+                style: AppFonts.poppins(
                   color: Colors.white,
                   fontSize: 16,
                 ),

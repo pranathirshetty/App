@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:kuudere/utils/app_fonts.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class CustomVideoControls extends StatefulWidget {
@@ -199,7 +199,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                                           color: Colors.white, size: 48),
                                       Text(
                                         "-10s",
-                                        style: GoogleFonts.poppins(
+                                        style: AppFonts.poppins(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -239,7 +239,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                                           color: Colors.white, size: 48),
                                       Text(
                                         "+10s",
-                                        style: GoogleFonts.poppins(
+                                        style: AppFonts.poppins(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -343,7 +343,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                                       children: [
                                         Text(
                                           widget.title,
-                                          style: GoogleFonts.poppins(
+                                          style: AppFonts.poppins(
                                             color: Colors.white,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -353,7 +353,7 @@ class _CustomVideoControlsState extends State<CustomVideoControls> {
                                         ),
                                         Text(
                                           widget.episodeTitle,
-                                          style: GoogleFonts.poppins(
+                                          style: AppFonts.poppins(
                                             color: Colors.white
                                                 .withValues(alpha: 0.7),
                                             fontSize: 12,

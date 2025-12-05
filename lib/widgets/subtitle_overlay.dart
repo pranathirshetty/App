@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:kuudere/utils/app_fonts.dart';
 
 /// Subtitle event data containing timing and text
 class SubtitleEvent {
@@ -173,7 +173,7 @@ class _SubtitleOverlayState extends State<SubtitleOverlay> {
             child: Text(
               _currentText.join('\n'),
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
+              style: AppFonts.poppins(
                 fontSize: widget.fontSize,
                 color: widget.textColor,
                 fontWeight: FontWeight.w500,

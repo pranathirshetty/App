@@ -6,7 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:fvp/fvp.dart' as fvp;
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Add this line
+  WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize media_kit (ensure bundled native libs are loaded on all platforms)
   MediaKit.ensureInitialized();
@@ -14,12 +14,14 @@ void main() async {
   // Register fvp (FFmpeg video player) for all platforms
   // This provides consistent video playback and subtitle rendering across all platforms
   if (!kIsWeb) {
-    fvp.registerWith(options: {
-      'platforms': ['linux', 'windows', 'macos', 'android', 'ios'],
-      // Enable subtitle font for ASS/SSA subtitles
-      'subtitleFontFile':
-          'https://github.com/mpv-android/mpv-android/raw/master/app/src/main/assets/subfont.ttf',
-    });
+    fvp.registerWith(
+      options: {
+        'platforms': ['linux', 'windows', 'macos', 'android', 'ios'],
+        // Enable subtitle font for ASS/SSA subtitles
+        'subtitleFontFile':
+            'https://github.com/mpv-android/mpv-android/raw/master/app/src/main/assets/subfont.ttf',
+      },
+    );
   }
 
   // Initialize notification service

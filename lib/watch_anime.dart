@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:kuudere/utils/app_fonts.dart';
 
 import 'package:kuudere/services/auth_service.dart';
 import 'package:kuudere/services/settings_service.dart';
@@ -564,7 +564,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                   const SizedBox(height: 20),
                   Text(
                     "Add to Watchlist",
-                    style: GoogleFonts.poppins(
+                    style: AppFonts.poppins(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -631,7 +631,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               children: [
                 Text(
                   status,
-                  style: GoogleFonts.poppins(
+                  style: AppFonts.poppins(
                     color: isSelected ? Colors.white : Colors.grey[300],
                     fontSize: 16,
                     fontWeight:

@@ -5,10 +5,10 @@ import 'package:path_provider/path_provider.dart';
 
 /// Utility class for parsing and modifying subtitle files
 class SubtitleUtils {
-  /// Apply a delay offset to a subtitle file and return the path to the modified file
+  /// Apply a delay offset to a subtitle file and return the URI to the modified file
   /// [subtitleUrl] - URL of the original subtitle file
   /// [delaySeconds] - Delay in seconds (positive = subtitles appear later, negative = earlier)
-  /// Returns path to the modified subtitle file, or null if failed
+  /// Returns URI to the modified subtitle file (file:// URI for local files), or null if failed
   static Future<String?> applyDelay(
       String subtitleUrl, double delaySeconds) async {
     if (delaySeconds == 0) {
@@ -54,8 +54,10 @@ class SubtitleUtils {
       final tempFile = File('${tempDir.path}/subtitle_delayed_$timestamp.$ext');
       await tempFile.writeAsString(modifiedContent);
 
-      debugPrint('Created delayed subtitle at: ${tempFile.path}');
-      return tempFile.path;
+      // Return as file:// URI for cross-platform compatibility
+      final fileUri = Uri.file(tempFile.path).toString();
+      debugPrint('Created delayed subtitle at: $fileUri');
+      return fileUri;
     } catch (e) {
       debugPrint('Error applying subtitle delay: $e');
       return null;

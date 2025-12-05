@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:kuudere/utils/app_fonts.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 /// Universal video controls widget that works with video_player + fvp backend
@@ -397,7 +397,7 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                                   if (widget.title != null)
                                     Text(
                                       widget.title!,
-                                      style: GoogleFonts.poppins(
+                                      style: AppFonts.poppins(
                                         color: Colors.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -408,7 +408,7 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                                   if (widget.episodeTitle != null)
                                     Text(
                                       widget.episodeTitle!,
-                                      style: GoogleFonts.poppins(
+                                      style: AppFonts.poppins(
                                         color:
                                             Colors.white.withValues(alpha: 0.7),
                                         fontSize: 12,
@@ -514,7 +514,7 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                               // Time display
                               Text(
                                 '${_formatDuration(position)} / ${_formatDuration(duration)}',
-                                style: GoogleFonts.poppins(
+                                style: AppFonts.poppins(
                                   color: Colors.white,
                                   fontSize: 12,
                                 ),
