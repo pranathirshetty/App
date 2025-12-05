@@ -1,3 +1,4 @@
+name: Build and Release App (Selective)
 
 on:
   workflow_dispatch:
@@ -18,66 +19,48 @@ on:
           - beta
       build_android:
         description: "Build Android"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
       build_ios:
         description: "Build iOS"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
       build_linux:
         description: "Build Linux"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
       build_windows:
         description: "Build Windows"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
       build_macos:
         description: "Build macOS"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
       build_web:
         description: "Build Web"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   # ==================== ANDROID BUILD ====================
   build-android:
     name: Build Android APK & AAB
+    if: ${{ inputs.build_android == true }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_android == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+          sed -i 's/^version: .*/version: ${{ inputs.version }}+${{ inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -117,7 +100,7 @@ jobs:
 
       - name: Rename APKs
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ inputs.version }}"
           cd build/app/outputs/flutter-apk
           mv AniSurge-universal.apk AniSurge-universal-$VERSION.apk
 
@@ -146,15 +129,15 @@ jobs:
   # ==================== iOS BUILD ====================
   build-ios:
     name: Build iOS IPA
+    if: ${{ inputs.build_ios == true }}
     runs-on: macos-latest
-    if: ${{ github.event.inputs.build_ios == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+          sed -i '' 's/^version: .*/version: ${{ inputs.version }}+${{ inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -186,15 +169,15 @@ jobs:
   # ==================== LINUX BUILD ====================
   build-linux:
     name: Build Linux (Deb, Rpm, AppImage, Pacman)
+    if: ${{ inputs.build_linux == true }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_linux == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+          sed -i 's/^version: .*/version: ${{ inputs.version }}+${{ inputs.build_number }}/' pubspec.yaml
 
       - name: Install Linux dependencies
         run: |
@@ -227,7 +210,7 @@ jobs:
 
       - name: Prepare Packaging
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ inputs.version }}"
           BUILD_DIR="build/linux/x64/release/bundle"
           PKG_DIR="packaging"
 
@@ -260,7 +243,7 @@ jobs:
 
       - name: Build Packages (Deb, Rpm, Pacman)
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ inputs.version }}"
           cd packaging
 
           # DEB (Debian/Ubuntu)
@@ -330,15 +313,15 @@ jobs:
   # ==================== WINDOWS BUILD ====================
   build-windows:
     name: Build Windows
+    if: ${{ inputs.build_windows == true }}
     runs-on: windows-latest
-    if: ${{ github.event.inputs.build_windows == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          (Get-Content pubspec.yaml) -replace '^version: .*', 'version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}' | Set-Content pubspec.yaml
+          (Get-Content pubspec.yaml) -replace '^version: .*', 'version: ${{ inputs.version }}+${{ inputs.build_number }}' | Set-Content pubspec.yaml
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -360,7 +343,7 @@ jobs:
 
       - name: Create Inno Setup Script
         run: |
-          $version = "${{ github.event.inputs.version }}"
+          $version = "${{ inputs.version }}"
           $script = @"
           [Setup]
           AppName=AniSurge
@@ -397,15 +380,15 @@ jobs:
   # ==================== MACOS BUILD ====================
   build-macos:
     name: Build macOS
+    if: ${{ inputs.build_macos == true }}
     runs-on: macos-latest
-    if: ${{ github.event.inputs.build_macos == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+          sed -i '' 's/^version: .*/version: ${{ inputs.version }}+${{ inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -436,15 +419,15 @@ jobs:
   # ==================== WEB BUILD ====================
   build-web:
     name: Build Web
+    if: ${{ inputs.build_web == true }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_web == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update version in pubspec.yaml
         run: |
-          sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
+          sed -i 's/^version: .*/version: ${{ inputs.version }}+${{ inputs.build_number }}/' pubspec.yaml
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -476,20 +459,15 @@ jobs:
   create-release:
     name: Create Release
     needs:
-      - build-android
-      - build-ios
-      - build-linux
-      - build-windows
-      - build-macos
-      - build-web
-    if: |
-      always() && 
-      (needs.build-android.result == 'success' || 
-       needs.build-ios.result == 'success' || 
-       needs.build-linux.result == 'success' || 
-       needs.build-windows.result == 'success' || 
-       needs.build-macos.result == 'success' || 
-       needs.build-web.result == 'success')
+      [
+        build-android,
+        build-ios,
+        build-linux,
+        build-windows,
+        build-macos,
+        build-web,
+      ]
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -497,30 +475,26 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          merge-multiple: true
-          if-no-artifacts-found: ignore
+          path: artifacts
 
       - name: Display structure of downloaded files
-        run: ls -R
+        run: ls -R artifacts || echo "No artifacts found"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
-          name: Release v${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}
-          prerelease: ${{ github.event.inputs.type == 'beta' }}
+          tag_name: v${{ inputs.version }}+${{ inputs.build_number }}
+          name: Release v${{ inputs.version }}+${{ inputs.build_number }}
+          prerelease: ${{ inputs.type == 'beta' }}
           generate_release_notes: true
           files: |
-            artifacts/**/*.apk
-            artifacts/**/*.aab
-            artifacts/**/*.ipa
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.zst
-            artifacts/**/*.exe
-            artifacts/**/*.zip
-            artifacts/**/*.tar.gz
+            artifacts/android-apks/*.apk
+            artifacts/android-aab/app-release.aab
+            artifacts/ios-ipa/AniSurge-ios-unsigned.ipa
+            artifacts/linux-artifacts/*
+            artifacts/windows-setup/AniSurge-Setup-Windows-x64.exe
+            artifacts/macos-app/AniSurge-macos.zip
+            artifacts/web-build/AniSurge-web.tar.gz
 
       - name: Delete Artifacts
         uses: geekyeggo/delete-artifact@v5
@@ -533,4 +507,3 @@ jobs:
             windows-setup
             macos-app
             web-build
-          failOnError: false
