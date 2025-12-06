@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:kuudere/services/notification.dart';
 import 'package:kuudere/splash_screen.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:fvp/fvp.dart' as fvp;
+import 'package:kuudere/utils/fvp_bridge.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +14,7 @@ void main() async {
   // Register fvp (FFmpeg video player) for all platforms
   // This provides consistent video playback and subtitle rendering across all platforms
   if (!kIsWeb) {
-    fvp.registerWith(
+    FvpBridge.registerWith(
       options: {
         'platforms': ['linux', 'windows', 'macos', 'android', 'ios'],
         // Enable subtitle font for ASS/SSA subtitles

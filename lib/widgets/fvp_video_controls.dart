@@ -199,17 +199,32 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
               top: 0,
               bottom: 0,
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.fast_forward,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  builder: (context, value, child) {
+                    return Transform.rotate(
+                      angle: 0.5 * value, // Rotate clockwise towards right
+                      child: Transform.scale(
+                        scale: 1.0 + (value * 0.5),
+                        child: Opacity(
+                          opacity: 1.0 - value,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.forward_10,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -221,17 +236,33 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
               top: 0,
               bottom: 0,
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.fast_rewind,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 500),
+                  builder: (context, value, child) {
+                    return Transform.rotate(
+                      angle:
+                          -0.5 * value, // Rotate counter-clockwise towards left
+                      child: Transform.scale(
+                        scale: 1.0 + (value * 0.5),
+                        child: Opacity(
+                          opacity: 1.0 - value,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.replay_10,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -281,37 +312,62 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
               ),
             ),
 
-          // Center Play/Pause button
+          // Center Controls - Play/Pause, Seek, Episode buttons
           if (!isBuffering)
-            Center(
+            Align(
+              alignment: const Alignment(0, -0.15),
               child: AnimatedOpacity(
                 opacity: _controlsVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 300),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Previous Episode button
-                    if (widget.onPrevEpisode != null)
-                      GestureDetector(
-                        onTap: () {
-                          _onUserInteraction();
-                          widget.onPrevEpisode?.call();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(right: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.skip_previous,
-                            color: Colors.white,
-                            size: 32,
-                          ),
+                    // Previous Episode button (always visible, disabled if null)
+                    GestureDetector(
+                      onTap: widget.onPrevEpisode != null
+                          ? () {
+                              _onUserInteraction();
+                              widget.onPrevEpisode?.call();
+                            }
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.skip_previous,
+                          color: widget.onPrevEpisode != null
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.3),
+                          size: 26,
                         ),
                       ),
-                    // Play/Pause button
+                    ),
+                    SizedBox(width: widget.isFullscreen ? 40 : 12),
+                    // Rewind 10 seconds button
+                    GestureDetector(
+                      onTap: () {
+                        _onUserInteraction();
+                        _handleDoubleTapSeek(false);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.replay_10,
+                          color: Colors.white,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: widget.isFullscreen ? 40 : 16),
+                    // Play/Pause button (smaller)
                     GestureDetector(
                       onTap: () {
                         _onUserInteraction();
@@ -322,7 +378,7 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                         }
                       },
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
@@ -330,31 +386,54 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                         child: Icon(
                           isPlaying ? Icons.pause : Icons.play_arrow,
                           color: Colors.white,
-                          size: 48,
+                          size: 40,
                         ),
                       ),
                     ),
-                    // Next Episode button
-                    if (widget.onNextEpisode != null)
-                      GestureDetector(
-                        onTap: () {
-                          _onUserInteraction();
-                          widget.onNextEpisode?.call();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(left: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.skip_next,
-                            color: Colors.white,
-                            size: 32,
-                          ),
+                    SizedBox(width: widget.isFullscreen ? 40 : 16),
+                    // Forward 10 seconds button
+                    GestureDetector(
+                      onTap: () {
+                        _onUserInteraction();
+                        _handleDoubleTapSeek(true);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.forward_10,
+                          color: Colors.white,
+                          size: 26,
                         ),
                       ),
+                    ),
+                    SizedBox(width: widget.isFullscreen ? 40 : 12),
+                    // Next Episode button (always visible, disabled if null)
+                    GestureDetector(
+                      onTap: widget.onNextEpisode != null
+                          ? () {
+                              _onUserInteraction();
+                              widget.onNextEpisode?.call();
+                            }
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.skip_next,
+                          color: widget.onNextEpisode != null
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.3),
+                          size: 26,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -496,21 +575,6 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
                           // Control buttons row
                           Row(
                             children: [
-                              // Play/Pause
-                              IconButton(
-                                icon: Icon(
-                                  isPlaying ? Icons.pause : Icons.play_arrow,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  _onUserInteraction();
-                                  if (isPlaying) {
-                                    widget.controller.pause();
-                                  } else {
-                                    widget.controller.play();
-                                  }
-                                },
-                              ),
                               // Time display
                               Text(
                                 '${_formatDuration(position)} / ${_formatDuration(duration)}',
