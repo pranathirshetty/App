@@ -29,9 +29,7 @@ import 'package:kuudere/widgets/custom_dropdown.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:video_player/video_player.dart' as vp;
 import 'package:kuudere/widgets/fvp_video_controls.dart';
-import 'package:fvp/fvp.dart'; // Import without alias for VideoPlayerController extensions
-import 'package:fvp/mdk.dart'
-    as mdk; // For setGlobalOption (subtitle fonts dir)
+import 'package:kuudere/utils/fvp_bridge.dart';
 import 'package:kuudere/utils/subtitle_utils.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
@@ -1851,7 +1849,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
         // Set MDK global option for fonts directory (works on all platforms with fvp)
         debugPrint('Setting subtitle.fonts.dir to: ${fontsDir.path}');
-        mdk.setGlobalOption('subtitle.fonts.dir', fontsDir.path);
+        FvpBridge.setGlobalOption('subtitle.fonts.dir', fontsDir.path);
 
         // Set controller properties if available
         if (_fvpVideoController != null) {
