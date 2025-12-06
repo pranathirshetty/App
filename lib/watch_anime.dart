@@ -89,7 +89,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   int? _savedWatchPosition; // Continue watching position from API
 
   // Subtitle Settings
-  double _subtitleSize = 58.0;
+  double _subtitleSize = 22.0;
   Color _subtitleColor = Colors.white;
   Color _subtitleBackgroundColor = Colors.black.withValues(alpha: 0.5);
   double _subtitleDelay = 0.0;
