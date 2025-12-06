@@ -312,6 +312,7 @@ jobs:
           $version = "${{ github.event.inputs.version }}"
           $script = @"
           [Setup]
+          AppId={{E5C1B33B-8C6A-4A0F-874D-0F6724E31695}}
           AppName=AniSurge
           AppVersion=$version
           AppPublisher=AniSurge
