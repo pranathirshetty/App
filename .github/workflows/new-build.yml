@@ -354,10 +354,11 @@ jobs:
           DefaultDirName={autopf}\AniSurge
           DefaultGroupName=AniSurge
           OutputDir=.
-          OutputBaseFilename=AniSurge-Setup-Windows-x64
+          OutputBaseFilename=AniSurge-Setup-Windows
           Compression=lzma
           SolidCompression=yes
-          ArchitecturesInstallIn64BitMode=x64
+          ArchitecturesAllowed=x64 arm64
+          ArchitecturesInstallIn64BitMode=x64 arm64
           SetupIconFile=windows\runner\resources\app_icon.ico
           WizardSmallImageFile=assets\logo.png
           UninstallDisplayIcon={app}\AniSurge.exe
@@ -380,7 +381,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-setup
-          path: AniSurge-Setup-Windows-x64.exe
+          path: AniSurge-Setup-Windows.exe
 
   # ==================== MACOS BUILD ====================
   build-macos:
@@ -497,7 +498,7 @@ jobs:
             artifacts/android-aab/app-release.aab
             artifacts/ios-ipa/AniSurge-ios-unsigned.ipa
             artifacts/linux-artifacts/*
-            artifacts/windows-setup/AniSurge-Setup-Windows-x64.exe
+            artifacts/windows-setup/AniSurge-Setup-Windows.exe
             artifacts/macos-app/AniSurge-macos.zip
             artifacts/web-build/AniSurge-web.tar.gz
 
