@@ -19,7 +19,7 @@ import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/theme/app_theme.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+
 import 'widgets/video_settings_overlay.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:path_provider/path_provider.dart';
@@ -97,12 +97,11 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
   // Settings Overlay State
   bool _showSettingsOverlay = false;
-  Offset? _settingsAnchor;
+
   SettingsView _settingsInitialView = SettingsView.main;
 
   // Media Kit player (kept for potential fallback, may be removed in future)
   late final Player _player;
-  late final VideoController _videoController;
 
   // Universal video player using video_player + fvp backend (all platforms)
   vp.VideoPlayerController? _fvpVideoController;
@@ -206,17 +205,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   }
 
   void _initializePlayer() {
-    final bool isLinux = Platform.isLinux;
+    // final bool isLinux = Platform.isLinux;
     _player = Player();
-    _videoController = VideoController(
-      _player,
-      configuration: VideoControllerConfiguration(
-        // Disable hardware acceleration on Linux (causes blue screen)
-        enableHardwareAcceleration: !isLinux,
-        androidAttachSurfaceAfterVideoParameters:
-            Platform.isAndroid ? false : true,
-      ),
-    );
+    // _videoController = VideoController(
+    //   _player,
+    //   configuration: VideoControllerConfiguration(
+    //     // Disable hardware acceleration on Linux (causes blue screen)
+    //     enableHardwareAcceleration: !isLinux,
+    //     androidAttachSurfaceAfterVideoParameters:
+    //         Platform.isAndroid ? false : true,
+    //   ),
+    // );
   }
 
   Future<String?> _getUserId() async {
@@ -1497,10 +1496,13 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
-  Future<void> _loadVideo(String url, {String? server}) async {
+  Future<void> _loadVideo(String url,
+      {String? server, bool isEpisodeChange = false}) async {
     // Save current position before switching (for server switches)
     Duration? resumePosition;
-    if (_fvpVideoController != null && _fvpVideoInitialized) {
+    if (!isEpisodeChange &&
+        _fvpVideoController != null &&
+        _fvpVideoInitialized) {
       resumePosition = _fvpVideoController!.value.position;
     }
 
@@ -1678,57 +1680,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading video: $e')),
         );
-      }
-    }
-  }
-
-  void _changeSubtitle(Map<String, dynamic>? subtitle) async {
-    if (subtitle == null) {
-      await _player.setSubtitleTrack(SubtitleTrack.no());
-      setState(() {
-        _currentSubtitle = null;
-      });
-    } else {
-      try {
-        final subUrl = subtitle['url'];
-        final format = subtitle['format'] ?? 'srt';
-
-        if (format == 'ass') {
-          // Download ASS file to preserve formatting
-          final tempDir = await getTemporaryDirectory();
-          final subFile = File(
-              '${tempDir.path}/subtitle_${DateTime.now().millisecondsSinceEpoch}.ass');
-
-          final response = await http.get(Uri.parse(subUrl));
-          if (response.statusCode == 200) {
-            await subFile.writeAsBytes(response.bodyBytes);
-
-            await _player.setSubtitleTrack(
-              SubtitleTrack.uri(
-                subFile.path,
-                title: subtitle['title'],
-                language: subtitle['language'],
-              ),
-            );
-          }
-        } else {
-          await _player.setSubtitleTrack(
-            SubtitleTrack.uri(
-              subUrl,
-              title: subtitle['title'],
-              language: subtitle['language'],
-            ),
-          );
-        }
-
-        setState(() {
-          _currentSubtitle = subtitle;
-        });
-
-        // Apply current settings
-        _applySubtitleSettings();
-      } catch (e) {
-        // print('Error changing subtitle: $e');
       }
     }
   }
@@ -2140,14 +2091,14 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               controller: _fvpVideoController!,
               onSettingsPressed: (anchor) {
                 setState(() {
-                  _settingsAnchor = anchor;
+                  // _settingsAnchor = anchor;
                   _showSettingsOverlay = true;
                   _settingsInitialView = SettingsView.main;
                 });
               },
               onSubtitlePressed: (anchor) {
                 setState(() {
-                  _settingsAnchor = anchor;
+                  // _settingsAnchor = anchor;
                   _showSettingsOverlay = true;
                   _settingsInitialView = SettingsView.subtitles;
                 });
@@ -2832,7 +2783,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
           setState(() {
             currentSelectedServer = selectedServer;
           });
-          await _loadVideo(selectedServer['dataLink']);
+          await _loadVideo(selectedServer['dataLink'], isEpisodeChange: true);
         }
       }
     });
