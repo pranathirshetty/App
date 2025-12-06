@@ -325,7 +325,11 @@ jobs:
           SolidCompression=yes
           ArchitecturesInstallIn64BitMode=x64
           SetupIconFile=windows\runner\resources\app_icon.ico
+          WizardSmallImageFile=assets\logo.png
           UninstallDisplayIcon={app}\AniSurge.exe
+
+          [Run]
+          Filename: "{app}\AniSurge.exe"; Description: "{cm:LaunchProgram,AniSurge}"; Flags: nowait postinstall skipifsilent
 
           [Files]
           Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
