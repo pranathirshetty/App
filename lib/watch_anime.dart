@@ -31,6 +31,7 @@ import 'package:video_player/video_player.dart' as vp;
 import 'package:kuudere/widgets/fvp_video_controls.dart';
 import 'package:kuudere/utils/fvp_bridge.dart';
 import 'package:kuudere/utils/subtitle_utils.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -52,7 +53,8 @@ class WatchAnimeScreen extends StatefulWidget {
   State<WatchAnimeScreen> createState() => _WatchAnimeScreenState();
 }
 
-class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
+class _WatchAnimeScreenState extends State<WatchAnimeScreen>
+    with WidgetsBindingObserver {
   bool isLoading = true;
   bool isLoadingVideo = false;
   int _currentPageStart = 1;
@@ -93,6 +95,12 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
   double _subtitleDelay = 0.0;
   double _subtitlePos = 100.0;
 
+  // Skip Intro/Outro State
+  double? _introStart;
+  double? _introEnd;
+  double? _outroStart;
+  double? _outroEnd;
+
   // Settings Overlay State
   bool _showSettingsOverlay = false;
 
@@ -128,10 +136,22 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     ]);
 
     // Dispose Linux video controller if exists
+    _fvpVideoController?.pause(); // Explicitly pause before disposing
     _fvpVideoController?.dispose();
     _player.dispose();
+    WakelockPlus.disable(); // Disable wakelock when leaving screen
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
     // socket.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      _fvpVideoController?.pause();
+    }
   }
 
   void _toggleSidePanel(String? panel) {
@@ -184,6 +204,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
 
     // Load persistent subtitle settings
     _loadSubtitleSettings();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Enable wakelock to keep screen on while watching
+    WakelockPlus.enable();
 
     _initializePlayer(); // Extracted player initialization
     _loadPreferredLang().then((_) {
@@ -1494,6 +1518,102 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
     );
   }
 
+  Future<List<Map<String, String>>> _extractQualitiesFromM3u8(
+      String url) async {
+    try {
+      debugPrint('Fetching m3u8 from: $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Referer': 'https://zencloudz.cc/', // Default referer for Zen
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final content = response.body;
+        debugPrint('m3u8 content length: ${content.length}');
+
+        final lines = content.split('\n');
+        List<Map<String, String>> qualities = [];
+
+        for (int i = 0; i < lines.length; i++) {
+          String line = lines[i].trim();
+          if (line.startsWith('#EXT-X-STREAM-INF')) {
+            String quality = 'Unknown';
+            if (line.contains('RESOLUTION=')) {
+              final resMatch = RegExp(r'RESOLUTION=(\d+x\d+)').firstMatch(line);
+              if (resMatch != null) {
+                final res = resMatch.group(1)!;
+                final height = res.split('x')[1];
+                quality = '${height}p';
+              }
+            }
+
+            if (i + 1 < lines.length) {
+              String streamUrl = lines[i + 1].trim();
+              if (streamUrl.isNotEmpty && !streamUrl.startsWith('#')) {
+                if (!streamUrl.startsWith('http')) {
+                  try {
+                    streamUrl = Uri.parse(url).resolve(streamUrl).toString();
+                  } catch (_) {}
+                }
+                qualities.add({
+                  'quality': quality,
+                  'url': streamUrl,
+                });
+              }
+            }
+          }
+        }
+
+        // Remove duplicates based on quality label
+        final unique = <String, Map<String, String>>{};
+        for (var q in qualities) {
+          if (q['quality'] != 'Unknown') {
+            unique[q['quality']!] = q;
+          }
+        }
+
+        debugPrint('Extracted qualities: ${unique.keys.toList()}');
+
+        // Sort qualities numerically descending (1080p, 720p, ...)
+        final sorted = unique.values.toList()
+          ..sort((a, b) {
+            final h1 = int.tryParse(a['quality']!.replaceAll('p', '')) ?? 0;
+            final h2 = int.tryParse(b['quality']!.replaceAll('p', '')) ?? 0;
+            return h2.compareTo(h1);
+          });
+
+        return sorted;
+      } else {
+        debugPrint('Failed to fetch m3u8: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error parsing m3u8: $e');
+    }
+    return [];
+  }
+
+  void _onVideoPositionChanged() {
+    if (_fvpVideoController == null ||
+        !_fvpVideoController!.value.isInitialized) {
+      return;
+    }
+
+    final position = _fvpVideoController!.value.position;
+    final duration = _fvpVideoController!.value.duration;
+
+    if (duration.inMilliseconds > 0 &&
+        position.inMilliseconds >= duration.inMilliseconds) {
+      // Video completed. Explicitly pause to prevent any auto-advance logic
+      if (_fvpVideoController!.value.isPlaying) {
+        _fvpVideoController!.pause();
+      }
+    }
+  }
+
   Future<void> _loadVideo(String url,
       {String? server, bool isEpisodeChange = false}) async {
     // Save current position before switching (for server switches)
@@ -1552,11 +1672,60 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               // Ignore errors when clearing
             }
 
+            // Extract qualities from m3u8 if sources are not provided
+            List<Map<String, String>> extractedQualities = [];
+            if (sources == null || sources.isEmpty) {
+              extractedQualities = await _extractQualitiesFromM3u8(m3u8Url);
+            }
+
             setState(() {
               _currentServer = serverParam;
               _availableSubtitles = subtitles ?? [];
               _currentSubtitle = null;
               _availableQualities = [];
+
+              // Reset skip timings
+              _introStart = null;
+              _introEnd = null;
+              _outroStart = null;
+              _outroEnd = null;
+
+              // Safe reference for closure
+              final safeData = directLinkData!;
+
+              // Extract skip timings if available
+              if (safeData.containsKey('intro') && safeData['intro'] != null) {
+                final intro = safeData['intro'];
+                if (intro['start'] != null && intro['end'] != null) {
+                  _introStart = (intro['start'] as num).toDouble();
+                  _introEnd = (intro['end'] as num).toDouble();
+                }
+              }
+              if (safeData.containsKey('outro') && safeData['outro'] != null) {
+                final outro = safeData['outro'];
+                if (outro['start'] != null && outro['end'] != null) {
+                  _outroStart = (outro['start'] as num).toDouble();
+                  _outroEnd = (outro['end'] as num).toDouble();
+                }
+              }
+
+              // Check for chapters (Zen/Zen2 format)
+              if (safeData.containsKey('chapters') &&
+                  safeData['chapters'] is List) {
+                final chapters = safeData['chapters'] as List;
+                for (var chapter in chapters) {
+                  if (chapter is Map && chapter.containsKey('title')) {
+                    final title = chapter['title'].toString().toLowerCase();
+                    if (title == 'intro') {
+                      _introStart = (chapter['start_time'] as num?)?.toDouble();
+                      _introEnd = (chapter['end_time'] as num?)?.toDouble();
+                    } else if (title == 'credits') {
+                      _outroStart = (chapter['start_time'] as num?)?.toDouble();
+                      _outroEnd = (chapter['end_time'] as num?)?.toDouble();
+                    }
+                  }
+                }
+              }
 
               if (sources != null && sources.isNotEmpty) {
                 // pahe format with multiple quality options
@@ -1570,7 +1739,18 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 m3u8Url = sources[0]['url'];
                 _currentQuality = sources[0]['quality'];
               } else {
-                _currentQuality = 'Auto';
+                if (extractedQualities.isNotEmpty) {
+                  _availableQualities = [
+                    {'quality': 'Auto', 'url': m3u8Url},
+                    ...extractedQualities
+                  ];
+                  _currentQuality = 'Auto';
+                } else {
+                  _availableQualities = [
+                    {'quality': 'Auto', 'url': m3u8Url}
+                  ];
+                  _currentQuality = 'Auto';
+                }
               }
             });
 
@@ -1593,7 +1773,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             }
 
             if (fonts != null && fonts.isNotEmpty) {
-              await _loadFonts(fonts);
+              _loadFonts(fonts);
             }
 
             // Use saved position from initial API response
@@ -1620,6 +1800,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             }
 
             _fvpVideoController!.play();
+
+            // Perform explicit check to ensure we don't auto-advance
+            _fvpVideoController!.addListener(_onVideoPositionChanged);
 
             // Seek to position: prioritize resumePosition (server switch) over savedDuration (watch history)
             final seekPosition = resumePosition ?? savedDuration;
@@ -2021,9 +2204,49 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                 Uri.parse(selected['url']),
               );
               await _fvpVideoController!.initialize();
+
+              // Re-apply settings
+              // 1. Enable subtitles
+              try {
+                _fvpVideoController!.setProperty('subtitle', '1');
+                // Re-apply fonts directory if on desktop
+                if (Platform.isLinux ||
+                    Platform.isWindows ||
+                    Platform.isMacOS) {
+                  final tempDir = await getTemporaryDirectory();
+                  final fontsDir = Directory('${tempDir.path}/subtitle_fonts');
+                  if (await fontsDir.exists()) {
+                    _fvpVideoController!
+                        .setProperty('subtitle.fonts.dir', fontsDir.path);
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error re-applying settings: $e');
+              }
+
+              // 2. Playback speed
+              _fvpVideoController!.setPlaybackSpeed(_playbackSpeed);
+
+              // 3. Listener for auto-next prevention
+              _fvpVideoController!.addListener(_onVideoPositionChanged);
+
+              // 4. Seek to previous position
               if (currentPosition != null) {
                 await _fvpVideoController!.seekTo(currentPosition);
               }
+
+              // 5. Restore current subtitle
+              if (_currentSubtitle != null &&
+                  _currentSubtitle!['url'] != null) {
+                try {
+                  final effectiveUrl =
+                      await _getDelayedSubtitleUrl(_currentSubtitle!['url']);
+                  _fvpVideoController!.setExternalSubtitle(effectiveUrl);
+                } catch (e) {
+                  debugPrint('Error restoring subtitle: $e');
+                }
+              }
+
               _fvpVideoController!.play();
               setState(() {});
             }
@@ -2111,6 +2334,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
               episodeTitle: 'Episode $_currentEpisodeNumber',
               onNextEpisode: _hasNextEpisode() ? _playNextEpisode : null,
               onPrevEpisode: _hasPrevEpisode() ? _playPrevEpisode : null,
+              introStart: _introStart,
+              introEnd: _introEnd,
+              outroStart: _outroStart,
+              outroEnd: _outroEnd,
             ),
           ),
         ],
@@ -2644,65 +2871,65 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.05),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  )),
-                  child: child,
-                ),
-              );
-            },
-            child: ListView.builder(
-              key: ValueKey(_searchQuery + _currentPageStart.toString()),
-              padding: EdgeInsets.zero,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _getFilteredEpisodes(episodes).length,
-              itemBuilder: (context, index) {
-                final filteredEpisodes = _getFilteredEpisodes(episodes);
-                final episode = filteredEpisodes[index];
-                final isCurrentEpisode =
-                    episode['number'] == _currentEpisodeNumber;
+          // Fixed height container for the episode list
+          Container(
+            height: 450,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  );
+                },
+                child: ListView.builder(
+                  key: ValueKey(_searchQuery + _currentPageStart.toString()),
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _getFilteredEpisodes(episodes).length,
+                  itemBuilder: (context, index) {
+                    final filteredEpisodes = _getFilteredEpisodes(episodes);
+                    final episode = filteredEpisodes[index];
+                    final isCurrentEpisode =
+                        episode['number'] == _currentEpisodeNumber;
 
-                return Container(
-                  key: ValueKey(episode['number']),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: isCurrentEpisode
-                        ? Colors.red.withValues(alpha: 0.1)
-                        : Colors.grey[900],
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        isCurrentEpisode ? Border.all(color: Colors.red) : null,
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(8),
-                    leading: Container(
-                      width: 90,
-                      height: 50,
+                    return Container(
+                      key: ValueKey(episode['number']),
+                      margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(4),
-                        image: _thumbnails
-                                .containsKey(episode['number'].toString())
-                            ? DecorationImage(
-                                image: NetworkImage(
-                                    _thumbnails[episode['number'].toString()]!),
-                                fit: BoxFit.cover,
-                              )
+                        color: isCurrentEpisode
+                            ? Colors.red.withValues(alpha: 0.1)
+                            : Colors.grey[900],
+                        borderRadius: BorderRadius.circular(8),
+                        border: isCurrentEpisode
+                            ? Border.all(color: Colors.red)
                             : null,
                       ),
-                      child:
-                          _thumbnails.containsKey(episode['number'].toString())
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(8),
+                        leading: Container(
+                          width: 90,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(4),
+                            image: _thumbnails
+                                    .containsKey(episode['number'].toString())
+                                ? DecorationImage(
+                                    image: NetworkImage(_thumbnails[
+                                        episode['number'].toString()]!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: _thumbnails
+                                  .containsKey(episode['number'].toString())
                               ? Container(
                                   color: Colors.black.withValues(alpha: 0.3),
                                   child: const Center(
@@ -2720,24 +2947,27 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen> {
                                     size: 24,
                                   ),
                                 ),
-                    ),
-                    title: Text(
-                      'Episode ${episode['number']}',
-                      style: TextStyle(
-                        color: isCurrentEpisode ? Colors.red : Colors.white,
-                        fontWeight: FontWeight.bold,
+                        ),
+                        title: Text(
+                          'Episode ${episode['number']}',
+                          style: TextStyle(
+                            color: isCurrentEpisode ? Colors.red : Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          episode['titles'][0] ?? '',
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => onEpisodeSelected(episode['number']),
                       ),
-                    ),
-                    subtitle: Text(
-                      episode['titles'][0] ?? '',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () => onEpisodeSelected(episode['number']),
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ],
