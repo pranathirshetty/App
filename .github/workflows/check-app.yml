@@ -1,0 +1,163 @@
+name: App Health Check (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_quality:
+        description: "Run Code Quality (Lint & Tests)"
+        required: true
+        default: true
+        type: boolean
+      check_android:
+        description: "Verify Android Build"
+        required: true
+        default: true
+        type: boolean
+      check_ios:
+        description: "Verify iOS Build (Simulator)"
+        required: true
+        default: true
+        type: boolean
+      check_macos:
+        description: "Verify macOS Build"
+        required: true
+        default: true
+        type: boolean
+      check_web:
+        description: "Verify Web Build"
+        required: true
+        default: true
+        type: boolean
+      check_windows:
+        description: "Verify Windows Build"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  # 1. CODE QUALITY (Linting & Logic)
+  quality-check:
+    name: 🩺 Code Quality (Analyze & Test)
+    if: ${{ inputs.check_quality == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: 🔍 Run Linter (Static Analysis)
+        run: flutter analyze
+        # This checks for syntax errors, type mismatches, and possible bugs.
+
+      - name: 🧪 Run Unit Tests
+        run: flutter test
+        # This runs any tests in your /test directory to verify logic.
+
+  # 2. ANDROID BUILD VERIFICATION
+  verify-android:
+    name: 🤖 Verify Android Build
+    if: ${{ inputs.check_android == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Attempt Debug Build
+        run: flutter build apk --debug
+        # Verifies Android-specific configuration and gradle build.
+
+  # 3. iOS BUILD VERIFICATION (Compilation Check)
+  verify-ios:
+    name: 🍎 Verify iOS Build (No Device Needed)
+    if: ${{ inputs.check_ios == true }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Attempt Debug Build (Simulator Compatible)
+        run: flutter build ios --debug --no-codesign --simulator
+        # If this passes, your code is valid Swift/Objective-C and links correctly.
+
+  # 4. MACOS BUILD VERIFICATION
+  verify-macos:
+    name: 🖥️ Verify macOS Build
+    if: ${{ inputs.check_macos == true }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Attempt Debug Build
+        run: flutter build macos --debug
+        # Verifies native macOS logic.
+
+  # 5. WINDOWS BUILD VERIFICATION
+  verify-windows:
+    name: 🪟 Verify Windows Build
+    if: ${{ inputs.check_windows == true }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Attempt Debug Build
+        run: flutter build windows --debug
+        # Verifies C++ / Windows specific code.
+
+  # 6. WEB BUILD VERIFICATION
+  verify-web:
+    name: 🌐 Verify Web Build
+    if: ${{ inputs.check_web == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+      - run: flutter config --enable-web
+      - run: flutter pub get
+      - name: 🏗️ Build Web App
+        run: flutter build web --release

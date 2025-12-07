@@ -36,7 +36,16 @@ class FvpVideoControls extends StatefulWidget {
     this.episodeTitle,
     this.onNextEpisode,
     this.onPrevEpisode,
+    this.introStart,
+    this.introEnd,
+    this.outroStart,
+    this.outroEnd,
   });
+
+  final double? introStart;
+  final double? introEnd;
+  final double? outroStart;
+  final double? outroEnd;
 
   @override
   State<FvpVideoControls> createState() => _FvpVideoControlsState();
@@ -155,6 +164,86 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
         });
       }
     });
+  }
+
+  Widget? _buildSkipButton(Duration position) {
+    // Check Intro
+    if (widget.introStart != null && widget.introEnd != null) {
+      final currentSeconds = position.inSeconds;
+      if (currentSeconds >= widget.introStart! &&
+          currentSeconds < widget.introEnd!) {
+        return _skipButton(
+          label: "Skip Intro",
+          onTap: () {
+            widget.controller
+                .seekTo(Duration(seconds: widget.introEnd!.toInt() + 1));
+            _onUserInteraction();
+          },
+        );
+      }
+    }
+
+    // Check Outro
+    if (widget.outroStart != null && widget.outroEnd != null) {
+      final currentSeconds = position.inSeconds;
+      if (currentSeconds >= widget.outroStart! &&
+          currentSeconds < widget.outroEnd!) {
+        return _skipButton(
+          label: "Skip Outro",
+          onTap: () {
+            widget.controller
+                .seekTo(Duration(seconds: widget.outroEnd!.toInt() + 1));
+            _onUserInteraction();
+          },
+        );
+      }
+    }
+
+    return null;
+  }
+
+  Widget _skipButton({required String label, required VoidCallback onTap}) {
+    return Positioned(
+      bottom: 80, // Position above the bottom control bar
+      right: 16,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.skip_next,
+                color: Colors.white,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -681,6 +770,9 @@ class _FvpVideoControlsState extends State<FvpVideoControls> {
               ),
             ),
           ),
+
+          // Skip Button (Intro/Outro) - Always visible if condition met
+          if (_buildSkipButton(position) != null) _buildSkipButton(position)!,
 
           // Settings Overlay
           if (widget.settingsOverlay != null) widget.settingsOverlay!,
