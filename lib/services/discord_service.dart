@@ -1,9 +1,10 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:discord_rich_presence/discord_rich_presence.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Singleton service for managing Discord Rich Presence on desktop platforms.
-/// Shows "Watching [Anime] - Episode X" on the user's Discord profile.
+/// Shows "Watching [Anime] - Episode X" or funny idle statuses.
 class DiscordService {
   DiscordService._();
   static final DiscordService instance = DiscordService._();
@@ -14,6 +15,32 @@ class DiscordService {
   Client? _client;
   bool _isInitialized = false;
   DateTime? _startTime;
+
+  final List<String> _idleDetails = [
+    "Touching Grace",
+    "Searching for the One Piece",
+    "Practicing Rasengan",
+    "Hunting Curses",
+    "In the Infinite Tsukuyomi",
+    "Dodge rolling IRL",
+    "Waiting for the next arc",
+    "Running from Titans",
+    "Collecting Dragon Balls",
+    "Cooking Ramen",
+    "Exploring the Abyss",
+    "Awakening a Stand",
+    "Training with Saitama",
+  ];
+
+  final List<String> _idleStates = [
+    "Avoiding responsibilities",
+    "Procrastinating",
+    "Just chilling",
+    "Thinking about anime",
+    "Lost in the path of life",
+    "Simping for 2D characters",
+    "Vibing",
+  ];
 
   /// Check if we're on a supported desktop platform
   bool get isSupported => Platform.isWindows || Platform.isLinux;
@@ -32,25 +59,23 @@ class DiscordService {
       _client = Client(clientId: _clientId);
       await _client!.connect();
       _isInitialized = true;
+      _startTime = DateTime.now(); // Set application start time
       print('[DiscordService] Initialized successfully');
+
+      // Set initial idle presence
+      await setIdlePresence();
     } catch (e) {
       print('[DiscordService] Failed to initialize: $e');
     }
   }
 
   /// Update Discord presence to show the user is watching anime.
-  ///
-  /// [animeTitle] - The title of the anime being watched
-  /// [episodeNumber] - The episode number
-  /// [coverUrl] - Optional cover image URL (not used directly, but could be for future features)
   Future<void> updatePresence({
     required String animeTitle,
     required int episodeNumber,
     String? coverUrl,
   }) async {
     if (!isSupported || !_isInitialized || _client == null) return;
-
-    _startTime ??= DateTime.now();
 
     try {
       final activity = Activity(
@@ -61,10 +86,9 @@ class DiscordService {
           start: _startTime,
         ),
         assets: ActivityAssets(
-          largeImage:
-              'large_image', // Must match asset name in Discord Developer Portal
+          largeImage: 'large_image',
           largeText: 'Anisurge',
-          smallImage: 'small_image', // Optional: secondary badge
+          smallImage: 'small_image',
           smallText: 'Episode $episodeNumber',
         ),
       );
@@ -77,18 +101,39 @@ class DiscordService {
     }
   }
 
-  /// Clear the Discord presence (when user stops watching).
-  Future<void> clearPresence() async {
+  /// Set a random funny idle presence.
+  Future<void> setIdlePresence() async {
     if (!isSupported || !_isInitialized || _client == null) return;
 
+    final random = Random();
+    final detail = _idleDetails[random.nextInt(_idleDetails.length)];
+    final state = _idleStates[random.nextInt(_idleStates.length)];
+
     try {
-      // Set an empty/idle activity to clear presence
-      await _client!.setActivity(Activity(name: 'Anisurge'));
-      _startTime = null;
-      print('[DiscordService] Cleared presence');
+      final activity = Activity(
+        name: 'Anisurge',
+        details: detail,
+        state: state,
+        timestamps: ActivityTimestamps(
+          start: _startTime,
+        ),
+        assets: ActivityAssets(
+          largeImage: 'large_image',
+          largeText: 'Anisurge',
+        ),
+      );
+
+      await _client!.setActivity(activity);
+      print('[DiscordService] Set idle presence: $detail - $state');
     } catch (e) {
-      print('[DiscordService] Failed to clear presence: $e');
+      print('[DiscordService] Failed to set idle presence: $e');
     }
+  }
+
+  /// Clear the Discord presence (when user stops watching).
+  /// Now reverts to idle presence instead of clearing completely.
+  Future<void> clearPresence() async {
+    await setIdlePresence();
   }
 
   /// Shutdown the Discord RPC connection. Call this when the app exits.
