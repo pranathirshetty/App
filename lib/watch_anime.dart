@@ -32,6 +32,7 @@ import 'package:kuudere/widgets/fvp_video_controls.dart';
 import 'package:kuudere/utils/fvp_bridge.dart';
 import 'package:kuudere/utils/subtitle_utils.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:kuudere/services/discord_service.dart';
 
 class WatchAnimeScreen extends StatefulWidget {
   final String id;
@@ -141,6 +142,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
     _player.dispose();
     WakelockPlus.disable(); // Disable wakelock when leaving screen
     WidgetsBinding.instance.removeObserver(this);
+
+    // Clear Discord Rich Presence
+    DiscordService.instance.clearPresence();
+
     super.dispose();
     // socket.dispose();
   }
@@ -318,6 +323,19 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
           });
           // print('Initial selected server dataLink: ${selectedServer['dataLink']}');
           await _loadVideo(selectedServer['dataLink']);
+
+          // Update Discord Rich Presence with anime info
+          final animeInfo = animeData['anime_info'];
+          if (animeInfo != null) {
+            final title = animeInfo['english'] ??
+                animeInfo['romaji'] ??
+                animeInfo['title'] ??
+                'Unknown Anime';
+            DiscordService.instance.updatePresence(
+              animeTitle: title,
+              episodeNumber: episodeNumber,
+            );
+          }
         }
       }
 

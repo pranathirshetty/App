@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kuudere/services/notification.dart';
+import 'package:kuudere/services/discord_service.dart';
 import 'package:kuudere/splash_screen.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:kuudere/utils/fvp_bridge.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +30,14 @@ void main() async {
   // Initialize notification service
   final notificationService = NotificationService();
   await notificationService.initialize();
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Discord Rich Presence on desktop platforms
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+    await DiscordService.instance.initialize();
+  }
 
   runApp(MyApp());
 }
