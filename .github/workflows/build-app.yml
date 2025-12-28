@@ -27,6 +27,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: echo "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" > .env
+
       - name: Update version in pubspec.yaml
         run: |
           sed -i 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
@@ -103,6 +106,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: echo "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" > .env
+
       - name: Update version in pubspec.yaml
         run: |
           sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
@@ -141,6 +147,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: echo "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" > .env
 
       - name: Update version in pubspec.yaml
         run: |
@@ -285,6 +294,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          Set-Content -Path .env -Value "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" -Encoding UTF8
+
       - name: Update version in pubspec.yaml
         run: |
           (Get-Content pubspec.yaml) -replace '^version: .*', 'version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}' | Set-Content pubspec.yaml
@@ -357,6 +370,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: echo "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" > .env
+
       - name: Update version in pubspec.yaml
         run: |
           sed -i '' 's/^version: .*/version: ${{ github.event.inputs.version }}+${{ github.event.inputs.build_number }}/' pubspec.yaml
@@ -394,6 +410,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: echo "DISCORD_APP_ID=${{ vars.DISCORD_APPLICATION_ID }}" > .env
 
       - name: Update version in pubspec.yaml
         run: |

@@ -10,8 +10,15 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class SearchTab extends StatefulWidget {
   final String? initialGenre;
+  final String? initialStatus;
+  final String? initialSort;
 
-  const SearchTab({super.key, this.initialGenre});
+  const SearchTab({
+    super.key,
+    this.initialGenre,
+    this.initialStatus,
+    this.initialSort,
+  });
 
   @override
   State<SearchTab> createState() => _SearchTabState();
@@ -41,6 +48,9 @@ class _SearchTabState extends State<SearchTab> {
     _realtimeService.joinRoom("search");
     if (widget.initialGenre != null) {
       _selectedGenres.add(widget.initialGenre!);
+    }
+    if (widget.initialStatus != null) {
+      _selectedStatuses.add(widget.initialStatus!);
     }
     // Load initial results (all anime or filtered) like SvelteKit does
     _searchAnime();
@@ -131,6 +141,13 @@ class _SearchTabState extends State<SearchTab> {
         // Rating filter expects single value, take first selected
         queryParams['rating'] = _selectedRatings.first;
       }
+
+      // Add sort parameter if provided
+      if (widget.initialSort != null) {
+        queryParams['sort'] = widget.initialSort!;
+      }
+
+      print('Search Query Params: $queryParams');
 
       // Search doesn't require authentication
       final response =

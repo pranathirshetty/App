@@ -8,93 +8,17 @@ import 'package:kuudere/history_tab.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/watch_anime.dart';
 import 'schedule_tab.dart';
-import 'search_tab.dart';
+import 'search_tab.dart' hide AnimeItem;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'settings_tab.dart';
-import 'watch_list_tab.dart';
+import 'watch_list_tab.dart' hide AnimeItem;
 import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
-
-// Model class for anime data
-class AnimeItem {
-  final String id;
-  final String title;
-  final String english;
-  final int epCount;
-  final int subbedCount;
-  final int dubbedCount;
-  final String imageUrl;
-  final String? bannerUrl;
-  final String description;
-  final double? malScore;
-  final List<String> genres;
-  final String type;
-
-  AnimeItem({
-    required this.id,
-    required this.title,
-    required this.english,
-    required this.epCount,
-    required this.subbedCount,
-    required this.dubbedCount,
-    required this.imageUrl,
-    this.bannerUrl,
-    required this.description,
-    this.malScore,
-    required this.genres,
-    required this.type,
-  });
-
-  factory AnimeItem.fromJson(Map<String, dynamic> json) {
-    return AnimeItem(
-      id: json['id'] ?? '',
-      title: json['english'] ?? json['romaji'] ?? '',
-      english: json['english'] ?? '',
-      epCount: json['epCount'] ?? 0,
-      subbedCount: json['subbedCount'] ?? 0,
-      dubbedCount: json['dubbedCount'] ?? 0,
-      imageUrl: json['cover'] ?? '',
-      bannerUrl: json['carouselBanner'] ??
-          json['banner'], // Prioritize carouselBanner from carousel collection
-      description: json['description'] ?? '',
-      malScore: json['malScore']?.toDouble(),
-      genres: List<String>.from(json['genres'] ?? []),
-      type: json['type'] ?? '',
-    );
-  }
-}
-
-class ContinueWatchingItem {
-  final String duration;
-  final int episode;
-  final String link;
-  final String progress;
-  final String thumbnail;
-  final String title;
-
-  ContinueWatchingItem({
-    required this.duration,
-    required this.episode,
-    required this.link,
-    required this.progress,
-    required this.thumbnail,
-    required this.title,
-  });
-
-  factory ContinueWatchingItem.fromJson(Map<String, dynamic> json) {
-    return ContinueWatchingItem(
-      duration: json['duration'] ?? '',
-      episode: json['episode'] ?? 0,
-      link: json['link'] ?? '',
-      progress: json['progress'] ?? '',
-      thumbnail: json['thumbnail'] ?? '',
-      title: json['title'] ?? '',
-    );
-  }
-}
+import 'package:kuudere/services/ai_service.dart';
+import 'package:kuudere/models/anime_models.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -118,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final RealtimeService _realtimeService = RealtimeService();
   final CarouselSliderController _carouselController =
       CarouselSliderController();
+  final AiService _aiService = AiService();
+  List<AnimeItem> aiRecommendations = [];
+  bool isLoadingAi = false;
+  String _aiTagline = "";
 
   @override
   void initState() {
@@ -236,12 +164,103 @@ class _HomeScreenState extends State<HomeScreen> {
           ctotal = continueWatching.length;
           isLoading = false;
         });
+
+        // Fetch AI recommendations after main content is loaded
+        _fetchAiRecommendations();
       }
     } catch (e) {
       // print('Error fetching data: $e');
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchAiRecommendations() async {
+    setState(() {
+      isLoadingAi = true;
+    });
+
+    try {
+      final Map<String, List<String>> history = {
+        'Continue Watching': [],
+        'Watching': [],
+        'On Hold': [],
+        'Plan to Watch': [],
+        'Dropped': [],
+        'Completed': [],
+      };
+
+      // 1. Add Continue Watching titles
+      for (var item in continueWatching.take(20)) {
+        history['Continue Watching']!.add("${item.title} (Ep ${item.episode})");
+      }
+
+      // 2. Fetch Watchlist titles
+      final httpService = HttpService();
+      final sessionInfo = await authService.getStoredSession();
+
+      if (sessionInfo != null) {
+        try {
+          // Fetch first page of watchlist, limit 50 to get a good mix
+          final response = await httpService.get(
+            '/api/anime/watchlist',
+            queryParams: {'page': '1', 'perPage': '50'},
+            requireAuth: true,
+          );
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final items = data['data'] ?? data['watchlist'] ?? [];
+            if (items is List) {
+              for (var item in items) {
+                // Extract title
+                String title =
+                    item['english'] ?? item['romaji'] ?? item['title'] ?? '';
+                String status = item['status'] ?? 'Unknown';
+
+                if (title.isNotEmpty) {
+                  // Normalize status
+                  // API mostly returns uppercase: WATCHING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_WATCH
+                  // But let's check basic mapping
+                  if (status == 'WATCHING' || status == 'Watching') {
+                    history['Watching']!.add(title);
+                  } else if (status == 'COMPLETED' || status == 'Completed') {
+                    history['Completed']!.add(title);
+                  } else if (status == 'ON_HOLD' || status == 'On Hold') {
+                    history['On Hold']!.add(title);
+                  } else if (status == 'DROPPED' || status == 'Dropped') {
+                    history['Dropped']!.add(title);
+                  } else if (status == 'PLAN_TO_WATCH' ||
+                      status == 'Plan to Watch') {
+                    history['Plan to Watch']!.add(title);
+                  } else {
+                    // Fallback if status is unknown? Maybe add to Plan to Watch or just ignore
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // print('Error fetching watchlist for AI: $e');
+        }
+      }
+
+      final result = await _aiService.getRecommendations(history);
+
+      if (mounted) {
+        setState(() {
+          aiRecommendations = result.items;
+          _aiTagline = result.tagline;
+          isLoadingAi = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoadingAi = false;
+        });
+      }
     }
   }
 
@@ -409,6 +428,174 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAiRecommendationsSection() {
+    if (isLoadingAi) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'AI Recommendations',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Column(
+                children: [
+                  LoadingAnimationWidget.staggeredDotsWave(
+                    color: Colors.redAccent,
+                    size: 30,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "AI is cooking your recommendations...",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (aiRecommendations.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Colors.amber, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AI Recommended for You',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (_aiTagline.isNotEmpty)
+                      Text(
+                        _aiTagline,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 220, // Match typical card height
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: aiRecommendations.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final item = aiRecommendations[index];
+              return SizedBox(
+                width: 140,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AnimeInfoScreen(animeId: item.id),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                item.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(color: Colors.grey[900]),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.star,
+                                          size: 10, color: Colors.amber),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        item.malScore?.toString() ?? 'N/A',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -917,7 +1104,16 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
             // Continue Watching Section (show if we have continue watching items)
-            if (continueWatching.isNotEmpty) _buildContinueWatchingSection(),
+            if (continueWatching.isNotEmpty) ...[
+              _buildContinueWatchingSection(),
+              const SizedBox(height: 24),
+            ],
+
+            // AI Recommendations
+            if (isLoadingAi || aiRecommendations.isNotEmpty) ...[
+              _buildAiRecommendationsSection(),
+              const SizedBox(height: 24),
+            ],
 
             // Latest Episodes Section
             _buildResponsiveSection(
@@ -968,11 +1164,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold),
               ),
-              TextButton(
-                onPressed: () {},
-                child: const Text('View more >',
-                    style: TextStyle(color: Colors.grey, fontSize: 14)),
-              ),
+              if (title != 'Top Upcoming')
+                TextButton(
+                  onPressed: () {
+                    if (title == 'Latest Episodes') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const SearchTab(initialSort: 'latest'),
+                        ),
+                      );
+                    } else if (title == 'New On App') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const SearchTab(initialSort: 'newest'),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('View more >',
+                      style: TextStyle(color: Colors.grey, fontSize: 14)),
+                ),
             ],
           ),
         ),
