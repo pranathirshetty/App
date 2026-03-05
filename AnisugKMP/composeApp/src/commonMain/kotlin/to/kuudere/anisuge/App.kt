@@ -20,6 +20,8 @@ import to.kuudere.anisuge.screens.splash.SplashScreen
 import to.kuudere.anisuge.screens.splash.SplashViewModel
 import to.kuudere.anisuge.screens.home.HomeScreen
 import to.kuudere.anisuge.screens.home.HomeViewModel
+import to.kuudere.anisuge.screens.search.SearchScreen
+import to.kuudere.anisuge.screens.search.SearchViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 
 @Composable
@@ -29,6 +31,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val splashVm = remember { SplashViewModel(AppComponent.authService) }
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
         val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService) }
+        val searchVm = remember { SearchViewModel(AppComponent.searchService) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -68,7 +71,8 @@ fun App(onAppExit: () -> Unit = {}) {
 
                 composable(Screen.Home.route) {
                     HomeScreen(
-                        viewModel    = homeVm,
+                        homeViewModel = homeVm,
+                        searchViewModel = searchVm,
                         onAnimeClick = { _ -> /* TODO: navigate to anime info */ },
                         onWatchClick = { _, _, _ -> /* TODO: navigate to watch */ },
                         onExit       = onAppExit,

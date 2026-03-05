@@ -11,6 +11,7 @@ import to.kuudere.anisuge.data.services.SessionStore
 import to.kuudere.anisuge.platform.createDataStore
 
 import to.kuudere.anisuge.data.services.HomeService
+import to.kuudere.anisuge.data.services.SearchService
 
 /**
  * Manual dependency graph — keeps it simple for now, easy to swap out for Koin later.
@@ -39,5 +40,9 @@ object AppComponent {
 
     val homeService: HomeService by lazy {
         HomeService(sessionStore, httpClient)
+    }
+
+    val searchService: SearchService by lazy {
+        SearchService(sessionStore, httpClient)
     }
 }

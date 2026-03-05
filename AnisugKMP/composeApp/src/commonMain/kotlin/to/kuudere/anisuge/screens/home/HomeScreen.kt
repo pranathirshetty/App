@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import to.kuudere.anisuge.utils.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -75,30 +76,36 @@ import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.models.ContinueWatchingItem
 import to.kuudere.anisuge.platform.DraggableWindowArea
+import to.kuudere.anisuge.screens.search.SearchScreen
+import to.kuudere.anisuge.screens.search.SearchViewModel
+
+enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel,
-    onAnimeClick: (animeId: String) -> Unit,
-    onWatchClick: (animeId: String, episode: Int, lang: String) -> Unit,
+    homeViewModel: HomeViewModel,
+    searchViewModel: SearchViewModel,
+    onAnimeClick: (String) -> Unit,
+    onWatchClick: (String, String, Int) -> Unit,
     onExit: () -> Unit = {},
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val homeState by homeViewModel.uiState.collectAsState()
+    var currentTab by remember { mutableStateOf(AnisugTab.Home) }
 
-    if (state.isLoading) {
+    if (homeState.isLoading && homeState.topAiring.isEmpty() && currentTab == AnisugTab.Home) {
         Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
             CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
         }
         return
     }
 
-    if (state.error != null) {
+    if (homeState.error != null && currentTab == AnisugTab.Home) {
         Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(state.error ?: "Unknown error", color = Color.White)
+                Text(homeState.error ?: "Unknown error", color = Color.White)
                 Spacer(Modifier.height(16.dp))
                 Button(
-                    onClick = { viewModel.refresh() },
+                    onClick = { homeViewModel.refresh() },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
                 ) { Text("Retry") }
             }
@@ -106,76 +113,91 @@ fun HomeScreen(
         return
     }
 
-    val scrollState = rememberScrollState()
-
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
         val isDesktop = maxWidth >= 800.dp
 
         Row(Modifier.fillMaxSize()) {
             if (isDesktop) {
                 AnisugSidebar(
-                    avatarUrl = state.userProfile?.avatar,
+                    avatarUrl = homeState.userProfile?.avatar,
+                    selectedTab = currentTab,
+                    onTabSelect = { currentTab = it },
                     onExit = onExit
                 )
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
-
-                    // ── Hero Carousel ──────────────────────────────────────────────
-            if (state.topAiring.isNotEmpty()) {
-                HeroCarousel(
-                    items = state.topAiring,
-                    onAnimeClick = onAnimeClick,
-                    onWatchClick = onWatchClick,
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ── Continue Watching ──────────────────────────────────────────
-            if (state.continueWatching.isNotEmpty()) {
-                SectionHeader(title = "Continue Watching", onViewMore = null)
-                ContinueWatchingRow(
-                    items = state.continueWatching,
-                    onWatchClick = onWatchClick,
-                )
-                Spacer(Modifier.height(24.dp))
-            }
-
-            // ── Latest Episodes ────────────────────────────────────────────
-            if (state.latestEpisodes.isNotEmpty()) {
-                AnimeSection(
-                    title = "Latest Episodes",
-                    items = state.latestEpisodes,
-                    onItemClick = { item -> onWatchClick(item.id, item.epCount ?: 1, "sub") },
-                )
-            }
-
-            // ── New On Site ────────────────────────────────────────────────
-            if (state.newOnSite.isNotEmpty()) {
-                AnimeSection(
-                    title = "New On App",
-                    items = state.newOnSite,
-                    onItemClick = { onAnimeClick(it.id) },
-                )
-            }
-
-            // ── Top Upcoming ───────────────────────────────────────────────
-            if (state.topUpcoming.isNotEmpty()) {
-                AnimeSection(
-                    title = "Top Upcoming",
-                    items = state.topUpcoming,
-                    onItemClick = { onAnimeClick(it.id) },
-                    showViewMore = false,
-                )
-            }
-
-            Spacer(Modifier.height(100.dp))
+                when (currentTab) {
+                    AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
+                    AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+                    else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Tab ${currentTab.name} coming soon", color = Color.White)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HomeContent(
+    state: HomeUiState,
+    onAnimeClick: (String) -> Unit,
+    onWatchClick: (String, String, Int) -> Unit
+) {
+    val scrollState = rememberScrollState()
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+        // ── Hero Carousel ──────────────────────────────────────────────
+        if (state.topAiring.isNotEmpty()) {
+            HeroCarousel(
+                items = state.topAiring,
+                onAnimeClick = { onAnimeClick(it.id) },
+                onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep) },
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // ── Continue Watching ──────────────────────────────────────────
+        if (state.continueWatching.isNotEmpty()) {
+            SectionHeader(title = "Continue Watching", onViewMore = null)
+            ContinueWatchingRow(
+                items = state.continueWatching,
+                onWatchClick = { id, lang, ep -> onWatchClick(id, lang, ep) },
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // ── Latest Episodes ────────────────────────────────────────────
+        if (state.latestEpisodes.isNotEmpty()) {
+            AnimeSection(
+                title = "Latest Episodes",
+                items = state.latestEpisodes,
+                onItemClick = { item -> onWatchClick(item.id, "sub", item.epCount ?: 1) },
+            )
+        }
+
+        // ── New On Site ────────────────────────────────────────────────
+        if (state.newOnSite.isNotEmpty()) {
+            AnimeSection(
+                title = "New On App",
+                items = state.newOnSite,
+                onItemClick = { item -> onAnimeClick(item.id) },
+            )
+        }
+
+        // ── Top Upcoming ───────────────────────────────────────────────
+        if (state.topUpcoming.isNotEmpty()) {
+            AnimeSection(
+                title = "Top Upcoming",
+                items = state.topUpcoming,
+                onItemClick = { item -> onAnimeClick(item.id) },
+                showViewMore = false,
+            )
+        }
+
+        Spacer(Modifier.height(100.dp))
     }
 }
 
@@ -184,8 +206,8 @@ fun HomeScreen(
 @Composable
 private fun HeroCarousel(
     items: List<AnimeItem>,
-    onAnimeClick: (String) -> Unit,
-    onWatchClick: (String, Int, String) -> Unit,
+    onAnimeClick: (AnimeItem) -> Unit,
+    onWatchClick: (AnimeItem, String, Int) -> Unit,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
     val item = items[currentIndex]
@@ -293,7 +315,7 @@ private fun HeroCarousel(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     if (isDesktop) {
                         Button(
-                            onClick = { onWatchClick(item.id, 1, "sub") },
+                            onClick = { onWatchClick(item, "sub", 1) },
                             colors  = ButtonDefaults.buttonColors(
                                 containerColor = Color.White,
                                 contentColor   = Color.Black,
@@ -307,7 +329,7 @@ private fun HeroCarousel(
                         }
                         Spacer(Modifier.width(16.dp))
                         OutlinedButton(
-                            onClick = { onAnimeClick(item.id) },
+                            onClick = { onAnimeClick(item) },
                             shape   = RoundedCornerShape(12.dp),
                             colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
@@ -318,7 +340,7 @@ private fun HeroCarousel(
                         }
                     } else {
                         Button(
-                            onClick = { onWatchClick(item.id, 1, "sub") },
+                            onClick = { onWatchClick(item, "sub", 1) },
                             colors  = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFFF4444),
                                 contentColor   = Color.White,
@@ -333,7 +355,7 @@ private fun HeroCarousel(
                         }
                         Spacer(Modifier.width(12.dp))
                         OutlinedButton(
-                            onClick = { onAnimeClick(item.id) },
+                            onClick = { onAnimeClick(item) },
                             shape   = RoundedCornerShape(8.dp),
                             colors  = ButtonDefaults.outlinedButtonColors(
                                 containerColor = Color.Transparent,
@@ -373,7 +395,7 @@ private fun HeroCarousel(
 @Composable
 private fun ContinueWatchingRow(
     items: List<ContinueWatchingItem>,
-    onWatchClick: (String, Int, String) -> Unit,
+    onWatchClick: (String, String, Int) -> Unit,
 ) {
     LazyRow(
         contentPadding    = PaddingValues(horizontal = 16.dp),
@@ -390,7 +412,7 @@ private fun ContinueWatchingRow(
                 Modifier
                     .width(260.dp)
                     .hoverable(inter)
-                    .clickable { onWatchClick(animeId, item.episode, lang) }
+                    .clickable { onWatchClick(animeId, lang, item.episode) }
             ) {
                 Box(
                     Modifier
@@ -703,7 +725,12 @@ private fun SmallBadge(text: String, color: Color = Color.White) {
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AnisugSidebar(avatarUrl: String?, onExit: () -> Unit) {
+private fun AnisugSidebar(
+    avatarUrl: String?,
+    selectedTab: AnisugTab,
+    onTabSelect: (AnisugTab) -> Unit,
+    onExit: () -> Unit
+) {
     val fullAvatarUrl = when {
         avatarUrl == null -> null
         avatarUrl.startsWith("http") -> avatarUrl
@@ -722,54 +749,79 @@ private fun AnisugSidebar(avatarUrl: String?, onExit: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(32.dp))
-            // User Avatar / Logo
-            Box(
-                Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (fullAvatarUrl != null) {
-                    AsyncImage(
-                        model = fullAvatarUrl,
-                        contentDescription = "User Avatar",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Movie,
-                        contentDescription = "Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(32.dp))
+                // User Avatar / Logo
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (fullAvatarUrl != null) {
+                        AsyncImage(
+                            model = fullAvatarUrl,
+                            contentDescription = "User Avatar",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Movie,
+                            contentDescription = "Logo",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
+                Spacer(Modifier.height(48.dp))
+                
+                // Icons
+                SidebarIcon(
+                    Icons.Outlined.CalendarToday, 
+                    isSelected = selectedTab == AnisugTab.Calendar,
+                    onClick = { onTabSelect(AnisugTab.Calendar) }
+                )
+                SidebarIcon(
+                    Icons.Outlined.Home, 
+                    isSelected = selectedTab == AnisugTab.Home, 
+                    selectedTint = Color(0xFFFF4444),
+                    onClick = { onTabSelect(AnisugTab.Home) }
+                )
+                SidebarIcon(
+                    Icons.Outlined.Explore, 
+                    isSelected = selectedTab == AnisugTab.Search, 
+                    onClick = { onTabSelect(AnisugTab.Search) }
+                )
+                SidebarIcon(
+                    Icons.Outlined.Bookmarks, 
+                    isSelected = selectedTab == AnisugTab.Bookmarks,
+                    onClick = { onTabSelect(AnisugTab.Bookmarks) }
+                )
+                SidebarIcon(
+                    Icons.Outlined.Download, 
+                    isSelected = selectedTab == AnisugTab.Downloads,
+                    onClick = { onTabSelect(AnisugTab.Downloads) }
+                )
+                SidebarIcon(
+                    Icons.Outlined.Settings, 
+                    isSelected = selectedTab == AnisugTab.Settings,
+                    onClick = { onTabSelect(AnisugTab.Settings) }
+                )
             }
-            Spacer(Modifier.height(48.dp))
             
-            // Icons
-            SidebarIcon(Icons.Outlined.CalendarToday, isSelected = false)
-            SidebarIcon(Icons.Outlined.Home, isSelected = true, selectedTint = Color(0xFFFF4444))
-            SidebarIcon(Icons.Outlined.Explore, isSelected = false)
-            SidebarIcon(Icons.Outlined.Bookmarks, isSelected = false)
-            SidebarIcon(Icons.Outlined.Download, isSelected = false)
-            SidebarIcon(Icons.Outlined.Settings, isSelected = false)
-        }
-        
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            SidebarIcon(
-                Icons.AutoMirrored.Filled.ExitToApp, 
-                isSelected = false, 
-                defaultTint = Color(0xFFE53935),
-                onClick = onExit
-            )
-            Spacer(Modifier.height(32.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                SidebarIcon(
+                    Icons.AutoMirrored.Filled.ExitToApp, 
+                    isSelected = false, 
+                    defaultTint = Color(0xFFE53935),
+                    onClick = onExit
+                )
+                Spacer(Modifier.height(32.dp))
+            }
         }
     }
-}
 }
 
 @Composable
