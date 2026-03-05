@@ -74,6 +74,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.models.ContinueWatchingItem
+import to.kuudere.anisuge.platform.DraggableWindowArea
 
 @Composable
 fun HomeScreen(
@@ -709,14 +710,18 @@ private fun AnisugSidebar(avatarUrl: String?, onExit: () -> Unit) {
         else -> "https://kuudere.to$avatarUrl"
     }
 
-    Column(
-        Modifier
+    DraggableWindowArea(
+        modifier = Modifier
             .width(80.dp)
             .fillMaxHeight()
-            .background(Color(0xFF0B0B0B)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B0B0B)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(32.dp))
             // User Avatar / Logo
@@ -764,6 +769,7 @@ private fun AnisugSidebar(avatarUrl: String?, onExit: () -> Unit) {
             Spacer(Modifier.height(32.dp))
         }
     }
+}
 }
 
 @Composable
