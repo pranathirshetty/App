@@ -90,9 +90,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   int? _savedWatchPosition; // Continue watching position from API
 
   // Subtitle Settings
-  double _subtitleSize = 22.0;
+  double _subtitleSize = 24.0;
   Color _subtitleColor = Colors.white;
-  Color _subtitleBackgroundColor = Colors.black.withValues(alpha: 0.5);
+  Color _subtitleBackgroundColor = Colors.transparent;
   double _subtitleDelay = 0.0;
   double _subtitlePos = 100.0;
 
@@ -1790,8 +1790,10 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
               }
             }
 
+            // Load fonts BEFORE initializing the video controller
+            // so libass can find them when the subtitle track is loaded
             if (fonts != null && fonts.isNotEmpty) {
-              _loadFonts(fonts);
+              await _loadFonts(fonts);
             }
 
             // Use saved position from initial API response
@@ -1813,6 +1815,16 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
             // Enable ASS subtitle rendering with libass
             try {
               _fvpVideoController!.setProperty('subtitle', '1');
+
+              // Set fonts directory on the controller now that it's initialized
+              final tempDir = await getTemporaryDirectory();
+              final fontsDir = Directory('${tempDir.path}/subtitle_fonts');
+              if (await fontsDir.exists()) {
+                _fvpVideoController!
+                    .setProperty('subtitle.fonts.dir', fontsDir.path);
+                debugPrint(
+                    'Set subtitle.fonts.dir on controller: ${fontsDir.path}');
+              }
             } catch (e) {
               debugPrint('Error setting subtitle properties: $e');
             }
@@ -1889,30 +1901,45 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
     if (_fvpVideoController == null) return;
 
     try {
-      // Scale (default is 1.0)
-      // We map 28.0 (our default UI size) to 1.0 scale roughly
-      double scale = _subtitleSize / 28.0;
+      // Scale: map UI size to mdk scale factor
+      // 24.0 is our default UI size → 1.0 scale in mdk
+      double scale = _subtitleSize / 24.0;
       _fvpVideoController!.setProperty('subtitle.scale', scale.toString());
 
-      // Subtitle colors use RGBA hex format in mdk-sdk
-      // Convert our Color to mdk format (0xRRGGBBAA as decimal string)
+      // Subtitle text color (ARGB32)
       int colorValue = _subtitleColor.toARGB32();
       _fvpVideoController!.setProperty('subtitle.color', colorValue.toString());
 
+      // Background: transparent for clean look (no ugly box behind text)
       int bgColorValue = _subtitleBackgroundColor.toARGB32();
       _fvpVideoController!
           .setProperty('subtitle.color.background', bgColorValue.toString());
 
-      // Subtitle position via alignment
-      // Convert _subtitlePos (0-100, 100=bottom) to alignment
-      // mdk uses subtitle.alignment.y: -1=top, 0=center, 1=bottom
-      // and subtitle.margin.y for fine-tuning
-      if (_subtitlePos <= 33) {
-        _fvpVideoController!.setProperty('subtitle.alignment.y', '-1'); // top
-      } else if (_subtitlePos <= 66) {
-        _fvpVideoController!.setProperty('subtitle.alignment.y', '0'); // center
+      // Text outline for clean readable edges (the standard anime subtitle look)
+      // Outline provides a dark border around white text making it pop on any background
+      _fvpVideoController!.setProperty('subtitle.outline', '1.5');
+      _fvpVideoController!.setProperty(
+          'subtitle.outline.color', Colors.black.toARGB32().toString());
+
+      // Subtle shadow for depth
+      _fvpVideoController!.setProperty('subtitle.shadow', '1.0');
+      _fvpVideoController!.setProperty('subtitle.shadow.color',
+          Colors.black.withValues(alpha: 0.6).toARGB32().toString());
+
+      // Subtitle position using smooth alignment + margin
+      // _subtitlePos: 0 = top, 50 = center, 100 = bottom
+      // Map to mdk alignment.y (-1=top, 0=center, 1=bottom) with margin for fine-tuning
+      double alignmentY = (_subtitlePos / 50.0) - 1.0; // -1.0 to 1.0
+      _fvpVideoController!
+          .setProperty('subtitle.alignment.y', alignmentY.toStringAsFixed(2));
+
+      // Apply a small bottom margin so subtitles don't sit on the very bottom edge
+      if (_subtitlePos >= 80) {
+        double marginY = ((100.0 - _subtitlePos) / 100.0) * 30;
+        _fvpVideoController!
+            .setProperty('subtitle.margin.y', marginY.toStringAsFixed(0));
       } else {
-        _fvpVideoController!.setProperty('subtitle.alignment.y', '1'); // bottom
+        _fvpVideoController!.setProperty('subtitle.margin.y', '0');
       }
 
       // Subtitle delay is now handled by modifying the subtitle file
@@ -2037,12 +2064,15 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
               }
             }
 
-            // Update font cache (run in background, don't wait)
-            Process.run('fc-cache', ['-f', userFontsDir.path]).then((_) {
-              debugPrint('Font cache updated');
-            }).catchError((e) {
+            // Update font cache and WAIT for it to complete
+            // libass uses fontconfig, so the cache must be ready before subtitle loads
+            try {
+              final result =
+                  await Process.run('fc-cache', ['-f', userFontsDir.path]);
+              debugPrint('Font cache updated (exit code: ${result.exitCode})');
+            } catch (e) {
               debugPrint('Error updating font cache: $e');
-            });
+            }
           } catch (e) {
             debugPrint('Error installing fonts to user directory: $e');
           }

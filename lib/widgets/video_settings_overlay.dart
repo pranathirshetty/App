@@ -375,12 +375,35 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                 onPressed: () =>
                     setState(() => _currentView = SettingsView.subtitles),
               ),
-              Text(
-                "Subtitle Settings",
-                style: AppFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  "Subtitle Settings",
+                  style: AppFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              // Reset to defaults button
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _localSubtitleSize = 24.0;
+                    _localSubtitleDelay = 0.0;
+                    _localSubtitlePos = 100.0;
+                  });
+                  widget.onSubtitleSizeChanged(24.0);
+                  widget.onSubtitleDelayChanged(0.0);
+                  widget.onSubtitlePosChanged(100.0);
+                },
+                child: Text(
+                  "Reset",
+                  style: AppFonts.poppins(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -394,16 +417,28 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Size",
-                    style:
-                        AppFonts.poppins(color: Colors.white, fontSize: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Size",
+                        style:
+                            AppFonts.poppins(color: Colors.white, fontSize: 14),
+                      ),
+                      Text(
+                        _localSubtitleSize.toStringAsFixed(0),
+                        style: AppFonts.poppins(
+                            color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
                   ),
                   Row(
                     children: [
-                      const Text("Small",
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Text("A",
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
                       Expanded(
                         child: SliderTheme(
                           data: SliderThemeData(
@@ -411,11 +446,12 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                             inactiveTrackColor: Colors.white24,
                             thumbColor: Colors.red,
                             overlayColor: Colors.red.withValues(alpha: 0.2),
+                            trackHeight: 3,
                           ),
                           child: Slider(
                             value: _localSubtitleSize,
-                            min: 12.0,
-                            max: 64.0,
+                            min: 14.0,
+                            max: 48.0,
                             onChanged: (value) {
                               setState(() {
                                 _localSubtitleSize = value;
@@ -425,16 +461,32 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                           ),
                         ),
                       ),
-                      const Text("Large",
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Text("A",
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Delay (seconds)",
-                    style:
-                        AppFonts.poppins(color: Colors.white, fontSize: 14),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Delay",
+                        style:
+                            AppFonts.poppins(color: Colors.white, fontSize: 14),
+                      ),
+                      Text(
+                        "${_localSubtitleDelay >= 0 ? '+' : ''}${_localSubtitleDelay.toStringAsFixed(1)}s",
+                        style: AppFonts.poppins(
+                          color: _localSubtitleDelay == 0
+                              ? Colors.white70
+                              : Colors.red.shade300,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                   Row(
                     children: [
@@ -448,13 +500,13 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                             inactiveTrackColor: Colors.white24,
                             thumbColor: Colors.red,
                             overlayColor: Colors.red.withValues(alpha: 0.2),
+                            trackHeight: 3,
                           ),
                           child: Slider(
                             value: _localSubtitleDelay,
                             min: -5.0,
                             max: 5.0,
-                            divisions: 20,
-                            label: "${_localSubtitleDelay.toStringAsFixed(1)}s",
+                            divisions: 40,
                             onChanged: (value) {
                               setState(() {
                                 _localSubtitleDelay = value;
@@ -469,17 +521,15 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                               TextStyle(color: Colors.white70, fontSize: 10)),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
-                    "Position (Vertical)",
-                    style:
-                        AppFonts.poppins(color: Colors.white, fontSize: 14),
+                    "Position",
+                    style: AppFonts.poppins(color: Colors.white, fontSize: 14),
                   ),
                   Row(
                     children: [
-                      const Text("Top",
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.vertical_align_top,
+                          color: Colors.white70, size: 14),
                       Expanded(
                         child: SliderTheme(
                           data: SliderThemeData(
@@ -487,6 +537,7 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                             inactiveTrackColor: Colors.white24,
                             thumbColor: Colors.red,
                             overlayColor: Colors.red.withValues(alpha: 0.2),
+                            trackHeight: 3,
                           ),
                           child: Slider(
                             value: _localSubtitlePos,
@@ -501,9 +552,8 @@ class _VideoSettingsOverlayState extends State<VideoSettingsOverlay>
                           ),
                         ),
                       ),
-                      const Text("Bottom",
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 10)),
+                      const Icon(Icons.vertical_align_bottom,
+                          color: Colors.white70, size: 14),
                     ],
                   ),
                 ],

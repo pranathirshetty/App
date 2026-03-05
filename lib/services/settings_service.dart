@@ -14,9 +14,9 @@ class SettingsService {
   final ValueNotifier<String> defaultAudio = ValueNotifier<String>('sub');
 
   // Subtitle settings
-  final ValueNotifier<double> subtitleSize = ValueNotifier<double>(22.0);
+  final ValueNotifier<double> subtitleSize = ValueNotifier<double>(24.0);
   final ValueNotifier<double> subtitleDelay = ValueNotifier<double>(0.0);
-  final ValueNotifier<double> subtitlePos = ValueNotifier<double>(90.0);
+  final ValueNotifier<double> subtitlePos = ValueNotifier<double>(100.0);
 
   // Keys
   static const String _keyAutoPlay = 'settings_auto_play';
@@ -46,7 +46,7 @@ class SettingsService {
       // Load subtitle settings
       String? subtitleSizeStr = await _storage.read(key: _keySubtitleSize);
       if (subtitleSizeStr != null) {
-        subtitleSize.value = double.tryParse(subtitleSizeStr) ?? 22.0;
+        subtitleSize.value = double.tryParse(subtitleSizeStr) ?? 24.0;
       }
 
       String? subtitleDelayStr = await _storage.read(key: _keySubtitleDelay);
@@ -56,7 +56,7 @@ class SettingsService {
 
       String? subtitlePosStr = await _storage.read(key: _keySubtitlePos);
       if (subtitlePosStr != null) {
-        subtitlePos.value = double.tryParse(subtitlePosStr) ?? 90.0;
+        subtitlePos.value = double.tryParse(subtitlePosStr) ?? 100.0;
       }
     } catch (e) {
       debugPrint('Error loading settings: $e');
