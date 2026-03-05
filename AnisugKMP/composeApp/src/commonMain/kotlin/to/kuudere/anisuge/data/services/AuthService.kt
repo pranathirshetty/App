@@ -18,6 +18,7 @@ import to.kuudere.anisuge.data.models.AuthResponse
 import to.kuudere.anisuge.data.models.CurrentUserResponse
 import to.kuudere.anisuge.data.models.LoginRequest
 import to.kuudere.anisuge.data.models.RegisterRequest
+import to.kuudere.anisuge.data.models.SessionCheckResult
 import to.kuudere.anisuge.data.models.SessionInfo
 
 class AuthService(
@@ -68,7 +69,7 @@ class AuthService(
                 header("Cookie", sessionToCookie(stored))
             }
             val body: CurrentUserResponse = response.body()
-            if (body.success != false) SessionCheckResult.Valid(stored)
+            if (body.success != false) SessionCheckResult.Valid(stored, body.user)
             else SessionCheckResult.Expired
         } catch (e: Exception) {
             // Network error — treat as expired/unauthenticated
@@ -81,8 +82,4 @@ class AuthService(
     }
 }
 
-sealed interface SessionCheckResult {
-    data object NoSession : SessionCheckResult
-    data object Expired   : SessionCheckResult
-    data class Valid(val session: SessionInfo) : SessionCheckResult
-}
+

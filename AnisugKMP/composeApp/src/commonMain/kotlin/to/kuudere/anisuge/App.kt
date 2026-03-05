@@ -28,7 +28,7 @@ fun App() {
         val navController = rememberNavController()
         val splashVm = remember { SplashViewModel(AppComponent.authService) }
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
-        val homeVm   = remember { HomeViewModel(AppComponent.homeService) }
+        val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {

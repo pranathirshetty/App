@@ -10,8 +10,13 @@ import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.models.ContinueWatchingItem
 import to.kuudere.anisuge.data.services.HomeService
 
+import to.kuudere.anisuge.data.models.SessionCheckResult
+import to.kuudere.anisuge.data.models.UserProfile
+import to.kuudere.anisuge.data.services.AuthService
+
 data class HomeUiState(
     val isLoading:        Boolean              = true,
+    val userProfile:      UserProfile?         = null,
     val topAiring:        List<AnimeItem>       = emptyList(),
     val latestEpisodes:   List<AnimeItem>       = emptyList(),
     val newOnSite:        List<AnimeItem>       = emptyList(),
@@ -20,7 +25,10 @@ data class HomeUiState(
     val error:            String?               = null,
 )
 
-class HomeViewModel(private val homeService: HomeService) {
+class HomeViewModel(
+    private val homeService: HomeService,
+    private val authService: AuthService
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -32,10 +40,14 @@ class HomeViewModel(private val homeService: HomeService) {
         scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
+                val userRes = authService.checkSession()
+                val userProfile = (userRes as? SessionCheckResult.Valid)?.user
+                
                 val homeData = homeService.fetchHomeData()
                 val continueWatching = homeService.fetchContinueWatching()
                 _uiState.value = HomeUiState(
                     isLoading        = false,
+                    userProfile      = userProfile,
                     topAiring        = homeData?.topAired    ?: emptyList(),
                     latestEpisodes   = homeData?.latestEps   ?: emptyList(),
                     newOnSite        = homeData?.lastUpdated ?: emptyList(),

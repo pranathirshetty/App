@@ -47,7 +47,21 @@ data class SessionData(
 }
 
 @Serializable
+data class UserProfile(
+    val id: String? = null,
+    val username: String? = null,
+    val email: String? = null,
+    val avatar: String? = null,
+)
+
+@Serializable
 data class CurrentUserResponse(
     val success: Boolean? = null,
-    val user: Map<String, String>? = null,
+    val user: UserProfile? = null,
 )
+
+sealed interface SessionCheckResult {
+    data object NoSession : SessionCheckResult
+    data object Expired   : SessionCheckResult
+    data class Valid(val session: SessionInfo, val user: UserProfile? = null) : SessionCheckResult
+}

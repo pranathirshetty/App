@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.services.AuthService
-import to.kuudere.anisuge.data.services.SessionCheckResult
+import to.kuudere.anisuge.data.models.SessionCheckResult
 
 sealed interface SplashDestination {
     data object Waiting : SplashDestination

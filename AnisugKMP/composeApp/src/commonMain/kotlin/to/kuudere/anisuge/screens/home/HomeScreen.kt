@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -32,9 +33,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -95,10 +103,19 @@ fun HomeScreen(
 
     val scrollState = rememberScrollState()
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
-        Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
+        val isDesktop = maxWidth >= 800.dp
 
-            // ── Hero Carousel ──────────────────────────────────────────────
+        Row(Modifier.fillMaxSize()) {
+            if (isDesktop) {
+                AnisugSidebar(avatarUrl = state.userProfile?.avatar)
+                Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
+            }
+
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+
+                    // ── Hero Carousel ──────────────────────────────────────────────
             if (state.topAiring.isNotEmpty()) {
                 HeroCarousel(
                     items = state.topAiring,
@@ -148,6 +165,8 @@ fun HomeScreen(
             }
 
             Spacer(Modifier.height(100.dp))
+                }
+            }
         }
     }
 }
@@ -671,6 +690,88 @@ private fun SmallBadge(text: String, color: Color = Color.White) {
             fontWeight = FontWeight.Medium
         )
     }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun AnisugSidebar(avatarUrl: String?) {
+    val fullAvatarUrl = when {
+        avatarUrl == null -> null
+        avatarUrl.startsWith("http") -> avatarUrl
+        else -> "https://kuudere.to$avatarUrl"
+    }
+
+    Column(
+        Modifier
+            .width(64.dp)
+            .fillMaxHeight()
+            .background(Color(0xFF0B0B0B)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(24.dp))
+            // User Avatar / Logo
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (fullAvatarUrl != null) {
+                    AsyncImage(
+                        model = fullAvatarUrl,
+                        contentDescription = "User Avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Movie,
+                        contentDescription = "Logo",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(40.dp))
+            
+            // Icons
+            SidebarIcon(Icons.Default.Explore, isSelected = false)
+            SidebarIcon(Icons.Default.Star, isSelected = true, selectedTint = Color(0xFFFF9800))
+            SidebarIcon(Icons.Default.WatchLater, isSelected = false)
+            SidebarIcon(Icons.Default.Schedule, isSelected = false)
+            SidebarIcon(Icons.Default.Download, isSelected = false)
+            SidebarIcon(Icons.Default.Settings, isSelected = false)
+        }
+        
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            SidebarIcon(Icons.AutoMirrored.Filled.ExitToApp, isSelected = false, defaultTint = Color(0xFFE53935))
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun SidebarIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    isSelected: Boolean,
+    selectedTint: Color = Color(0xFFFF9800),
+    defaultTint: Color = Color.Gray.copy(alpha = 0.4f)
+) {
+    val tint = if (isSelected) selectedTint else defaultTint
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 // ── Utility ────────────────────────────────────────────────────────────────
