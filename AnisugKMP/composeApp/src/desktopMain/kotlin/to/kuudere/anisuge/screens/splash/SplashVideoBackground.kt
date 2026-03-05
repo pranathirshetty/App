@@ -8,22 +8,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent
+import uk.co.caprica.vlcj.player.base.MediaPlayer
+import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 
 /**
  * Desktop actual — uses vlcj to render splash.mp4 as a fullscreen background.
  * If libVLC is not installed the block is silently skipped (just shows the black bg).
  */
 @Composable
-actual fun SplashVideoBackground() {
+actual fun SplashVideoBackground(onVideoFinished: () -> Unit) {
     val vlcAvailable = remember { NativeDiscovery().discover() }
-    if (!vlcAvailable) return
+    if (!vlcAvailable) {
+        onVideoFinished()
+        return
+    }
 
     val mediaPlayer = remember {
         EmbeddedMediaPlayerComponent()
     }
 
     DisposableEffect(Unit) {
-        mediaPlayer.mediaPlayer().controls().setRepeat(true)
+        mediaPlayer.mediaPlayer().audio().setMute(true)
+        
+        // Listen for video completion
+        val eventAdapter = object : MediaPlayerEventAdapter() {
+            override fun finished(mediaPlayer: MediaPlayer) {
+                onVideoFinished()
+            }
+        }
+        mediaPlayer.mediaPlayer().events().addMediaPlayerEventListener(eventAdapter)
+        
         // Extract resource to temp file so vlcj can load it
         val resourceStream = Thread.currentThread()
             .contextClassLoader

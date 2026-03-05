@@ -2,19 +2,24 @@ package to.kuudere.anisuge.screens.auth
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,11 +30,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,7 +61,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,18 +70,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import anisugkmp.composeapp.generated.resources.Res
@@ -72,7 +97,10 @@ import anisugkmp.composeapp.generated.resources.logo_txt
 import org.jetbrains.compose.resources.painterResource
 import to.kuudere.anisuge.theme.Border
 import to.kuudere.anisuge.theme.Muted
-import to.kuudere.anisuge.theme.Surface
+import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.sin
+import kotlin.math.tan
 
 @Composable
 fun AuthScreen(
@@ -82,12 +110,10 @@ fun AuthScreen(
     val state by viewModel.uiState.collectAsState()
     val snackbar = remember { SnackbarHostState() }
 
-    // Navigate on success
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) onLoginSuccess()
     }
 
-    // Show errors in snackbar
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
             snackbar.showSnackbar(it)
@@ -96,95 +122,149 @@ fun AuthScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Platform-specific video/gradient background
-        AuthVideoBackground()
-
-        // Dark overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
-        )
-
-        // Responsive layout
         BoxWithConstraints {
-            if (maxWidth > 900.dp) {
+            val isDesktop = maxWidth > 800.dp
+
+            if (isDesktop) {
+                // Desktop background Frieren Image exactly like Flutter
+                coil3.compose.AsyncImage(
+                    model = "https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg",
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.7f),
+                                    Color.Black.copy(alpha = 0.7f),
+                                    Color.Black.copy(alpha = 0.9f),
+                                )
+                            )
+                        )
+                )
                 DesktopAuthLayout(state, viewModel)
             } else {
+                // Linux Mobile background exactly like Flutter (Gradient + Dripping)
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF0F0F0F),
+                                    Color(0xFF0C0C0C),
+                                    Color(0xFF080808),
+                                    Color(0xFF050505),
+                                    Color(0xFF000000),
+                                ),
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
+                            )
+                        )
+                ) {
+                    Box(modifier = Modifier.fillMaxSize().blur(10.dp)) {
+                        DrippingBackground()
+                    }
+                    Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.02f)))
+                }
                 MobileAuthLayout(state, viewModel)
             }
         }
 
         SnackbarHost(
             hostState = snackbar,
-            modifier  = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
         ) { data ->
             Snackbar(
-                snackbarData     = data,
-                containerColor   = Color(0xFF2A0000),
-                contentColor     = Color.White,
-                shape            = RoundedCornerShape(8.dp),
+                snackbarData = data,
+                containerColor = Color(0xFFB71C1C),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(8.dp),
             )
         }
     }
 }
 
-// ── Desktop layout (two columns) ─────────────────────────────────────────────
+// ── Shared Desktop Layout ──────────────────────────────────────────────────
 @Composable
 private fun DesktopAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
     Row(modifier = Modifier.fillMaxSize()) {
-        // Left — promo content + animated anime cards
-        Box(
-            modifier = Modifier
-                .weight(1.3f)
-                .fillMaxHeight()
-                .padding(horizontal = 64.dp, vertical = 48.dp),
+        // Left side — promo content + carousel
+        Row(
+            modifier = Modifier.weight(3f),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier.fillMaxHeight(),
-                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 60.dp, vertical = 40.dp)
             ) {
                 Image(
-                    painter            = painterResource(Res.drawable.logo_txt),
-                    contentDescription = "Anisuge",
-                    modifier           = Modifier.height(56.dp),
-                    contentScale       = ContentScale.Fit,
+                    painter = painterResource(Res.drawable.logo_txt),
+                    contentDescription = "Anisuge Logo",
+                    modifier = Modifier.height(60.dp),
+                    contentScale = ContentScale.Fit,
                 )
                 Spacer(Modifier.height(40.dp))
                 Text(
-                    text       = "Stream, Discover &\nDownload",
-                    style      = MaterialTheme.typography.headlineLarge,
-                    color      = Color.White,
-                    lineHeight = 50.sp,
+                    text = "Stream, Discover &\nDownload",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color.White,
+                    fontSize = 42.sp,
+                    lineHeight = 46.sp,
+                    letterSpacing = (-1.5).sp
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
                 Text(
-                    text  = "Find and download torrents, watch trailers, manage\nyour list, search, browse and discover anime,\nwatch together with friends and more — all in one place.",
+                    text = "Find and download torrents, watch trailers, manage your list, search, browse and discover anime, watch together with friends and more, all in the same interface.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Muted,
+                    color = Color(0xFF999999),
+                    fontSize = 16.sp,
+                    lineHeight = 25.sp,
                 )
-                Spacer(Modifier.height(48.dp))
-                // Featured anime cards strip
-                AnimeCardStrip()
             }
+            Spacer(Modifier.width(60.dp))
+            AnimeCarousel()
         }
 
-        // Right panel — dark glass form
+        // Right side — angled dark form
         Box(
             modifier = Modifier
-                .weight(0.85f)
+                .weight(2f)
                 .fillMaxHeight()
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, Color(0xFF0A0A0A).copy(alpha = 0.98f))
-                    )
-                ),
+                // custom shape for slanted edge using the exact math from flutter
+                .graphicsLayer {
+                    shadowElevation = 10f
+                    clip = true
+                    shape = object : Shape {
+                        override fun createOutline(
+                            size: Size,
+                            layoutDirection: LayoutDirection,
+                            density: Density
+                        ): Outline {
+                            val angle = 0.12f
+                            val tanAngle = tan(angle)
+                            val slantWidth = (size.height * tanAngle)
+                            val path = Path().apply {
+                                moveTo(slantWidth, 0f)
+                                lineTo(size.width, 0f)
+                                lineTo(size.width, size.height)
+                                lineTo(0f, size.height)
+                                close()
+                            }
+                            return Outline.Generic(path)
+                        }
+                    }
+                }
+                .background(Color(0xFF0A0A0A)),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = Modifier
                     .widthIn(max = 400.dp)
-                    .padding(horizontal = 48.dp, vertical = 32.dp)
+                    .padding(horizontal = 50.dp, vertical = 32.dp)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -194,13 +274,10 @@ private fun DesktopAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
     }
 }
 
-// ── Mobile layout (single column) ────────────────────────────────────────────
+// ── Mobile layout ────────────────────────────────────────────────────────────
 @Composable
 private fun MobileAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             modifier = Modifier
                 .widthIn(max = 480.dp)
@@ -209,10 +286,10 @@ private fun MobileAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
                 .verticalScroll(rememberScrollState()),
         ) {
             Image(
-                painter            = painterResource(Res.drawable.logo_txt),
-                contentDescription = "Anisuge",
-                modifier           = Modifier.height(48.dp),
-                contentScale       = ContentScale.Fit,
+                painter = painterResource(Res.drawable.logo_txt),
+                contentDescription = "AnisugeLogo",
+                modifier = Modifier.height(48.dp),
+                contentScale = ContentScale.Fit,
             )
             Spacer(Modifier.height(32.dp))
             AuthForm(state = state, viewModel = viewModel, centered = false)
@@ -220,233 +297,256 @@ private fun MobileAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
     }
 }
 
-// ── Shared auth form ──────────────────────────────────────────────────────────
+// ── Form Content ─────────────────────────────────────────────────────────────
 @Composable
 private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boolean) {
     val passwordFocus = remember { FocusRequester() }
-    val nameFocus     = remember { FocusRequester() }
 
-    // Title
-    val titleAlign = if (centered) Alignment.CenterHorizontally else Alignment.Start
     Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
         AnimatedContent(
-            targetState  = state.isLogin,
+            targetState = state.isLogin,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-            label        = "auth_title",
+            label = "auth_title",
         ) { isLogin ->
             Text(
-                text  = if (isLogin) "Welcome back" else "Create account",
+                text = if (isLogin) "Welcome back" else "Create account",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
-                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.W700,
+                letterSpacing = (-0.5).sp
             )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         AnimatedContent(
-            targetState  = state.isLogin,
+            targetState = state.isLogin,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-            label        = "auth_subtitle",
+            label = "auth_subtitle",
         ) { isLogin ->
             Text(
-                text  = if (isLogin) "Sign in to continue watching" else "Join our streaming platform",
+                text = if (isLogin) "Sign in to continue watching" else "Join our streaming platform",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Muted,
+                color = Color(0xFF999999),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W400,
             )
         }
     }
 
     Spacer(Modifier.height(28.dp))
 
-    // Display name — only visible in register mode
     AnimatedVisibility(
         visible = !state.isLogin,
-        enter   = expandVertically() + fadeIn(),
-        exit    = shrinkVertically() + fadeOut(),
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
     ) {
         Column {
             AnisugTextField(
-                value          = state.displayName,
-                onValueChange  = viewModel::onDisplayNameChange,
-                label          = "Full name",
-                placeholder    = "Enter your full name",
-                imeAction      = ImeAction.Next,
-                onImeAction    = { passwordFocus.requestFocus() },
+                value = state.displayName,
+                onValueChange = viewModel::onDisplayNameChange,
+                label = "Full name",
+                placeholder = "Enter your full name",
+                imeAction = ImeAction.Next,
+                onImeAction = { passwordFocus.requestFocus() },
             )
             Spacer(Modifier.height(16.dp))
         }
     }
 
     AnisugTextField(
-        value         = state.email,
+        value = state.email,
         onValueChange = viewModel::onEmailChange,
-        label         = "Email",
-        placeholder   = "Enter your email address",
-        keyboardType  = KeyboardType.Email,
-        imeAction     = ImeAction.Next,
-        onImeAction   = { passwordFocus.requestFocus() },
+        label = "Email",
+        placeholder = "Enter your email address",
+        keyboardType = KeyboardType.Email,
+        imeAction = ImeAction.Next,
+        onImeAction = { passwordFocus.requestFocus() },
     )
 
     Spacer(Modifier.height(16.dp))
 
     AnisugTextField(
-        value           = state.password,
-        onValueChange   = viewModel::onPasswordChange,
-        label           = "Password",
-        placeholder     = "Enter your password",
-        isPassword      = true,
-        keyboardType    = KeyboardType.Password,
-        imeAction       = ImeAction.Done,
-        onImeAction     = { viewModel.submit() },
-        focusRequester  = passwordFocus,
+        value = state.password,
+        onValueChange = viewModel::onPasswordChange,
+        label = "Password",
+        placeholder = "Enter your password",
+        isPassword = true,
+        keyboardType = KeyboardType.Password,
+        imeAction = ImeAction.Done,
+        onImeAction = { viewModel.submit() },
+        focusRequester = passwordFocus,
     )
 
-    Spacer(Modifier.height(24.dp))
-
-    // Submit button
-    Button(
-        onClick  = viewModel::submit,
-        enabled  = !state.isLoading,
-        modifier = Modifier.fillMaxWidth().height(48.dp),
-        shape    = RoundedCornerShape(8.dp),
-        colors   = ButtonDefaults.buttonColors(
-            containerColor         = Color.White,
-            contentColor           = Color.Black,
-            disabledContainerColor = Color.White.copy(alpha = 0.5f),
-            disabledContentColor   = Color.Black,
-        ),
+    AnimatedVisibility(
+        visible = state.isLogin,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
     ) {
-        AnimatedContent(
-            targetState = state.isLoading,
-            label       = "submit_content",
-        ) { loading ->
-            if (loading) {
-                CircularProgressIndicator(
-                    modifier  = Modifier.size(22.dp),
-                    color     = Color.Black,
-                    strokeWidth = 2.5.dp,
-                )
-            } else {
-                AnimatedContent(
-                    targetState  = state.isLogin,
-                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                    label        = "button_label",
-                ) { isLogin ->
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                TextButton(
+                    onClick = { /* Handle forgot password */ },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
                     Text(
-                        text       = if (isLogin) "Sign in" else "Create account",
-                        style      = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
+                        text = "Forgot password?",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W500,
                     )
                 }
             }
         }
     }
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(24.dp))
 
-    // Toggle login / register
-    Row(
-        modifier            = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment   = Alignment.CenterVertically,
+    Button(
+        onClick = viewModel::submit,
+        enabled = !state.isLoading,
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            contentColor = Color.Black,
+            disabledContainerColor = Color.White.copy(alpha = 0.6f),
+            disabledContentColor = Color.Black,
+        ),
     ) {
-        AnimatedContent(
-            targetState  = state.isLogin,
-            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-            label        = "toggle_label",
-        ) { isLogin ->
-            Text(
-                text  = if (isLogin) "Don't have an account? " else "Already have an account? ",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.8f),
-            )
-        }
-        TextButton(
-            onClick = viewModel::toggleMode,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-        ) {
+        if (state.isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.Black, strokeWidth = 2.dp)
+        } else {
             AnimatedContent(
-                targetState  = state.isLogin,
-                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                label        = "toggle_btn",
+                targetState = state.isLogin,
+                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
             ) { isLogin ->
                 Text(
-                    text       = if (isLogin) "Sign up" else "Sign in",
-                    style      = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = Color.White,
+                    text = if (isLogin) "Sign in" else "Create account",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    letterSpacing = 0.5.sp,
+                )
+            }
+        }
+    }
+
+    Spacer(Modifier.height(20.dp))
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        AnimatedContent(
+            targetState = state.isLogin,
+            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+        ) { isLogin ->
+            Text(
+                text = if (isLogin) "Don't have an account? " else "Already have an account? ",
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = 13.sp,
+            )
+        }
+        TextButton(onClick = viewModel::toggleMode, contentPadding = PaddingValues(horizontal = 4.dp)) {
+            AnimatedContent(
+                targetState = state.isLogin,
+                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+            ) { isLogin ->
+                Text(
+                    text = if (isLogin) "Sign up" else "Sign in",
+                    fontWeight = FontWeight.W600,
+                    fontSize = 13.sp,
+                    color = Color.White,
                 )
             }
         }
     }
 }
 
-// ── Text field ────────────────────────────────────────────────────────────────
 @Composable
 private fun AnisugTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
     placeholder: String,
-    isPassword: Boolean     = false,
+    isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
-    imeAction: ImeAction    = ImeAction.Next,
+    imeAction: ImeAction = ImeAction.Next,
     onImeAction: () -> Unit = {},
     focusRequester: FocusRequester? = null,
 ) {
     var showPassword by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
 
     Column {
         Text(
-            text       = label,
-            style      = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            color      = Color.White,
-            modifier   = Modifier.padding(bottom = 6.dp),
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            letterSpacing = 0.2.sp,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 8.dp),
         )
-
-        OutlinedTextField(
-            value         = value,
+        BasicTextField(
+            value = value,
             onValueChange = onValueChange,
-            modifier      = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
+                .height(48.dp)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-            placeholder   = {
-                Text(
-                    text  = placeholder,
-                    color = Color.White.copy(alpha = 0.4f),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            singleLine            = true,
-            visualTransformation  = if (isPassword && !showPassword) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions       = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
-            keyboardActions       = KeyboardActions(onAny = { onImeAction() }),
-            trailingIcon          = if (isPassword) {
-                {
-                    IconButton(onClick = { showPassword = !showPassword }) {
-                        Text(
-                            text  = if (showPassword) "👁" else "🔒",
-                            fontSize = 16.sp,
+            textStyle = TextStyle(
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.W400,
+            ),
+            singleLine = true,
+            visualTransformation = if (isPassword && !showPassword) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+            keyboardActions = KeyboardActions(onAny = { onImeAction() }),
+            interactionSource = interactionSource,
+            cursorBrush = SolidColor(Color.White),
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                        .border(
+                            width = if (isFocused) 1.5.dp else 1.dp,
+                            color = if (isFocused) Color.White else Color(0xFF333333),
+                            shape = RoundedCornerShape(6.dp)
                         )
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder, 
+                                color = Color.White.copy(alpha = 0.7f), 
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.W400,
+                            )
+                        }
+                        innerTextField()
+                    }
+                    if (isPassword) {
+                        IconButton(
+                            onClick = { showPassword = !showPassword },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (showPassword) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                                contentDescription = if (showPassword) "Hide password" else "Show password",
+                                tint = if (isFocused) Color.White else Color(0xFF666666),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
-            } else null,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor         = Color.White,
-                unfocusedTextColor       = Color.White,
-                focusedContainerColor    = Color.Black.copy(alpha = 0.3f),
-                unfocusedContainerColor  = Color.Black.copy(alpha = 0.3f),
-                focusedBorderColor       = Color.White,
-                unfocusedBorderColor     = Border,
-                errorBorderColor         = Color(0xFFE53935),
-                cursorColor              = Color.White,
-            ),
-            shape = RoundedCornerShape(6.dp),
+            }
         )
     }
 }
 
-// ── Anime card strip (desktop promo section) ──────────────────────────────────
+// ── Carousel ────────────────────────────────────────────────────────────────
 private val animeList = listOf(
     "https://artworks.thetvdb.com/banners/v4/series/424536/posters/68d6d5b36aa2f.jpg",
     "https://artworks.thetvdb.com/banners/v4/series/377543/posters/655f6f3591801.jpg",
@@ -456,32 +556,111 @@ private val animeList = listOf(
 )
 
 @Composable
-private fun AnimeCardStrip() {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        animeList.take(4).forEach { url ->
-            coil3.compose.AsyncImage(
-                model             = url,
-                contentDescription = null,
-                modifier          = Modifier
-                    .width(90.dp)
-                    .height(132.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(1.dp, Border, RoundedCornerShape(8.dp)),
-                contentScale      = ContentScale.Crop,
-            )
+private fun AnimeCarousel() {
+    val listState = rememberLazyListState()
+    
+    // Auto-scroll loop
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (listState.layoutInfo.totalItemsCount > 0) {
+                // smooth continuous scrolling, very slow
+                listState.animateScrollBy(
+                    value = 300000f,
+                    animationSpec = tween(durationMillis = 10000000, easing = LinearEasing)
+                )
+            } else {
+                kotlinx.coroutines.delay(100)
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .width(150.dp)
+            .fillMaxHeight()
+            .graphicsLayer {
+                rotationZ = Math.toDegrees(0.12).toFloat()
+            }
+    ) {
+        // large number of elements to simulate infinite scrolling
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = false,
+        ) {
+            items(count = 1000) { index ->
+                val url = animeList[index % animeList.size]
+                Box(
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    coil3.compose.AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop,
+                        error = painterResource(Res.drawable.logo_txt) // fallback missing icon easily
+                    )
+                }
+            }
         }
     }
 }
 
-// ── Platform video background ─────────────────────────────────────────────────
+// ── Dripping background ──────────────────────────────────────────────────────
 @Composable
-expect fun AuthVideoBackground()
+private fun DrippingBackground() {
+    val transition = rememberInfiniteTransition()
+    val value by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
 
-// ── BoxWithConstraints shim (Compose MP has it under foundation) ─────────────
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width
+        val v = value
+        
+        val paintColor = Color.White.copy(alpha = 0.9f)
+        val path = Path().apply {
+            moveTo(0f, 0f)
+            for (xi in 0..width.toInt()) {
+                val x = xi.toFloat()
+                val y = 40f +
+                    (sin((x / width * 4 * PI) + (v * 2 * PI)) * 20f).toFloat() +
+                    (sin((x / width * 8 * PI) + (v * 4 * PI)) * 10f).toFloat() +
+                    max(0.0, sin((x / width * 10 * PI) + (v * 2 * PI)) * 60.0).toFloat()
+                lineTo(x, y)
+            }
+            lineTo(width, 0f)
+            close()
+        }
+        drawPath(path, paintColor)
+
+        // Detached drops
+        for (i in 0 until 5) {
+            val dropX = width * (0.2f + i * 0.15f)
+            val dropProgress = ((v * 2f + i * 0.3f) % 1.0f)
+            val dropY = 60f + dropProgress * 200f
+
+            if (dropY > 80f) {
+                val dropSize = 4f + 4f * dropProgress
+                drawOval(
+                    color = Color.White.copy(alpha = 0.8f),
+                    topLeft = Offset(dropX - dropSize, dropY - dropSize * 2),
+                    size = Size(dropSize * 2, dropSize * 4)
+                )
+            }
+        }
+    }
+}
+
+// ── BoxWithConstraints shim ──────────────────────────────────────────────────
 @Composable
-private fun BoxWithConstraints(
-    content: @Composable BoxWithConstraintsScope.() -> Unit,
-) = androidx.compose.foundation.layout.BoxWithConstraints(content = content)
+private fun BoxWithConstraints(content: @Composable androidx.compose.foundation.layout.BoxWithConstraintsScope.() -> Unit) = 
+    androidx.compose.foundation.layout.BoxWithConstraints(content = content)
 
-private typealias BoxWithConstraintsScope =
-    androidx.compose.foundation.layout.BoxWithConstraintsScope

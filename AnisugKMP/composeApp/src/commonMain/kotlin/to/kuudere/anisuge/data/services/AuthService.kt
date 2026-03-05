@@ -75,6 +75,10 @@ class AuthService(
             SessionCheckResult.Expired
         }
     }
+
+    suspend fun logout() {
+        sessionStore.clear()
+    }
 }
 
 sealed interface SessionCheckResult {

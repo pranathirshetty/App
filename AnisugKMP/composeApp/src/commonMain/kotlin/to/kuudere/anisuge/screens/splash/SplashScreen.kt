@@ -38,16 +38,15 @@ fun SplashScreen(
 ) {
     val destination by viewModel.destination.collectAsState()
 
-    // Minimum splash display — won't disappear before this even if session resolves instantly
-    var minTimeElapsed by remember { mutableStateOf(false) }
+    // Navigation logic: wait for video completion (or 4s fallback) AND session check
+    var videoCompleted by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(2_800)
-        minTimeElapsed = true
+        delay(4_000)
+        videoCompleted = true
     }
 
-    // Navigate once both conditions are satisfied
-    LaunchedEffect(destination, minTimeElapsed) {
-        if (minTimeElapsed && destination != SplashDestination.Waiting) {
+    LaunchedEffect(destination, videoCompleted) {
+        if (videoCompleted && destination != SplashDestination.Waiting) {
             when (destination) {
                 is SplashDestination.GoHome -> onNavigateToHome()
                 else                        -> onNavigateToAuth()
@@ -55,39 +54,17 @@ fun SplashScreen(
         }
     }
 
-    // Logo fade-in animation
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(200)
-        visible = true
-    }
-    val alpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 900),
-        label = "splash_logo_alpha",
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0B0B0B)),
         contentAlignment = Alignment.Center,
     ) {
-        // Desktop video background rendered by platform-specific VideoPlayer expect on commonMain
-        SplashVideoBackground()
-
-        // Centered logo with fade-in
-        Image(
-            painter = painterResource(Res.drawable.logo),
-            contentDescription = "Anisuge Logo",
-            modifier = Modifier
-                .size(120.dp)
-                .alpha(alpha),
-            contentScale = ContentScale.Fit,
-        )
+        // Desktop video background. We pass a callback for when it finishes playing.
+        SplashVideoBackground(onVideoFinished = { videoCompleted = true })
     }
 }
 
 // ── Default stub (common) — overridden in desktopMain ────────────────────────
 @Composable
-expect fun SplashVideoBackground()
+expect fun SplashVideoBackground(onVideoFinished: () -> Unit)
