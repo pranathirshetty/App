@@ -1,6 +1,7 @@
 package to.kuudere.anisuge.screens.search
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,8 +16,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
@@ -30,9 +32,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -95,10 +100,10 @@ fun SearchScreen(
                     }
                 }
 
-                if (state.isLoadingMore) {
+                if (state.isLoadingMore && !state.isLoading) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(32.dp))
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
                         }
                     }
                 }
@@ -149,7 +154,7 @@ private fun LargeScreenFilterSection(state: SearchUiState, viewModel: SearchView
                 Spacer(Modifier.height(8.dp))
                 KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() })
             }
-            FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f)) {
+            FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
                 if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
             }
             FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
@@ -222,7 +227,7 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
         AnimatedVisibility(visible = isExpanded) {
             Column(Modifier.fillMaxWidth().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f)) {
+                    FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
                         if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
                     }
                     FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
@@ -327,19 +332,25 @@ private fun FilterDropdown(
     selected: String?,
     items: List<String>,
     modifier: Modifier = Modifier,
+    multiSelect: Boolean = false,
     onItemSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var triggerWidthPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    val triggerWidthDp: Dp = with(density) { triggerWidthPx.toDp() }
+    val selectedItems = selected?.split(", ")?.filter { it.isNotBlank() } ?: emptyList()
 
     Column(modifier = modifier) {
         Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Box {
-            // Dropdown trigger
+            // ── Trigger ────────────────────────────────────────────────────
             Box(
                 Modifier
                     .height(44.dp)
                     .fillMaxWidth()
+                    .onSizeChanged { triggerWidthPx = it.width }
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color(0xFF1C1C1E))
                     .clickable { expanded = !expanded }
@@ -375,52 +386,66 @@ private fun FilterDropdown(
                 }
             }
 
-            // Popup list
-            if (expanded && items.isNotEmpty()) {
-                Popup(
-                    alignment = Alignment.TopStart,
-                    properties = PopupProperties(focusable = true),
-                    onDismissRequest = { expanded = false }
-                ) {
-                    Box(
-                        Modifier
-                            .padding(top = 44.dp)
-                            .width(200.dp)
-                            .heightIn(max = 260.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF1C1C1E))
-                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
-                    ) {
-                        val scrollState = rememberScrollState()
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(scrollState)
-                                .padding(vertical = 6.dp)
-                        ) {
-                            items.forEach { item ->
-                                val isSelected = selected != null && selected.split(", ").contains(item)
-                                Row(
+            // ── DropdownMenu (built-in animated expand/collapse) ────────────────
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .width(triggerWidthDp.coerceAtLeast(150.dp))
+                    .heightIn(max = 280.dp),
+                offset = DpOffset(0.dp, 6.dp),
+                containerColor = Color(0xFF1C1C1E),
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                shadowElevation = 8.dp,
+                tonalElevation = 0.dp,
+            ) {
+                items.forEach { item ->
+                    val isSelected = selectedItems.contains(item)
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                item,
+                                color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        onClick = {
+                            onItemSelected(item)
+                            if (!multiSelect) expanded = false
+                        },
+                        modifier = Modifier.background(
+                            if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
+                        ),
+                        trailingIcon = if (multiSelect) {
+                            {
+                                Box(
                                     Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            onItemSelected(item)
-                                            if (title != "Genres") expanded = false
-                                        }
-                                        .background(if (isSelected) Color.White.copy(alpha = 0.08f) else Color.Transparent)
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .size(18.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(
+                                            if (isSelected) Color.White
+                                            else Color.White.copy(alpha = 0.12f)
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        item,
-                                        color = if (isSelected) Color.White else Color(0xFFD4D4D8),
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.Check, null,
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    }
+                        } else null,
+                        colors = MenuDefaults.itemColors(
+                            textColor = Color.White,
+                            disabledTextColor = Color.Gray,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)
+                    )
                 }
             }
         }
