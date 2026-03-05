@@ -1949,23 +1949,20 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
     }
   }
 
-  /// Get subtitle URL with delay applied by modifying the subtitle file
+  /// Prepare subtitle URL: converts SRT/VTT to styled ASS and applies delay.
+  /// Always processes the subtitle to ensure consistent visual quality.
   Future<String> _getDelayedSubtitleUrl(String originalUrl) async {
-    if (_subtitleDelay == 0) {
-      return originalUrl;
-    }
-
     try {
-      final modifiedPath =
-          await SubtitleUtils.applyDelay(originalUrl, _subtitleDelay);
-      if (modifiedPath != null) {
-        return modifiedPath;
+      final prepared =
+          await SubtitleUtils.prepareSubtitle(originalUrl, _subtitleDelay);
+      if (prepared != null) {
+        return prepared;
       }
     } catch (e) {
-      debugPrint('Error applying subtitle delay: $e');
+      debugPrint('Error preparing subtitle: $e');
     }
 
-    // Fall back to original URL if delay application fails
+    // Fall back to original URL if preparation fails
     return originalUrl;
   }
 

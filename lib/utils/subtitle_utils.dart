@@ -5,82 +5,277 @@ import 'package:path_provider/path_provider.dart';
 
 /// Utility class for parsing and modifying subtitle files
 class SubtitleUtils {
-  /// Apply a delay offset to a subtitle file and return the URI to the modified file
-  /// [subtitleUrl] - URL of the original subtitle file
-  /// [delaySeconds] - Delay in seconds (positive = subtitles appear later, negative = earlier)
-  /// Returns URI to the modified subtitle file (file:// URI for local files), or null if failed
-  static Future<String?> applyDelay(
+  /// Download and convert a subtitle to a styled ASS file.
+  /// For SRT/VTT this produces a clean, visually polished result.
+  /// For ASS this returns the original (already styled).
+  /// [subtitleUrl] - URL or file:// URI of the subtitle
+  /// [delaySeconds] - Optional delay to apply
+  /// Returns a file:// URI to the local ASS file, or null on failure.
+  static Future<String?> prepareSubtitle(
       String subtitleUrl, double delaySeconds) async {
-    if (delaySeconds == 0) {
-      // No delay needed, return original URL
-      return subtitleUrl;
-    }
-
     try {
-      // Download subtitle file
-      final response = await http.get(Uri.parse(subtitleUrl));
-      if (response.statusCode != 200) {
-        debugPrint('Failed to download subtitle: ${response.statusCode}');
-        return null;
+      String content;
+      if (subtitleUrl.startsWith('file://')) {
+        final file = File(Uri.parse(subtitleUrl).toFilePath());
+        content = await file.readAsString();
+      } else {
+        final response = await http.get(Uri.parse(subtitleUrl));
+        if (response.statusCode != 200) {
+          debugPrint('Failed to download subtitle: ${response.statusCode}');
+          return null;
+        }
+        content = response.body;
       }
 
-      String content = response.body;
       final format = _detectFormat(subtitleUrl, content);
 
-      String modifiedContent;
+      String assContent;
       switch (format) {
+        case SubtitleFormat.ass:
+          // Already ASS — just apply delay if needed, return as-is otherwise
+          assContent = delaySeconds != 0
+              ? _applyAssDelay(content, delaySeconds)
+              : content;
+          break;
         case SubtitleFormat.srt:
-          modifiedContent = _applySrtDelay(content, delaySeconds);
+          final delayed = delaySeconds != 0
+              ? _applySrtDelay(content, delaySeconds)
+              : content;
+          assContent = _srtToAss(delayed);
           break;
         case SubtitleFormat.vtt:
-          modifiedContent = _applyVttDelay(content, delaySeconds);
-          break;
-        case SubtitleFormat.ass:
-          modifiedContent = _applyAssDelay(content, delaySeconds);
+          final delayed = delaySeconds != 0
+              ? _applyVttDelay(content, delaySeconds)
+              : content;
+          assContent = _vttToAss(delayed);
           break;
         default:
-          debugPrint('Unknown subtitle format, cannot apply delay');
+          debugPrint('Unknown subtitle format, cannot prepare');
           return null;
       }
 
-      // Save to temp file
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ext = format == SubtitleFormat.ass
-          ? 'ass'
-          : format == SubtitleFormat.vtt
-              ? 'vtt'
-              : 'srt';
-      final tempFile = File('${tempDir.path}/subtitle_delayed_$timestamp.$ext');
-      await tempFile.writeAsString(modifiedContent);
+      final tempFile = File('${tempDir.path}/subtitle_$timestamp.ass');
+      await tempFile.writeAsString(assContent);
 
-      // Return as file:// URI for cross-platform compatibility
       final fileUri = Uri.file(tempFile.path).toString();
-      debugPrint('Created delayed subtitle at: $fileUri');
+      debugPrint('Prepared subtitle at: $fileUri (format: $format)');
       return fileUri;
     } catch (e) {
-      debugPrint('Error applying subtitle delay: $e');
+      debugPrint('Error preparing subtitle: $e');
       return null;
     }
   }
 
+  /// Apply a delay offset to a subtitle file and return the URI to the modified file.
+  /// Non-ASS formats are converted to styled ASS for consistent rendering.
+  static Future<String?> applyDelay(
+      String subtitleUrl, double delaySeconds) async {
+    return prepareSubtitle(subtitleUrl, delaySeconds);
+  }
+
+  // ─── ASS header with clean anime-style styling ───────────────────────────
+
+  static String _assHeader() {
+    return '''[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,52,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2.5,1.5,2,80,80,40,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+''';
+  }
+
+  // ─── SRT → ASS converter ─────────────────────────────────────────────────
+
+  static String _srtToAss(String srtContent) {
+    final buffer = StringBuffer();
+    buffer.write(_assHeader());
+
+    final lines = srtContent.split('\n');
+    int i = 0;
+    while (i < lines.length) {
+      final line = lines[i].trim();
+
+      // Skip sequence numbers (lines that are just digits)
+      if (RegExp(r'^\d+$').hasMatch(line)) {
+        i++;
+        // Next line should be the timing
+        if (i < lines.length) {
+          final timeLine = lines[i].trim();
+          final timeMatch = RegExp(
+                  r'(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})')
+              .firstMatch(timeLine);
+          if (timeMatch != null) {
+            final start = _srtTimeToAss(timeMatch.group(1)!);
+            final end = _srtTimeToAss(timeMatch.group(2)!);
+            i++;
+
+            // Collect text lines until empty line
+            final textLines = <String>[];
+            while (i < lines.length && lines[i].trim().isNotEmpty) {
+              textLines.add(_stripHtmlTags(lines[i].trim()));
+              i++;
+            }
+
+            if (textLines.isNotEmpty) {
+              final text = textLines.join('\\N');
+              buffer.writeln('Dialogue: 0,$start,$end,Default,,0,0,0,,${text}');
+            }
+          }
+        }
+      } else {
+        i++;
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  // ─── VTT → ASS converter ─────────────────────────────────────────────────
+
+  static String _vttToAss(String vttContent) {
+    final buffer = StringBuffer();
+    buffer.write(_assHeader());
+
+    final lines = vttContent.split('\n');
+    int i = 0;
+
+    // Skip WEBVTT header and NOTE blocks
+    while (i < lines.length) {
+      final line = lines[i].trim();
+      if (line.startsWith('WEBVTT') ||
+          line.startsWith('NOTE') ||
+          line.startsWith('STYLE') ||
+          line.startsWith('REGION')) {
+        // Skip until blank line
+        while (i < lines.length && lines[i].trim().isNotEmpty) {
+          i++;
+        }
+        i++;
+        continue;
+      }
+
+      // Check for timing line (may be preceded by cue identifier)
+      final timingRegex = RegExp(
+          r'(\d{2}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3}|\d{2}:\d{2}\.\d{3})');
+
+      bool foundTiming = false;
+      // Current line or next (skip optional cue id)
+      for (int attempt = 0;
+          attempt < 2 && i + attempt < lines.length;
+          attempt++) {
+        final candidate = lines[i + attempt].trim();
+        final timeMatch = timingRegex.firstMatch(candidate);
+        if (timeMatch != null) {
+          i += attempt + 1; // skip to after timing line
+          final start = _vttTimeToAss(timeMatch.group(1)!);
+          final end = _vttTimeToAss(timeMatch.group(2)!);
+
+          // Collect text
+          final textLines = <String>[];
+          while (i < lines.length && lines[i].trim().isNotEmpty) {
+            textLines.add(_stripHtmlTags(lines[i].trim()));
+            i++;
+          }
+
+          if (textLines.isNotEmpty) {
+            final text = textLines.join('\\N');
+            buffer.writeln('Dialogue: 0,$start,$end,Default,,0,0,0,,${text}');
+          }
+          foundTiming = true;
+          break;
+        }
+      }
+
+      if (!foundTiming) {
+        i++;
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  // ─── Time format converters ───────────────────────────────────────────────
+
+  /// SRT time "00:01:23,456" → ASS time "0:01:23.46"
+  static String _srtTimeToAss(String srtTime) {
+    // SRT: HH:MM:SS,mmm  →  ASS: H:MM:SS.cc
+    final parts = srtTime.split(',');
+    final hms = parts[0].split(':');
+    final ms = int.parse(parts[1]);
+    final cs = (ms / 10).floor();
+    return '${int.parse(hms[0])}:${hms[1]}:${hms[2]}.${cs.toString().padLeft(2, '0')}';
+  }
+
+  /// VTT time "00:01:23.456" or "01:23.456" → ASS time "0:01:23.46"
+  static String _vttTimeToAss(String vttTime) {
+    final parts = vttTime.split('.');
+    final hmsStr = parts[0];
+    final ms = int.parse(parts[1]);
+    final cs = (ms / 10).floor();
+
+    final hmsParts = hmsStr.split(':');
+    int hours, minutes, seconds;
+    if (hmsParts.length == 3) {
+      hours = int.parse(hmsParts[0]);
+      minutes = int.parse(hmsParts[1]);
+      seconds = int.parse(hmsParts[2]);
+    } else {
+      // MM:SS format
+      hours = 0;
+      minutes = int.parse(hmsParts[0]);
+      seconds = int.parse(hmsParts[1]);
+    }
+    return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${cs.toString().padLeft(2, '0')}';
+  }
+
+  /// Strip basic HTML tags from subtitle text (e.g. <i>, <b>, <font ...>)
+  static String _stripHtmlTags(String text) {
+    // Convert <i>...</i> to ASS italic override tags
+    text = text.replaceAllMapped(RegExp(r'<i>(.*?)</i>', dotAll: true),
+        (m) => '{\\i1}${m.group(1)}{\\i0}');
+    text = text.replaceAllMapped(RegExp(r'<b>(.*?)</b>', dotAll: true),
+        (m) => '{\\b1}${m.group(1)}{\\b0}');
+    // Strip remaining tags
+    text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+    // Unescape HTML entities
+    text = text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&quot;', '"');
+    return text;
+  }
+
   static SubtitleFormat _detectFormat(String url, String content) {
-    final lowerUrl = url.toLowerCase();
-    if (lowerUrl.contains('.ass') || lowerUrl.contains('format=ass')) {
+    final lowerUrl = url.toLowerCase().split('?').first;
+    if (lowerUrl.endsWith('.ass') ||
+        lowerUrl.endsWith('.ssa') ||
+        url.toLowerCase().contains('format=ass')) {
       return SubtitleFormat.ass;
     }
-    if (lowerUrl.contains('.vtt') || lowerUrl.contains('format=vtt')) {
+    if (lowerUrl.endsWith('.vtt') || url.toLowerCase().contains('format=vtt')) {
       return SubtitleFormat.vtt;
     }
-    if (lowerUrl.contains('.srt') || lowerUrl.contains('format=srt')) {
+    if (lowerUrl.endsWith('.srt') || url.toLowerCase().contains('format=srt')) {
       return SubtitleFormat.srt;
     }
 
     // Auto-detect from content
-    if (content.contains('[Script Info]') || content.contains('Format:')) {
+    if (content.contains('[Script Info]')) {
       return SubtitleFormat.ass;
     }
-    if (content.startsWith('WEBVTT')) {
+    if (content.trimLeft().startsWith('WEBVTT')) {
       return SubtitleFormat.vtt;
     }
     // Default to SRT
@@ -131,7 +326,6 @@ class SubtitleUtils {
     final result = <String>[];
     final timeRegex = RegExp(
         r'(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})\.(\d{3})');
-    // Also handle short format without hours
     final shortTimeRegex =
         RegExp(r'(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}):(\d{2})\.(\d{3})');
 
@@ -155,9 +349,7 @@ class SubtitleUtils {
         final newStartMs = (startMs + delayMs).clamp(0, 999999999);
         final newEndMs = (endMs + delayMs).clamp(0, 999999999);
 
-        final newLine =
-            '${_msToVttTime(newStartMs)} --> ${_msToVttTime(newEndMs)}';
-        result.add(newLine);
+        result.add('${_msToVttTime(newStartMs)} --> ${_msToVttTime(newEndMs)}');
       } else {
         match = shortTimeRegex.firstMatch(line);
         if (match != null) {
@@ -178,9 +370,8 @@ class SubtitleUtils {
           final newStartMs = (startMs + delayMs).clamp(0, 999999999);
           final newEndMs = (endMs + delayMs).clamp(0, 999999999);
 
-          final newLine =
-              '${_msToVttTime(newStartMs)} --> ${_msToVttTime(newEndMs)}';
-          result.add(newLine);
+          result
+              .add('${_msToVttTime(newStartMs)} --> ${_msToVttTime(newEndMs)}');
         } else {
           result.add(line);
         }
@@ -195,8 +386,6 @@ class SubtitleUtils {
     final lines = content.split('\n');
     final result = <String>[];
 
-    // ASS dialogue format: Dialogue: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
-    // Time format: H:MM:SS.cc (centiseconds)
     final dialogueRegex = RegExp(
         r'^(Dialogue:\s*\d+,)(\d+):(\d{2}):(\d{2})\.(\d{2}),(\d+):(\d{2}):(\d{2})\.(\d{2}),(.*)$');
 
@@ -222,9 +411,8 @@ class SubtitleUtils {
         final newStartCs = (startCs + delayCs).clamp(0, 999999999);
         final newEndCs = (endCs + delayCs).clamp(0, 999999999);
 
-        final newLine =
-            '$prefix${_csToAssTime(newStartCs)},${_csToAssTime(newEndCs)},$suffix';
-        result.add(newLine);
+        result.add(
+            '$prefix${_csToAssTime(newStartCs)},${_csToAssTime(newEndCs)},$suffix');
       } else {
         result.add(line);
       }
