@@ -1,12 +1,8 @@
 package to.kuudere.anisuge.screens.splash
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,20 +12,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
-import anisugkmp.composeapp.generated.resources.Res
-import anisugkmp.composeapp.generated.resources.logo
 import kotlinx.coroutines.delay
-import org.jetbrains.compose.resources.painterResource
-import to.kuudere.anisuge.screens.splash.SplashDestination
+import to.kuudere.anisuge.player.VideoPlayerSurface
+import to.kuudere.anisuge.player.rememberVideoPlayerState
 
-/**
- * Splash screen — fades in the logo, plays the splash video in background (desktop),
- * then navigates once the session check resolves AND the minimum display time has passed.
- */
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel,
@@ -37,34 +24,48 @@ fun SplashScreen(
     onNavigateToHome: () -> Unit,
 ) {
     val destination by viewModel.destination.collectAsState()
+    var videoFinished by remember { mutableStateOf(false) }
 
-    // Navigation logic: wait for video completion (or 4s fallback) AND session check
-    var videoCompleted by remember { mutableStateOf(false) }
+    val playerState = rememberVideoPlayerState(
+        url          = "composeResources/anisugkmp.composeapp.generated.resources/drawable/splash.mp4",
+        loop         = false,
+        muted        = true,
+        showControls = false,
+        enableSubs   = false,
+    )
+
+    // Timeout fallback — if video doesn't finish in 6 seconds, navigate anyway
     LaunchedEffect(Unit) {
-        delay(4_000)
-        videoCompleted = true
+        delay(6000)
+        println("[SplashScreen] Timeout reached, forcing navigation")
+        videoFinished = true
     }
 
-    LaunchedEffect(destination, videoCompleted) {
-        if (videoCompleted && destination != SplashDestination.Waiting) {
+    // Navigate when video finishes (or timeout hits) AND destination is resolved
+    LaunchedEffect(destination, videoFinished) {
+        if (videoFinished && destination != SplashDestination.Waiting) {
             when (destination) {
                 is SplashDestination.GoHome -> onNavigateToHome()
-                else                        -> onNavigateToAuth()
+                else -> onNavigateToAuth()
             }
         }
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0B0B)),
+        modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0B)),
         contentAlignment = Alignment.Center,
     ) {
-        // Desktop video background. We pass a callback for when it finishes playing.
-        SplashVideoBackground(onVideoFinished = { videoCompleted = true })
+        VideoPlayerSurface(
+            state      = playerState,
+            modifier   = Modifier.fillMaxSize(),
+            onFinished = {
+                println("[SplashScreen] onFinished called")
+                videoFinished = true
+            },
+        )
     }
 }
 
-// ── Default stub (common) — overridden in desktopMain ────────────────────────
+// ── expect/actual stub ──
 @Composable
 expect fun SplashVideoBackground(onVideoFinished: () -> Unit)

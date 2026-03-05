@@ -126,7 +126,7 @@ fun AuthScreen(
             val isDesktop = maxWidth > 800.dp
 
             if (isDesktop) {
-                // Desktop background Frieren Image exactly like Flutter
+                // Desktop background — Frieren poster image
                 coil3.compose.AsyncImage(
                     model = "https://artworks.thetvdb.com/banners/v4/series/424536/posters/64e6a8b95dfad.jpg",
                     contentDescription = null,

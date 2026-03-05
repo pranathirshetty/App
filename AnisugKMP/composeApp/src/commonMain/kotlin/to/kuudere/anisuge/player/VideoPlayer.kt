@@ -1,0 +1,66 @@
+package to.kuudere.anisuge.player
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+
+/**
+ * Observable playback state exposed to the UI.
+ */
+@Stable
+class VideoPlayerState(config: VideoPlayerConfig) {
+    var config by mutableStateOf(config)
+
+    // Read-only playback state (updated by platform player impl)
+    var isPlaying   by mutableStateOf(false)
+    var position    by mutableStateOf(0.0)   // seconds
+    var duration    by mutableStateOf(0.0)   // seconds
+    var isBuffering by mutableStateOf(false)
+    var error       by mutableStateOf<String?>(null)
+
+    // Commands from UI → player (platform impl watches these)
+    var pauseRequested  by mutableStateOf(false)
+    var seekTarget      by mutableStateOf<Double?>(null)
+    var subFileUrl      by mutableStateOf<String?>(null)
+}
+
+@Composable
+fun rememberVideoPlayerState(
+    url:          String,
+    loop:         Boolean = false,
+    muted:        Boolean = false,
+    showControls: Boolean = true,
+    enableSubs:   Boolean = true,
+    embeddedFonts:Boolean = true,
+    hwdec:        String  = "auto",
+    startPosition:Double  = 0.0,
+): VideoPlayerState = remember(url) {
+    VideoPlayerState(
+        VideoPlayerConfig(
+            url           = url,
+            loop          = loop,
+            muted         = muted,
+            showControls  = showControls,
+            enableSubs    = enableSubs,
+            embeddedFonts = embeddedFonts,
+            hwdec         = hwdec,
+            startPosition = startPosition,
+        )
+    )
+}
+
+/**
+ * Cross-platform video surface.
+ * Desktop actual → JNA libmpv via AWT SwingPanel.
+ * (Future: Android actual → dev.jdtech.mpv, iOS actual → MPVKit)
+ */
+@Composable
+expect fun VideoPlayerSurface(
+    state:    VideoPlayerState,
+    modifier: Modifier = Modifier,
+    onFinished: (() -> Unit)? = null,
+)
