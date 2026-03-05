@@ -3,6 +3,12 @@ package to.kuudere.anisuge.screens.home
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -93,6 +99,7 @@ fun HomeScreen(
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
     var currentTab by remember { mutableStateOf(AnisugTab.Home) }
+    var prevTabIndex by remember { mutableStateOf(0) }
 
     if (homeState.isLoading && homeState.topAiring.isEmpty() && currentTab == AnisugTab.Home) {
         Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
@@ -123,16 +130,28 @@ fun HomeScreen(
                 AnisugSidebar(
                     avatarUrl = homeState.userProfile?.avatar,
                     selectedTab = currentTab,
-                    onTabSelect = { currentTab = it },
+                    onTabSelect = { newTab ->
+                        prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                        currentTab = newTab
+                    },
                     onExit = onExit
                 )
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                Crossfade(
+                val currentIndex = AnisugTab.entries.indexOf(currentTab)
+                AnimatedContent(
                     targetState = currentTab,
-                    animationSpec = tween(durationMillis = 220),
+                    transitionSpec = {
+                        val toIndex = AnisugTab.entries.indexOf(targetState)
+                        val fromIndex = AnisugTab.entries.indexOf(initialState)
+                        val goingDown = toIndex > fromIndex
+                        val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
+                        val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
+                        (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
+                            .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
+                    }
                 ) { tab ->
                     when (tab) {
                         AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
