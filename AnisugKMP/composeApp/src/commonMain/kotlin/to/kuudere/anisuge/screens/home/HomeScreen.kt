@@ -1,7 +1,10 @@
 package to.kuudere.anisuge.screens.home
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -12,6 +15,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -53,6 +58,8 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.Button
@@ -76,9 +83,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.absoluteValue
 import androidx.compose.ui.platform.LocalWindowInfo
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
@@ -246,71 +256,63 @@ private fun HeroCarousel(
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val isDesktop = maxWidth >= 1024.dp
 
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(carouselHeight)
-        ) {
-            val imageUrl = if (isDesktop) {
-                item.bannerUrl ?: item.imageUrl
-            } else {
-                item.imageUrl.ifEmpty { item.bannerUrl }
-            }
-
-            // Background image
-            AsyncImage(
-                model           = imageUrl,
-                contentDescription = item.title,
-                contentScale    = ContentScale.Crop,
-                modifier        = Modifier.fillMaxSize(),
+        if (!isDesktop) {
+            // ── Small screen: Fan stack carousel ────────────────────────
+            FanCarousel(
+                items = items,
+                currentIndex = currentIndex,
+                onIndexChange = { currentIndex = it },
+                onWatchClick = onWatchClick,
+                onAnimeClick = onAnimeClick,
             )
-
-            // Gradient overlay
+        } else {
+            // ── Desktop: full-bleed hero ─────────────────────────────────
             Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.5f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Black.copy(alpha = 0.85f),
-                            Color.Black,
-                        ),
-                        startY = 0f,
-                        endY   = Float.POSITIVE_INFINITY,
+                Modifier
+                    .fillMaxWidth()
+                    .height(carouselHeight)
+            ) {
+                val imageUrl = item.bannerUrl ?: item.imageUrl
+
+                AsyncImage(
+                    model           = imageUrl,
+                    contentDescription = item.title,
+                    contentScale    = ContentScale.Crop,
+                    modifier        = Modifier.fillMaxSize(),
+                )
+
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.5f),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.4f),
+                                Color.Black.copy(alpha = 0.85f),
+                                Color.Black,
+                            )
+                        )
                     )
                 )
-            )
 
-            // Content
-            Column(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(
-                        start = if (isDesktop) 32.dp else 16.dp,
-                        end = if (isDesktop) 32.dp else 16.dp,
-                        bottom = if (isDesktop) 40.dp else 24.dp
-                    ),
-            ) {
-                // Spotlight tag
-                SpotlightTag(index = currentIndex)
-                Spacer(Modifier.height(16.dp))
-
-                // Title
-                Text(
-                    text       = item.title,
-                    color      = Color.White,
-                    fontSize   = if (isDesktop) 48.sp else 28.sp,
-                    fontWeight = if (isDesktop) FontWeight.ExtraBold else FontWeight.Bold,
-                    lineHeight = if (isDesktop) 54.sp else 34.sp,
-                    maxLines   = if (isDesktop) 3 else 2,
-                    overflow   = TextOverflow.Ellipsis,
-                    modifier   = if (isDesktop) Modifier.fillMaxWidth(0.55f) else Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(12.dp))
-
-                // Meta tags (Desktop only)
-                if (isDesktop) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 32.dp, end = 32.dp, bottom = 40.dp),
+                ) {
+                    SpotlightTag(index = currentIndex)
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text       = item.title,
+                        color      = Color.White,
+                        fontSize   = 48.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 54.sp,
+                        maxLines   = 3,
+                        overflow   = TextOverflow.Ellipsis,
+                        modifier   = Modifier.fillMaxWidth(0.55f)
+                    )
+                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (item.type != null) {
                             MetaTag(item.type, Icons.Default.Movie)
@@ -323,33 +325,24 @@ private fun HeroCarousel(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                }
-
-                // Description
-                Text(
-                    text       = stripHtmlTags(item.description ?: ""),
-                    color      = Color.White.copy(alpha = 0.85f),
-                    fontSize   = if (isDesktop) 16.sp else 14.sp,
-                    lineHeight = if (isDesktop) 24.sp else 21.sp,
-                    maxLines   = if (isDesktop) 4 else 3,
-                    overflow   = TextOverflow.Ellipsis,
-                    modifier   = if (isDesktop) Modifier.fillMaxWidth(0.4f) else Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(if (isDesktop) 32.dp else 20.dp))
-
-                // Buttons
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    if (isDesktop) {
+                    Text(
+                        text       = stripHtmlTags(item.description ?: ""),
+                        color      = Color.White.copy(alpha = 0.85f),
+                        fontSize   = 16.sp,
+                        lineHeight = 24.sp,
+                        maxLines   = 4,
+                        overflow   = TextOverflow.Ellipsis,
+                        modifier   = Modifier.fillMaxWidth(0.4f)
+                    )
+                    Spacer(Modifier.height(32.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = { onWatchClick(item, "sub", 1) },
-                            colors  = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
-                                contentColor   = Color.Black,
-                            ),
+                            colors  = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                             shape   = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 16.dp),
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
+                            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(22.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Start Watching", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
@@ -360,48 +353,15 @@ private fun HeroCarousel(
                             colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
                         ) {
-                            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Info, null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         }
-                    } else {
-                        Button(
-                            onClick = { onWatchClick(item, "sub", 1) },
-                            colors  = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFF4444),
-                                contentColor   = Color.White,
-                            ),
-                            shape   = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 12.dp),
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Watch Now", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        OutlinedButton(
-                            onClick = { onAnimeClick(item) },
-                            shape   = RoundedCornerShape(8.dp),
-                            colors  = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(12.dp),
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(Icons.Default.Info, contentDescription = null)
-                        }
                     }
                 }
-            }
 
-            // Carousel nav arrows (desktop only)
-            if (isDesktop) {
                 Row(
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 32.dp, bottom = 40.dp),
+                    Modifier.align(Alignment.BottomEnd).padding(end = 32.dp, bottom = 40.dp),
                 ) {
                     CarouselNavBtn(Icons.AutoMirrored.Filled.ArrowBack) {
                         currentIndex = (currentIndex - 1 + items.size) % items.size
@@ -413,6 +373,173 @@ private fun HeroCarousel(
                 }
             }
         }
+    }
+}
+
+// ── Small screens carousel (OnStream style) ───────────────────────────────
+
+@Composable
+private fun FanCarousel(
+    items: List<AnimeItem>,
+    currentIndex: Int,
+    onIndexChange: (Int) -> Unit,
+    onWatchClick: (AnimeItem, String, Int) -> Unit,
+    onAnimeClick: (AnimeItem) -> Unit,
+) {
+    val pagerState = rememberPagerState(
+        initialPage = currentIndex,
+        pageCount = { items.size }
+    )
+
+    androidx.compose.runtime.LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage != currentIndex) {
+            onIndexChange(pagerState.currentPage)
+        }
+    }
+
+    Column(
+        Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val windowSize = LocalWindowInfo.current.containerSize
+        val density = LocalDensity.current
+        val screenWidthDp = with(density) { windowSize.width.toDp() }
+        
+        // Match the aspect ratio of a typical poster (e.g. 2:3 ratio) 
+        // We'll give the main card a width of ~ 60% of the screen
+        val cardWidth = screenWidthDp * 0.60f
+        val cardHeight = cardWidth * 1.45f
+        val hPadding = max(0.dp, (screenWidthDp - cardWidth) / 2)
+        
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = hPadding),
+            pageSpacing = 16.dp,
+            modifier = Modifier.fillMaxWidth().height(cardHeight).padding(top = 24.dp)
+        ) { page ->
+            val pageOffset = (
+                (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+            ).absoluteValue
+            
+            // Replicate the scaled and darkened side items
+            val scale = 1f - (pageOffset.coerceIn(0f, 1f) * 0.15f)
+            val alpha = 1f - (pageOffset.coerceIn(0f, 1f) * 0.4f)
+            
+            val item = items[page]
+            
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    }
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { 
+                        if (page == pagerState.currentPage) onAnimeClick(item) 
+                    }
+            ) {
+                AsyncImage(
+                    model = if (item.imageUrl.startsWith("http")) item.imageUrl
+                            else "https://kuudere.to/img/poster/${item.imageUrl}",
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                // Add a subtle gradient at bottom if required, but reference is pretty solid
+            }
+        }
+        
+        Spacer(Modifier.height(32.dp))
+        
+        val activeItem = items[pagerState.currentPage]
+        
+        // Title
+        Text(
+            text = activeItem.title,
+            color = Color.White,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        
+        Spacer(Modifier.height(8.dp))
+        
+        // Meta (e.g., Movie • Action, Thriller)
+        val type = activeItem.type ?: "TV"
+        val genresStr = activeItem.genres?.joinToString(", ") ?: ""
+        val metaText = if (genresStr.isNotEmpty()) "$type  •  $genresStr" else type
+        
+        Text(
+            text = metaText,
+            color = Color.Gray,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        
+        Spacer(Modifier.height(24.dp))
+        
+        // Actions Row
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // "Detail" Column
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { onAnimeClick(activeItem) }.padding(8.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.Info, 
+                    contentDescription = "Detail", 
+                    tint = Color.White, 
+                    modifier = Modifier.size(26.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("Detail", color = Color.White, fontSize = 12.sp)
+            }
+            
+            // "WATCH NOW" Button
+            Button(
+                onClick = { onWatchClick(activeItem, "sub", 1) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE4FF46), // Vibrant lime green/yellow
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f).padding(horizontal = 16.dp).height(50.dp)
+            ) {
+                Text(
+                    "WATCH NOW",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            
+            // "Add List" Column
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable { /* Handle Add List */ }.padding(8.dp)
+            ) {
+                Icon(
+                    Icons.Outlined.BookmarkBorder, 
+                    contentDescription = "Add List", 
+                    tint = Color.White, 
+                    modifier = Modifier.size(26.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                Text("Add List", color = Color.White, fontSize = 12.sp)
+            }
+        }
+        
+        Spacer(Modifier.height(24.dp))
     }
 }
 
