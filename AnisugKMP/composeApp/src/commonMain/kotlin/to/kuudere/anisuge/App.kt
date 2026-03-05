@@ -23,7 +23,7 @@ import to.kuudere.anisuge.screens.home.HomeViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 
 @Composable
-fun App() {
+fun App(onAppExit: () -> Unit = {}) {
     AnisugTheme {
         val navController = rememberNavController()
         val splashVm = remember { SplashViewModel(AppComponent.authService) }
@@ -71,6 +71,7 @@ fun App() {
                         viewModel    = homeVm,
                         onAnimeClick = { _ -> /* TODO: navigate to anime info */ },
                         onWatchClick = { _, _, _ -> /* TODO: navigate to watch */ },
+                        onExit       = onAppExit,
                     )
                 }
             }

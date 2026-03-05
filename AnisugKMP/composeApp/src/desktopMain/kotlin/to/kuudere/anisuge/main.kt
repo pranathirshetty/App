@@ -11,8 +11,8 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         title = "Anisuge",
         state = WindowState(size = DpSize(1280.dp, 800.dp)),
-        undecorated = false,
+        undecorated = true,
     ) {
-        App()
+        App(onAppExit = ::exitApplication)
     }
 }

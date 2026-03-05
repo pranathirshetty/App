@@ -34,13 +34,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.Button
@@ -77,6 +80,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onAnimeClick: (animeId: String) -> Unit,
     onWatchClick: (animeId: String, episode: Int, lang: String) -> Unit,
+    onExit: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -108,7 +112,10 @@ fun HomeScreen(
 
         Row(Modifier.fillMaxSize()) {
             if (isDesktop) {
-                AnisugSidebar(avatarUrl = state.userProfile?.avatar)
+                AnisugSidebar(
+                    avatarUrl = state.userProfile?.avatar,
+                    onExit = onExit
+                )
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
 
@@ -695,7 +702,7 @@ private fun SmallBadge(text: String, color: Color = Color.White) {
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AnisugSidebar(avatarUrl: String?) {
+private fun AnisugSidebar(avatarUrl: String?, onExit: () -> Unit) {
     val fullAvatarUrl = when {
         avatarUrl == null -> null
         avatarUrl.startsWith("http") -> avatarUrl
@@ -704,18 +711,18 @@ private fun AnisugSidebar(avatarUrl: String?) {
 
     Column(
         Modifier
-            .width(64.dp)
+            .width(80.dp)
             .fillMaxHeight()
             .background(Color(0xFF0B0B0B)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
             // User Avatar / Logo
             Box(
                 Modifier
-                    .size(32.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
@@ -736,19 +743,24 @@ private fun AnisugSidebar(avatarUrl: String?) {
                     )
                 }
             }
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(48.dp))
             
             // Icons
-            SidebarIcon(Icons.Default.Explore, isSelected = false)
-            SidebarIcon(Icons.Default.Star, isSelected = true, selectedTint = Color(0xFFFF9800))
-            SidebarIcon(Icons.Default.WatchLater, isSelected = false)
-            SidebarIcon(Icons.Default.Schedule, isSelected = false)
-            SidebarIcon(Icons.Default.Download, isSelected = false)
-            SidebarIcon(Icons.Default.Settings, isSelected = false)
+            SidebarIcon(Icons.Outlined.CalendarToday, isSelected = false)
+            SidebarIcon(Icons.Outlined.Home, isSelected = true, selectedTint = Color(0xFFFF4444))
+            SidebarIcon(Icons.Outlined.Explore, isSelected = false)
+            SidebarIcon(Icons.Outlined.Bookmarks, isSelected = false)
+            SidebarIcon(Icons.Outlined.Download, isSelected = false)
+            SidebarIcon(Icons.Outlined.Settings, isSelected = false)
         }
         
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            SidebarIcon(Icons.AutoMirrored.Filled.ExitToApp, isSelected = false, defaultTint = Color(0xFFE53935))
+            SidebarIcon(
+                Icons.AutoMirrored.Filled.ExitToApp, 
+                isSelected = false, 
+                defaultTint = Color(0xFFE53935),
+                onClick = onExit
+            )
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -758,20 +770,21 @@ private fun AnisugSidebar(avatarUrl: String?) {
 private fun SidebarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     isSelected: Boolean,
-    selectedTint: Color = Color(0xFFFF9800),
-    defaultTint: Color = Color.Gray.copy(alpha = 0.4f)
+    selectedTint: Color = Color(0xFFFF4444),
+    defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
+    onClick: () -> Unit = {}
 ) {
     val tint = if (isSelected) selectedTint else defaultTint
     Box(
         Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { },
+            .size(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
     }
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(8.dp))
 }
 
 // ── Utility ────────────────────────────────────────────────────────────────
