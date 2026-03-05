@@ -10,6 +10,8 @@ import to.kuudere.anisuge.data.services.AuthService
 import to.kuudere.anisuge.data.services.SessionStore
 import to.kuudere.anisuge.platform.createDataStore
 
+import to.kuudere.anisuge.data.services.HomeService
+
 /**
  * Manual dependency graph — keeps it simple for now, easy to swap out for Koin later.
  * Everything is lazily initialised and kept as a singleton for the app lifetime.
@@ -33,5 +35,9 @@ object AppComponent {
 
     val authService: AuthService by lazy {
         AuthService(sessionStore, httpClient)
+    }
+
+    val homeService: HomeService by lazy {
+        HomeService(sessionStore, httpClient)
     }
 }
