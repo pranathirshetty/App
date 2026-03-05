@@ -34,14 +34,13 @@ fun SplashScreen(
         enableSubs   = false,
     )
 
-    // Timeout fallback — if video doesn't finish in 6 seconds, navigate anyway
+    // Timeout fallback
     LaunchedEffect(Unit) {
         delay(6000)
-        println("[SplashScreen] Timeout reached, forcing navigation")
         videoFinished = true
     }
 
-    // Navigate when video finishes (or timeout hits) AND destination is resolved
+    // Navigate when both video finished AND destination resolved
     LaunchedEffect(destination, videoFinished) {
         if (videoFinished && destination != SplashDestination.Waiting) {
             when (destination) {
@@ -52,20 +51,16 @@ fun SplashScreen(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0B)),
+        modifier = Modifier.fillMaxSize().background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         VideoPlayerSurface(
             state      = playerState,
             modifier   = Modifier.fillMaxSize(),
-            onFinished = {
-                println("[SplashScreen] onFinished called")
-                videoFinished = true
-            },
+            onFinished = { videoFinished = true },
         )
     }
 }
 
-// ── expect/actual stub ──
 @Composable
 expect fun SplashVideoBackground(onVideoFinished: () -> Unit)

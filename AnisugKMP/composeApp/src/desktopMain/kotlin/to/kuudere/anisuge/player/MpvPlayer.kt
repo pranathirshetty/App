@@ -72,7 +72,8 @@ internal class MpvPlayer(
         mpv.mpv_set_option_string(handle, "osd-level", "0")
         mpv.mpv_set_option_string(handle, "input-default-bindings", "no")
         mpv.mpv_set_option_string(handle, "input-vo-keyboard", "no")
-        mpv.mpv_set_option_string(handle, "keep-open", if (config.loop) "yes" else "no")
+        // Always keep last frame visible to prevent white flash during navigation
+        mpv.mpv_set_option_string(handle, "keep-open", "yes")
 
         val initResult = mpv.mpv_initialize(handle)
         println("[MpvPlayer] mpv_initialize() → $initResult")
