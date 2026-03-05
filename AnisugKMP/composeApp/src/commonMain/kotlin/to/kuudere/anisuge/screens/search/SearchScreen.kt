@@ -65,14 +65,19 @@ fun SearchScreen(
     Scaffold(
         containerColor = Color.Black
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            val isSmall = maxWidth < 800.dp
+            val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 180.dp)
+            val hPadding = if (isSmall) 12.dp else 24.dp
+            val itemSpacing = if (isSmall) 8.dp else 16.dp
+
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 180.dp),
+                columns = columns,
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 100.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(start = hPadding, end = hPadding, top = 24.dp, bottom = 100.dp),
+                horizontalArrangement = Arrangement.spacedBy(itemSpacing),
+                verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     FilterSection(state, viewModel)
@@ -212,15 +217,25 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
     var isExpanded by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxWidth()) {
+        Text("Search", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Search", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() })
-            }
-            Spacer(Modifier.width(14.dp))
-            Box(Modifier.height(44.dp).clickable { isExpanded = !isExpanded }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Tune, "Filters", tint = if (isExpanded) Color.White else Color.Gray, modifier = Modifier.size(22.dp))
+            KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() }, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF1C1C1E))
+                    .clickable { isExpanded = !isExpanded },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Tune,
+                    contentDescription = "Filters",
+                    tint = if (isExpanded) Color.White else Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 
@@ -455,64 +470,59 @@ private fun FilterDropdown(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SearchAnimeCard(item: AnimeItem, onClick: () -> Unit) {
-    Column(
+    BoxWithConstraints(
         Modifier
-            .width(180.dp)
+            .fillMaxWidth()
             .clickable(onClick = onClick)
     ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(8.dp))
-        ) {
-            AsyncImage(
-                model = if (item.imageUrl.startsWith("http")) item.imageUrl else "https://kuudere.to/img/poster/${item.imageUrl}",
-                contentDescription = item.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF00B0FF)))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = item.title,
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!item.type.isNullOrBlank()) SmallBadge(item.type)
-            
-            // Episodes badge
-            Row(
-                Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
+        val isNarrow = maxWidth < 130.dp
+        Column(Modifier.fillMaxWidth()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.7f)
+                    .clip(RoundedCornerShape(8.dp))
             ) {
-                Icon(Icons.Default.Mic, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
-                if ((item.subbedCount ?: 0) > 0) {
-                    Spacer(Modifier.width(2.dp))
-                    Icon(Icons.Default.ClosedCaption, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
-                }
-                Spacer(Modifier.width(4.dp))
-                Text((item.epCount ?: 0).toString(), color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                AsyncImage(
+                    model = if (item.imageUrl.startsWith("http")) item.imageUrl else "https://kuudere.to/img/poster/${item.imageUrl}",
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
-            
-            // Score badge
-            if ((item.malScore ?: 0.0) > 0.0) {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF00B0FF)))
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = item.title,
+                    color = Color.White,
+                    fontSize = if (isNarrow) 10.sp else 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (!isNarrow) {
+                Spacer(Modifier.height(4.dp))
                 Row(
-                    Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.StarBorder, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(item.malScore.toString(), color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    if (!item.type.isNullOrBlank()) SmallBadge(item.type)
+                    Row(
+                        Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Mic, null, tint = Color.Gray, modifier = Modifier.size(9.dp))
+                        if ((item.subbedCount ?: 0) > 0) {
+                            Spacer(Modifier.width(2.dp))
+                            Icon(Icons.Default.ClosedCaption, null, tint = Color.Gray, modifier = Modifier.size(9.dp))
+                        }
+                        Spacer(Modifier.width(3.dp))
+                        Text((item.epCount ?: 0).toString(), color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
