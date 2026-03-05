@@ -156,27 +156,39 @@ fun HomeScreen(
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
 
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                val currentIndex = AnisugTab.entries.indexOf(currentTab)
-                AnimatedContent(
-                    targetState = currentTab,
-                    transitionSpec = {
-                        val toIndex = AnisugTab.entries.indexOf(targetState)
-                        val fromIndex = AnisugTab.entries.indexOf(initialState)
-                        val goingDown = toIndex > fromIndex
-                        val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
-                        val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
-                        (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
-                            .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
-                    }
-                ) { tab ->
-                    when (tab) {
-                        AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
-                        AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
-                        else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Tab ${tab.name} coming soon", color = Color.White)
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    val currentIndex = AnisugTab.entries.indexOf(currentTab)
+                    AnimatedContent(
+                        targetState = currentTab,
+                        transitionSpec = {
+                            val toIndex = AnisugTab.entries.indexOf(targetState)
+                            val fromIndex = AnisugTab.entries.indexOf(initialState)
+                            val goingDown = toIndex > fromIndex
+                            val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
+                            val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
+                            (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
+                                .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
+                        }
+                    ) { tab ->
+                        when (tab) {
+                            AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
+                            AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+                            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("Tab ${tab.name} coming soon", color = Color.White)
+                            }
                         }
                     }
+                }
+                
+                if (!isDesktop) {
+                    AnisugBottomBar(
+                        selectedTab = currentTab,
+                        onTabSelect = { newTab ->
+                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                            currentTab = newTab
+                        }
+                    )
                 }
             }
         }
@@ -349,9 +361,9 @@ private fun HeroCarousel(
                             shape   = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 16.dp),
                         ) {
-                            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(22.dp))
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Start Watching", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text("WATCH NOW", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                         Spacer(Modifier.width(16.dp))
                         OutlinedButton(
@@ -538,12 +550,14 @@ private fun FanCarousel(
             Button(
                 onClick = { onWatchClick(activeItem, "sub", 1) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE4FF46),
+                    containerColor = Color.White,
                     contentColor = Color.Black
                 ),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp).height(46.dp)
             ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
                     "WATCH NOW",
                     fontWeight = FontWeight.ExtraBold,
@@ -1048,6 +1062,88 @@ private fun SidebarIcon(
         Spacer(Modifier.height(8.dp))
     }
 }
+
+// ── Bottom Nav Bar (Small Screens) ──────────────────────────────────────────
+
+@Composable
+private fun AnisugBottomBar(
+    selectedTab: AnisugTab,
+    onTabSelect: (AnisugTab) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0B0B0B))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BottomBarIcon(
+            Icons.Outlined.Home, 
+            isSelected = selectedTab == AnisugTab.Home, 
+            selectedTint = Color(0xFFFF4444),
+            onClick = { onTabSelect(AnisugTab.Home) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Explore, 
+            isSelected = selectedTab == AnisugTab.Search, 
+            onClick = { onTabSelect(AnisugTab.Search) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Bookmarks, 
+            isSelected = selectedTab == AnisugTab.Bookmarks,
+            onClick = { onTabSelect(AnisugTab.Bookmarks) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.CalendarToday, 
+            isSelected = selectedTab == AnisugTab.Calendar,
+            onClick = { onTabSelect(AnisugTab.Calendar) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Settings, 
+            isSelected = selectedTab == AnisugTab.Settings,
+            onClick = { onTabSelect(AnisugTab.Settings) }
+        )
+    }
+}
+
+@Composable
+private fun BottomBarIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    isSelected: Boolean,
+    selectedTint: Color = Color(0xFFFF4444),
+    defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
+    onClick: () -> Unit = {}
+) {
+    val animatedTint by animateColorAsState(
+        targetValue = if (isSelected) selectedTint else defaultTint,
+        animationSpec = tween(durationMillis = 200)
+    )
+    val animatedBg by animateColorAsState(
+        targetValue = if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
+    
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(animatedBg)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, tint = animatedTint, modifier = Modifier.size(24.dp))
+            if (isSelected) {
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    Modifier.size(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.6f))
+                )
+            }
+        }
+    }
+}
+
 
 // ── Utility ────────────────────────────────────────────────────────────────
 
