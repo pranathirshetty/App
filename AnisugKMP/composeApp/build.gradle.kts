@@ -47,8 +47,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
             // CIO engine for desktop HTTP
             implementation(libs.ktor.client.cio)
-            // vlcj for video playback (splash/auth background)
-            implementation(libs.vlcj)
+            // JNA for getting AWT canvas WID for MPV playback
+            implementation(libs.jna)
         }
 
         commonTest.dependencies {

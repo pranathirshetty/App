@@ -1,6 +1,7 @@
 package to.kuudere.anisuge
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,8 @@ import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import to.kuudere.anisuge.navigation.Screen
 import to.kuudere.anisuge.screens.auth.AuthScreen
 import to.kuudere.anisuge.screens.auth.AuthViewModel
@@ -31,10 +34,13 @@ fun App() {
         val splashVm = remember { SplashViewModel(AppComponent.authService) }
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
 
-        NavHost(
-            navController    = navController,
-            startDestination = Screen.Splash.route,
-        ) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            NavHost(
+                navController    = navController,
+                startDestination = Screen.Splash.route,
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None }
+            ) {
             composable(Screen.Splash.route) {
                 SplashScreen(
                     viewModel        = splashVm,
@@ -96,6 +102,7 @@ fun App() {
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
                     }
+                }
                 }
             }
         }
