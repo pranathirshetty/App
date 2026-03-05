@@ -36,6 +36,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -74,14 +77,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -378,6 +385,8 @@ private fun HeroCarousel(
 
 // ── Small screens carousel (OnStream style) ───────────────────────────────
 
+private const val FAKE_PAGE_COUNT = 10_000  // large enough for "infinite" circular scroll
+
 @Composable
 private fun FanCarousel(
     items: List<AnimeItem>,
@@ -386,14 +395,33 @@ private fun FanCarousel(
     onWatchClick: (AnimeItem, String, Int) -> Unit,
     onAnimeClick: (AnimeItem) -> Unit,
 ) {
+    if (items.isEmpty()) return
+
+    // Fake-infinite pager: start in the middle so user can scroll both directions
+    val startPage = (FAKE_PAGE_COUNT / 2) - ((FAKE_PAGE_COUNT / 2) % items.size) + currentIndex
     val pagerState = rememberPagerState(
-        initialPage = currentIndex,
-        pageCount = { items.size }
+        initialPage = startPage,
+        pageCount = { FAKE_PAGE_COUNT }
     )
 
+    // Map fake page index → real item index
+    fun realIndex(fakePage: Int): Int = ((fakePage % items.size) + items.size) % items.size
+
+    // Sync pager changes back to parent
     androidx.compose.runtime.LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage != currentIndex) {
-            onIndexChange(pagerState.currentPage)
+        val real = realIndex(pagerState.currentPage)
+        if (real != currentIndex) {
+            onIndexChange(real)
+        }
+    }
+
+    // Auto-scroll every 4 seconds, pauses during user interaction
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            delay(4000)
+            if (!pagerState.isScrollInProgress && items.isNotEmpty()) {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+            }
         }
     }
 
@@ -404,29 +432,27 @@ private fun FanCarousel(
         val windowSize = LocalWindowInfo.current.containerSize
         val density = LocalDensity.current
         val screenWidthDp = with(density) { windowSize.width.toDp() }
-        
-        // Match the aspect ratio of a typical poster (e.g. 2:3 ratio) 
-        // We'll give the main card a width of ~ 60% of the screen
-        val cardWidth = screenWidthDp * 0.60f
-        val cardHeight = cardWidth * 1.45f
+
+        // Card sizing — poster at ~45% of screen width so sides are visible
+        val cardWidth = screenWidthDp * 0.45f
+        val cardHeight = cardWidth * 1.5f
         val hPadding = max(0.dp, (screenWidthDp - cardWidth) / 2)
-        
+
         HorizontalPager(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = hPadding),
-            pageSpacing = 16.dp,
-            modifier = Modifier.fillMaxWidth().height(cardHeight).padding(top = 24.dp)
-        ) { page ->
+            pageSpacing = 12.dp,
+            modifier = Modifier.fillMaxWidth().height(cardHeight + 24.dp).padding(top = 24.dp)
+        ) { fakePage ->
             val pageOffset = (
-                (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                (pagerState.currentPage - fakePage) + pagerState.currentPageOffsetFraction
             ).absoluteValue
-            
-            // Replicate the scaled and darkened side items
+
             val scale = 1f - (pageOffset.coerceIn(0f, 1f) * 0.15f)
             val alpha = 1f - (pageOffset.coerceIn(0f, 1f) * 0.4f)
-            
-            val item = items[page]
-            
+
+            val item = items[realIndex(fakePage)]
+
             Box(
                 Modifier
                     .fillMaxSize()
@@ -435,9 +461,9 @@ private fun FanCarousel(
                         scaleY = scale
                         this.alpha = alpha
                     }
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { 
-                        if (page == pagerState.currentPage) onAnimeClick(item) 
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        if (fakePage == pagerState.currentPage) onAnimeClick(item)
                     }
             ) {
                 AsyncImage(
@@ -447,98 +473,104 @@ private fun FanCarousel(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Add a subtle gradient at bottom if required, but reference is pretty solid
             }
         }
-        
-        Spacer(Modifier.height(32.dp))
-        
-        val activeItem = items[pagerState.currentPage]
-        
+
+        Spacer(Modifier.height(20.dp))
+
+        val activeItem = items[realIndex(pagerState.currentPage)]
+
         // Title
         Text(
             text = activeItem.title,
             color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Normal,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 24.dp)
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
         )
-        
-        Spacer(Modifier.height(8.dp))
-        
-        // Meta (e.g., Movie • Action, Thriller)
+
+        Spacer(Modifier.height(6.dp))
+
+        // Meta (e.g., TV • Action, Drama, Supernatural)
         val type = activeItem.type ?: "TV"
         val genresStr = activeItem.genres?.joinToString(", ") ?: ""
         val metaText = if (genresStr.isNotEmpty()) "$type  •  $genresStr" else type
-        
+
         Text(
             text = metaText,
             color = Color.Gray,
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 24.dp)
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
         )
-        
-        Spacer(Modifier.height(24.dp))
-        
-        // Actions Row
+
+        Spacer(Modifier.height(20.dp))
+
+        // Actions Row — fixed-width side columns for alignment
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // "Detail" Column
+            // "Detail"
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onAnimeClick(activeItem) }.padding(8.dp)
+                modifier = Modifier
+                    .width(56.dp)
+                    .clickable { onAnimeClick(activeItem) }
+                    .padding(vertical = 4.dp)
             ) {
                 Icon(
-                    Icons.Outlined.Info, 
-                    contentDescription = "Detail", 
-                    tint = Color.White, 
-                    modifier = Modifier.size(26.dp)
+                    Icons.Outlined.Info,
+                    contentDescription = "Detail",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(Modifier.height(6.dp))
-                Text("Detail", color = Color.White, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                Text("Detail", color = Color.White, fontSize = 11.sp)
             }
-            
-            // "WATCH NOW" Button
+
+            // "WATCH NOW" button — fills the center
             Button(
                 onClick = { onWatchClick(activeItem, "sub", 1) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE4FF46), // Vibrant lime green/yellow
+                    containerColor = Color(0xFFE4FF46),
                     contentColor = Color.Black
                 ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f).padding(horizontal = 16.dp).height(50.dp)
+                modifier = Modifier.weight(1f).padding(horizontal = 8.dp).height(46.dp)
             ) {
                 Text(
                     "WATCH NOW",
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     letterSpacing = 0.5.sp
                 )
             }
-            
-            // "Add List" Column
+
+            // "Add List"
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { /* Handle Add List */ }.padding(8.dp)
+                modifier = Modifier
+                    .width(56.dp)
+                    .clickable { /* Handle Add List */ }
+                    .padding(vertical = 4.dp)
             ) {
                 Icon(
-                    Icons.Outlined.BookmarkBorder, 
-                    contentDescription = "Add List", 
-                    tint = Color.White, 
-                    modifier = Modifier.size(26.dp)
+                    Icons.Outlined.BookmarkBorder,
+                    contentDescription = "Add List",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(Modifier.height(6.dp))
-                Text("Add List", color = Color.White, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                Text("Add List", color = Color.White, fontSize = 11.sp)
             }
         }
-        
+
         Spacer(Modifier.height(24.dp))
     }
 }
