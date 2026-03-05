@@ -44,6 +44,10 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
         _uiState.value = _uiState.value.copy(selectedGenres = next)
     }
 
+    fun clearGenres() {
+        _uiState.value = _uiState.value.copy(selectedGenres = emptyList())
+    }
+
     fun onSeasonChange(season: String?) {
         _uiState.value = _uiState.value.copy(selectedSeason = season)
     }

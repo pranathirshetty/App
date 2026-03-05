@@ -11,7 +11,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -100,68 +109,138 @@ fun SearchScreen(
 
 @Composable
 private fun FilterSection(state: SearchUiState, viewModel: SearchViewModel) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth < 800.dp) {
+            SmallScreenFilterSection(state, viewModel)
+        } else {
+            LargeScreenFilterSection(state, viewModel)
+        }
+    }
+}
+
+// ─── Shared filter data (1:1 with Kuudere API) ──────────────────────────────
+private val KUUDERE_GENRES = listOf(
+    "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
+    "Mystery", "Romance", "Sci-Fi", "Slice of Life", "Sports",
+    "Supernatural", "Thriller", "Ecchi", "Harem", "Isekai", "Mecha",
+    "Music", "Psychological", "School", "Military", "Historical",
+    "Demons", "Magic", "Vampire", "Hentai"
+)
+private val KUUDERE_SORTS    = listOf("Popularity", "Latest", "Score", "Year", "Episodes")
+private val KUUDERE_SEASONS  = listOf("Winter", "Spring", "Summer", "Fall")
+private val KUUDERE_YEARS    = (2025 downTo 1975).map { it.toString() }
+private val KUUDERE_STATUSES = listOf("Finished", "Releasing", "Not Yet Released", "Cancelled")
+private val KUUDERE_FORMATS  = listOf("TV", "TV Short", "Movie", "Special", "OVA", "ONA", "Music")
+private val KUUDERE_ORIGINS  = listOf("Japan", "South Korea", "China", "Taiwan")
+
+// ─── Large screen layout ─────────────────────────────────────────────────────
+@Composable
+private fun LargeScreenFilterSection(state: SearchUiState, viewModel: SearchViewModel) {
     var isExpanded by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = "Filter",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text("Search", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
-        
-        // Search Input
-        SearchInputBar(
-            value = state.keyword,
-            onValueChange = viewModel::onKeywordChange,
-            onSearch = { viewModel.search() }
-        )
-        
-        Spacer(Modifier.height(16.dp))
-        
-        // Expansion Header
+
+        // Row 1: Search | Genres | Sort by | Year | Status | Format  (equal weights)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text("Search", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() })
+            }
+            FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f)) {
+                if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
+            }
+            FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
+            FilterDropdown("Year", "Any", state.selectedYear, KUUDERE_YEARS, Modifier.weight(1f)) { viewModel.onYearChange(it) }
+            FilterDropdown("Status", "Any", state.selectedStatus, KUUDERE_STATUSES, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
+            FilterDropdown("Format", "Any", state.selectedType, KUUDERE_FORMATS, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
         Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable { isExpanded = !isExpanded }
-                .padding(vertical = 8.dp),
+            Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Filters", color = Color.White, fontSize = 18.sp)
+            Text("More filters", color = Color.Gray, fontSize = 13.sp)
             Spacer(Modifier.weight(1f))
             Icon(
                 if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                null,
-                tint = Color.White
+                null, tint = Color.Gray, modifier = Modifier.size(18.dp)
             )
         }
 
         AnimatedVisibility(visible = isExpanded) {
-            Column(Modifier.fillMaxWidth()) {
-                FilterGrid(state, viewModel)
-                Spacer(Modifier.height(16.dp))
+            Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                // Row 2: Season | Origin (partial row, left-aligned with same column width)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(
-                        onClick = { viewModel.search() },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.FilterList, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Apply Filters")
+                    FilterDropdown("Season", "Any", state.selectedSeason, KUUDERE_SEASONS, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
+                    FilterDropdown("Origin", "Any", state.selectedLanguage, KUUDERE_ORIGINS, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
+                    // empty slots to push dropdowns to same width as row above
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    KActionButton("Apply") { viewModel.search() }
+                    KActionButton("Reset", secondary = true) { viewModel.clearFilters() }
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = !isExpanded) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                KActionButton("Apply") { viewModel.search() }
+                KActionButton("Reset", secondary = true) { viewModel.clearFilters() }
+            }
+        }
+    }
+}
+
+// ─── Small screen layout ─────────────────────────────────────────────────────
+@Composable
+private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchViewModel) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Search", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() })
+            }
+            Spacer(Modifier.width(14.dp))
+            Box(Modifier.height(44.dp).clickable { isExpanded = !isExpanded }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Tune, "Filters", tint = if (isExpanded) Color.White else Color.Gray, modifier = Modifier.size(22.dp))
+            }
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            Column(Modifier.fillMaxWidth().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f)) {
+                        if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
                     }
-                    OutlinedButton(
-                        onClick = { viewModel.clearFilters() },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f))
-                    ) {
-                        Icon(Icons.Default.ClearAll, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Clear Filters")
+                    FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FilterDropdown("Season", "Any", state.selectedSeason, KUUDERE_SEASONS, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
+                    FilterDropdown("Year", "Any", state.selectedYear, KUUDERE_YEARS, Modifier.weight(1f)) { viewModel.onYearChange(it) }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FilterDropdown("Status", "Any", state.selectedStatus, KUUDERE_STATUSES, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
+                    FilterDropdown("Format", "Any", state.selectedType, KUUDERE_FORMATS, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    FilterDropdown("Origin", "Any", state.selectedLanguage, KUUDERE_ORIGINS, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
+                    Column(Modifier.weight(1f)) {
+                        Text("", color = Color.Transparent, fontSize = 14.sp)
+                        Spacer(Modifier.height(8.dp))
+                        KApplyButton { isExpanded = false; viewModel.search() }
                     }
                 }
             }
@@ -169,122 +248,180 @@ private fun FilterSection(state: SearchUiState, viewModel: SearchViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ─── Shared UI primitives ────────────────────────────────────────────────────
+
 @Composable
-private fun SearchInputBar(value: String, onValueChange: (String) -> Unit, onSearch: () -> Unit) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
+private fun KSearchInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .height(44.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp)),
-        placeholder = { Text("Search...", color = Color.Gray) },
-        leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFF1A1B1E),
-            unfocusedContainerColor = Color(0xFF1A1B1E),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = Color.White,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent
-        ),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-        singleLine = true
-    )
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF1C1C1E))
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, null, tint = Color(0xFF71717A), modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) Text("Search", color = Color(0xFF71717A), fontSize = 14.sp)
+                androidx.compose.foundation.text.BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                    singleLine = true,
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White)
+                )
+            }
+        }
+    }
 }
 
 @Composable
-private fun FilterGrid(state: SearchUiState, viewModel: SearchViewModel) {
-    val genres = listOf(
-        "Action", "Adventure", "Cars", "Comedy", "Dementia", "Demons", "Drama", "Ecchi", "Fantasy", "Game",
-        "Harem", "Historical", "Horror", "Isekai", "Josei", "Kids", "Magic", "Martial Arts", "Mecha", "Military",
-        "Music", "Mystery", "Parody", "Police", "Psychological", "Romance", "Samurai", "School", "Sci-Fi", "Seinen",
-        "Shoujo", "Shoujo Ai", "Shounen", "Shounen Ai", "Slice of Life", "Space", "Sports", "Super Power", "Supernatural", "Thriller",
-        "unknown", "Vampire"
-    )
-    val seasons = listOf("Winter", "Spring", "Summer", "Fall")
-    val years = (2025 downTo 1980).map { it.toString() }
-    val languages = listOf("Japanese", "English")
-    val ratings = listOf("G", "PG", "PG-13", "R", "R+")
-    val types = listOf("TV", "Movie", "OVA")
-    val statuses = listOf("Finished", "Releasing", "Not Yet Released", "Cancelled")
+private fun KActionButton(label: String, secondary: Boolean = false, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (secondary) Color.Transparent else Color.White)
+            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = if (secondary) Color.White else Color.Black, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            FilterDropdown("Select genre", state.selectedGenres.joinToString(", ").ifBlank { null }, genres, Modifier.weight(1f)) {
-                viewModel.onGenreToggle(it)
-            }
-            FilterDropdown("Select seasons", state.selectedSeason, seasons, Modifier.weight(1f)) {
-                viewModel.onSeasonChange(it)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            FilterDropdown("Select years", state.selectedYear, years, Modifier.weight(1f)) {
-                viewModel.onYearChange(it)
-            }
-            FilterDropdown("Select languages", state.selectedLanguage, languages, Modifier.weight(1f)) {
-                viewModel.onLanguageChange(it)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            FilterDropdown("Select ratings", state.selectedRating, ratings, Modifier.weight(1f)) {
-                viewModel.onRatingChange(it)
-            }
-            FilterDropdown("Select types", state.selectedType, types, Modifier.weight(1f)) {
-                viewModel.onTypeChange(it)
-            }
-        }
-        FilterDropdown("Select statuses", state.selectedStatus, statuses, Modifier.fillMaxWidth(0.5f)) {
-            viewModel.onStatusChange(it)
+@Composable
+private fun KApplyButton(onClick: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.Search, null, tint = Color.Black, modifier = Modifier.size(14.dp))
+            Text("Apply", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
 private fun FilterDropdown(
+    title: String,
     hint: String,
     selected: String?,
     items: List<String>,
     modifier: Modifier = Modifier,
-    onItemSelected: (String) -> Unit
+    onItemSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Box(
-        modifier
-            .height(48.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF1A1B1E))
-            .clickable { expanded = true }
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = selected ?: hint,
-                color = if (selected == null) Color.Gray else Color.White,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(Icons.Default.ArrowDropDown, null, tint = Color.Gray)
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(Color(0xFF1A1B1E)).width(200.dp)
-        ) {
-            items.forEach { item ->
-                DropdownMenuItem(
-                    text = { Text(item, color = Color.White) },
-                    onClick = {
-                        onItemSelected(item)
-                        expanded = false
+    Column(modifier = modifier) {
+        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Box {
+            // Dropdown trigger
+            Box(
+                Modifier
+                    .height(44.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF1C1C1E))
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = selected ?: hint,
+                        color = if (selected == null) Color(0xFF71717A) else Color.White,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (selected != null) {
+                        Icon(
+                            Icons.Default.Close, "Clear",
+                            tint = Color(0xFF71717A),
+                            modifier = Modifier.size(14.dp).clickable {
+                                onItemSelected(null)
+                                expanded = false
+                            }
+                        )
+                        Spacer(Modifier.width(6.dp))
                     }
-                )
+                    Icon(
+                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        null,
+                        tint = Color(0xFF71717A),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            // Popup list
+            if (expanded && items.isNotEmpty()) {
+                Popup(
+                    alignment = Alignment.TopStart,
+                    properties = PopupProperties(focusable = true),
+                    onDismissRequest = { expanded = false }
+                ) {
+                    Box(
+                        Modifier
+                            .padding(top = 44.dp)
+                            .width(200.dp)
+                            .heightIn(max = 260.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF1C1C1E))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                    ) {
+                        val scrollState = rememberScrollState()
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(vertical = 6.dp)
+                        ) {
+                            items.forEach { item ->
+                                val isSelected = selected != null && selected.split(", ").contains(item)
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onItemSelected(item)
+                                            if (title != "Genres") expanded = false
+                                        }
+                                        .background(if (isSelected) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        item,
+                                        color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -293,64 +430,78 @@ private fun FilterDropdown(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SearchAnimeCard(item: AnimeItem, onClick: () -> Unit) {
-    Box(
+    Column(
         Modifier
-            .aspectRatio(0.7f)
-            .clip(RoundedCornerShape(8.dp))
+            .width(180.dp)
             .clickable(onClick = onClick)
     ) {
-        AsyncImage(
-            model = if (item.imageUrl.startsWith("http")) item.imageUrl else "https://kuudere.to${item.imageUrl}",
-            contentDescription = item.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
         Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
-                )
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.7f)
+                .clip(RoundedCornerShape(8.dp))
+        ) {
+            AsyncImage(
+                model = if (item.imageUrl.startsWith("http")) item.imageUrl else "https://kuudere.to/img/poster/${item.imageUrl}",
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
-        )
-        
-        // Badges
-        FlowRow(
-            Modifier.padding(8.dp).align(Alignment.TopStart),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (!item.type.isNullOrBlank()) SearchCardBadge(item.type)
-            if ((item.epCount ?: 0) > 0) SearchCardBadge("${item.epCount}", Color.Yellow.copy(alpha = 0.8f))
-            if ((item.dubbedCount ?: 0) > 0) SearchCardBadge("${item.dubbedCount}", Color.Cyan.copy(alpha = 0.8f))
         }
-
-        Column(
-            Modifier.align(Alignment.BottomStart).padding(8.dp)
-        ) {
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF00B0FF)))
+            Spacer(Modifier.width(6.dp))
             Text(
-                item.title,
+                text = item.title,
                 color = Color.White,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                "Episodes ${item.epCount ?: 0}",
-                color = Color.LightGray,
-                fontSize = 12.sp
-            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!item.type.isNullOrBlank()) SmallBadge(item.type)
+            
+            // Episodes badge
+            Row(
+                Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Mic, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
+                if ((item.subbedCount ?: 0) > 0) {
+                    Spacer(Modifier.width(2.dp))
+                    Icon(Icons.Default.ClosedCaption, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
+                }
+                Spacer(Modifier.width(4.dp))
+                Text((item.epCount ?: 0).toString(), color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
+            
+            // Score badge
+            if ((item.malScore ?: 0.0) > 0.0) {
+                Row(
+                    Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.StarBorder, null, tint = Color.Gray, modifier = Modifier.size(10.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(item.malScore.toString(), color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SearchCardBadge(text: String, color: Color = Color.White) {
+private fun SmallBadge(text: String) {
     Box(
         Modifier
-            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF1E1E1E))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
-        Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }

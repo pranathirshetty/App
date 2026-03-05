@@ -2,6 +2,8 @@ package to.kuudere.anisuge.screens.home
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -128,11 +130,16 @@ fun HomeScreen(
             }
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                when (currentTab) {
-                    AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
-                    AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
-                    else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Tab ${currentTab.name} coming soon", color = Color.White)
+                Crossfade(
+                    targetState = currentTab,
+                    animationSpec = tween(durationMillis = 220),
+                ) { tab ->
+                    when (tab) {
+                        AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
+                        AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+                        else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Tab ${tab.name} coming soon", color = Color.White)
+                        }
                     }
                 }
             }
@@ -832,17 +839,36 @@ private fun SidebarIcon(
     defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
     onClick: () -> Unit = {}
 ) {
-    val tint = if (isSelected) selectedTint else defaultTint
-    Box(
-        Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+    val animatedTint by animateColorAsState(
+        targetValue = if (isSelected) selectedTint else defaultTint,
+        animationSpec = tween(durationMillis = 200)
+    )
+    val animatedBg by animateColorAsState(
+        targetValue = if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(animatedBg)
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = animatedTint, modifier = Modifier.size(22.dp))
+        }
+        // Active dot indicator
+        Box(
+            Modifier
+                .size(4.dp)
+                .clip(CircleShape)
+                .background(if (isSelected) Color.White.copy(alpha = 0.6f) else Color.Transparent)
+        )
+        Spacer(Modifier.height(8.dp))
     }
-    Spacer(Modifier.height(8.dp))
 }
 
 // ── Utility ────────────────────────────────────────────────────────────────
