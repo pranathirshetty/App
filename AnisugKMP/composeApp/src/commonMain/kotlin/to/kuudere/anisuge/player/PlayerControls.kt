@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import to.kuudere.anisuge.data.models.StreamingData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,6 +46,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerControls(
     playerState: VideoPlayerState,
+    streamingData: StreamingData? = null,
     title: String = "",
     isFullscreen: Boolean = false,
     onFullscreenToggle: () -> Unit = {},
@@ -336,22 +342,71 @@ fun PlayerControls(
                                 },
                             contentAlignment = Alignment.CenterStart
                         ) {
-                            // Track
-                            Box(
+                            // Canvas replacing individual track boxes
+                            Canvas(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(3.dp)
-                                    .clip(RoundedCornerShape(1.5.dp))
-                                    .background(Color.White.copy(alpha = 0.3f))
-                            )
-                            // Active Track
-                            Box(
-                                Modifier
-                                    .fillMaxWidth(fraction = progress)
-                                    .height(3.dp)
-                                    .clip(RoundedCornerShape(1.5.dp))
-                                    .background(Color.Red)
-                            )
+                            ) {
+                                val canvasWidth = size.width
+                                val canvasHeight = size.height
+                                
+                                // Base Inactive Track
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = 0.3f),
+                                    size = size,
+                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                                )
+                                
+                                // Yellow Highlights for Intro and Outro
+                                val intro = streamingData?.intro
+                                if (intro?.start != null && intro.end != null && duration > 0) {
+                                    val startX = ((intro.start / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
+                                    val endX = ((intro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
+                                    if (endX > startX) {
+                                        drawRect(
+                                            color = Color.Yellow.copy(alpha = 0.6f),
+                                            topLeft = Offset(startX, 0f),
+                                            size = Size(endX - startX, canvasHeight)
+                                        )
+                                    }
+                                }
+
+                                val outro = streamingData?.outro
+                                if (outro?.start != null && outro.end != null && duration > 0) {
+                                    val startX = ((outro.start / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
+                                    val endX = ((outro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
+                                    if (endX > startX) {
+                                        drawRect(
+                                            color = Color.Yellow.copy(alpha = 0.6f),
+                                            topLeft = Offset(startX, 0f),
+                                            size = Size(endX - startX, canvasHeight)
+                                        )
+                                    }
+                                }
+
+                                // Active Progress Track (Red) over the highlights
+                                drawRoundRect(
+                                    color = Color.Red,
+                                    size = Size(canvasWidth * progress, canvasHeight),
+                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                                )
+                                
+                                // Chapter Breaks (Gap Lines) drawn over the active progress
+                                streamingData?.chapters?.forEach { chapter ->
+                                    val start = chapter.start_time
+                                    if (start != null && start > 0 && duration > 0) {
+                                        val x = ((start / duration).toFloat() * canvasWidth)
+                                        if (x > 1f && x < canvasWidth - 1f) {
+                                            drawRect(
+                                                color = Color.Black.copy(alpha = 0.8f),
+                                                topLeft = Offset(x - 1.dp.toPx(), 0f),
+                                                size = Size(2.dp.toPx(), canvasHeight)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             // Thumb
                             Box(
                                 Modifier

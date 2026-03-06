@@ -274,6 +274,7 @@ fun WatchVideoPlayer(
                 if (!useOsc) {
                     PlayerControls(
                         playerState = playerState,
+                        streamingData = uiState.streamingData,
                         title = title,
                         isFullscreen = uiState.isFullscreen,
                         onFullscreenToggle = onFullscreenToggle,
