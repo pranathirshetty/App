@@ -107,13 +107,13 @@ internal class MpvPlayer(
         println("[MpvPlayer] render_context_create -> $rCtx")
         renderCtx = ctxRef 
 
+        if (config.startPosition > 0.0) {
+            mpv.mpv_set_property_string(handle, "start", config.startPosition.toString())
+        }
+
         // Load file
         r = mpv.mpv_command(handle, arrayOf("loadfile", url, null))
         println("[MpvPlayer] loadfile '$url' → $r")
-
-        if (config.startPosition > 0.0) {
-            mpv.mpv_set_property_string(handle, "time-pos", config.startPosition.toString())
-        }
 
         startEventLoop()
     }
