@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import to.kuudere.anisuge.platform.isDesktopPlatform
+import to.kuudere.anisuge.player.PlayerControls
 import to.kuudere.anisuge.player.VideoPlayerState
 import to.kuudere.anisuge.player.VideoPlayerSurface
 import to.kuudere.anisuge.player.rememberVideoPlayerState
@@ -221,10 +223,14 @@ fun WatchVideoPlayer(
             ?: uiState.availableQualities.firstOrNull()?.second
 
         if (currentUrl != null) {
+            // Desktop: use mpv's built-in OSC (Compose can't overlay AWT SwingPanel)
+            // Android: disable OSC, use Compose PlayerControls overlay
+            val useOsc = isDesktopPlatform
             val playerState = rememberVideoPlayerState(
                 url = currentUrl,
                 startPosition = uiState.savedWatchPosition,
-                fontsDir = uiState.currentFontsDir
+                fontsDir = uiState.currentFontsDir,
+                showControls = useOsc
             )
             
             LaunchedEffect(uiState.availableSubtitles) {
@@ -235,14 +241,36 @@ fun WatchVideoPlayer(
                 }
             }
 
-            // mpv's OSC (on-screen controller) is enabled in MpvPlayer.kt for showControls=true.
-            // It renders inside the AWT canvas, which is the only way controls can appear
-            // over a SwingPanel (AWT always renders above Compose in Z-order).
+            val animeInfo = uiState.episodeData?.animeInfo
+            val currentEp = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
+            val title = buildString {
+                if (animeInfo?.english != null) append(animeInfo.english)
+                if (currentEp != null) {
+                    if (isNotEmpty()) append(" • ")
+                    append("Episode ${uiState.currentEpisodeNumber}")
+                    currentEp.titles?.firstOrNull()?.let { epTitle ->
+                        if (epTitle.isNotEmpty()) append(" - $epTitle")
+                    }
+                }
+            }
+
             Box(modifier = modifier.background(Color.Black)) {
                 VideoPlayerSurface(
                     state = playerState,
                     modifier = Modifier.fillMaxSize()
                 )
+
+                // Compose player controls overlay (Android only — desktop uses mpv OSC)
+                if (!useOsc) {
+                    PlayerControls(
+                        playerState = playerState,
+                        title = title,
+                        isFullscreen = uiState.isFullscreen,
+                        onFullscreenToggle = onFullscreenToggle,
+                        onBack = onBack,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         } else {
             Box(modifier = modifier.background(Color.Black)) {
