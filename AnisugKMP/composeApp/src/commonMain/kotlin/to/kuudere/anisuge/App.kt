@@ -34,7 +34,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val navController = rememberNavController()
         val splashVm = remember { SplashViewModel(AppComponent.authService) }
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
-        val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService) }
+        val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService, AppComponent.infoService) }
         val searchVm = remember { SearchViewModel(AppComponent.searchService) }
         val infoVm   = remember { AnimeInfoViewModel(AppComponent.infoService) }
 

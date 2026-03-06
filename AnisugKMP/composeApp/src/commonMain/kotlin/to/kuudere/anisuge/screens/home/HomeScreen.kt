@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.outlined.Bookmark
+import to.kuudere.anisuge.ui.WatchlistBottomSheet
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -126,6 +128,7 @@ fun HomeScreen(
     val homeState by homeViewModel.uiState.collectAsState()
     var currentTab by remember { mutableStateOf(AnisugTab.Home) }
     var prevTabIndex by remember { mutableStateOf(0) }
+    var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
 
     if (homeState.isLoading && homeState.topAiring.isEmpty() && currentTab == AnisugTab.Home) {
         Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
@@ -194,7 +197,12 @@ fun HomeScreen(
                         }
                     ) { tab ->
                         when (tab) {
-                            AnisugTab.Home -> HomeContent(homeState, onAnimeClick, onWatchClick)
+                            AnisugTab.Home -> HomeContent(
+                                state = homeState,
+                                onAnimeClick = onAnimeClick,
+                                onWatchClick = onWatchClick,
+                                onWatchlistClick = { showWatchlistFor = it }
+                            )
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
@@ -214,6 +222,18 @@ fun HomeScreen(
                 }
             }
         }
+
+        // ── Watchlist Bottom Sheet ──────────────────────────────────────────
+        if (showWatchlistFor != null) {
+            WatchlistBottomSheet(
+                currentFolder = null, // We don't have this info here easily
+                onSelect = { folder ->
+                    homeViewModel.updateWatchlist(showWatchlistFor!!.id, folder)
+                    showWatchlistFor = null
+                },
+                onDismiss = { showWatchlistFor = null }
+            )
+        }
     }
 }
 
@@ -221,7 +241,8 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState,
     onAnimeClick: (String) -> Unit,
-    onWatchClick: (String, String, Int) -> Unit
+    onWatchClick: (String, String, Int) -> Unit,
+    onWatchlistClick: (AnimeItem) -> Unit
 ) {
     val scrollState = rememberScrollState()
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
@@ -231,6 +252,7 @@ private fun HomeContent(
                 items = state.topAiring,
                 onAnimeClick = { onAnimeClick(it.id) },
                 onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep) },
+                onWatchlistClick = onWatchlistClick,
             )
         }
 
@@ -285,6 +307,7 @@ private fun HeroCarousel(
     items: List<AnimeItem>,
     onAnimeClick: (AnimeItem) -> Unit,
     onWatchClick: (AnimeItem, String, Int) -> Unit,
+    onWatchlistClick: (AnimeItem) -> Unit,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
     val item = items[currentIndex]
@@ -305,6 +328,7 @@ private fun HeroCarousel(
                 onIndexChange = { currentIndex = it },
                 onWatchClick = onWatchClick,
                 onAnimeClick = onAnimeClick,
+                onWatchlistClick = onWatchlistClick,
             )
         } else {
             // ── Desktop: full-bleed hero ─────────────────────────────────
@@ -398,6 +422,17 @@ private fun HeroCarousel(
                             Spacer(Modifier.width(8.dp))
                             Text("Details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         }
+                        Spacer(Modifier.width(16.dp))
+                        OutlinedButton(
+                            onClick = { onWatchlistClick(item) },
+                            shape   = RoundedCornerShape(12.dp),
+                            colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                        ) {
+                            Icon(Icons.Outlined.Bookmark, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add List", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        }
                     }
                 }
 
@@ -428,6 +463,7 @@ private fun FanCarousel(
     onIndexChange: (Int) -> Unit,
     onWatchClick: (AnimeItem, String, Int) -> Unit,
     onAnimeClick: (AnimeItem) -> Unit,
+    onWatchlistClick: (AnimeItem) -> Unit,
 ) {
     if (items.isEmpty()) return
 
@@ -593,7 +629,7 @@ private fun FanCarousel(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .width(56.dp)
-                    .clickable { /* Handle Add List */ }
+                    .clickable { onWatchlistClick(activeItem) }
                     .padding(vertical = 4.dp)
             ) {
                 Icon(

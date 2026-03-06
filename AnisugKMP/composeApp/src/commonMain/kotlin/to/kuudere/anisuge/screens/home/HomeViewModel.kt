@@ -14,6 +14,9 @@ import to.kuudere.anisuge.data.models.SessionCheckResult
 import to.kuudere.anisuge.data.models.UserProfile
 import to.kuudere.anisuge.data.services.AuthService
 
+import kotlinx.coroutines.flow.update
+import to.kuudere.anisuge.data.services.InfoService
+
 data class HomeUiState(
     val isLoading:        Boolean              = true,
     val userProfile:      UserProfile?         = null,
@@ -22,12 +25,14 @@ data class HomeUiState(
     val newOnSite:        List<AnimeItem>       = emptyList(),
     val topUpcoming:      List<AnimeItem>       = emptyList(),
     val continueWatching: List<ContinueWatchingItem> = emptyList(),
+    val isUpdatingWatchlist: Boolean            = false,
     val error:            String?               = null,
 )
 
 class HomeViewModel(
     private val homeService: HomeService,
-    private val authService: AuthService
+    private val authService: AuthService,
+    private val infoService: InfoService
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -38,24 +43,37 @@ class HomeViewModel(
 
     fun refresh() {
         scope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val userRes = authService.checkSession()
                 val userProfile = (userRes as? SessionCheckResult.Valid)?.user
                 
                 val homeData = homeService.fetchHomeData()
                 val continueWatching = homeService.fetchContinueWatching()
-                _uiState.value = HomeUiState(
-                    isLoading        = false,
-                    userProfile      = userProfile,
-                    topAiring        = homeData?.topAired    ?: emptyList(),
-                    latestEpisodes   = homeData?.latestEps   ?: emptyList(),
-                    newOnSite        = homeData?.lastUpdated ?: emptyList(),
-                    topUpcoming      = homeData?.topUpcoming ?: emptyList(),
-                    continueWatching = continueWatching,
-                )
+                _uiState.update { 
+                    it.copy(
+                        isLoading        = false,
+                        userProfile      = userProfile,
+                        topAiring        = homeData?.topAired    ?: emptyList(),
+                        latestEpisodes   = homeData?.latestEps   ?: emptyList(),
+                        newOnSite        = homeData?.lastUpdated ?: emptyList(),
+                        topUpcoming      = homeData?.topUpcoming ?: emptyList(),
+                        continueWatching = continueWatching,
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = HomeUiState(isLoading = false, error = e.message)
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun updateWatchlist(animeId: String, folder: String) {
+        scope.launch {
+            _uiState.update { it.copy(isUpdatingWatchlist = true) }
+            try {
+                infoService.updateWatchlistStatus(animeId, folder)
+            } finally {
+                _uiState.update { it.copy(isUpdatingWatchlist = false) }
             }
         }
     }
