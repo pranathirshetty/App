@@ -1,53 +1,36 @@
 package to.kuudere.anisuge.player
 
 import android.net.Uri
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.ViewGroup
-import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
+import dev.jdtech.mpv.MPVLib
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
-/**
- * Android actual of [VideoPlayerSurface].
- * Uses ExoPlayer (Media3).
- * Compose resource paths (composeResources/...) are resolved from Android assets.
- */
-@OptIn(UnstableApi::class)
 @Composable
 actual fun VideoPlayerSurface(
     state: VideoPlayerState,
     modifier: Modifier,
-    onFinished: (() -> Unit)?,
+    onFinished: (() -> Unit)?
 ) {
     val context = LocalContext.current
 
-    // Resolve the playback URI — handles both http(s) and composeResources asset paths
-    val resolvedUri = remember(state.config.url) {
+    val resolvedUrl = remember(state.config.url) {
         val url = state.config.url
         when {
-            url.startsWith("http://") || url.startsWith("https://") ||
-            url.startsWith("file://") || url.startsWith("/") -> {
-                Uri.parse(url)
-            }
-            url.startsWith("composeResources/") || !url.contains("://") -> {
-                // It's a Compose Multiplatform asset — copy from assets to a temp file
+            url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://") || url.startsWith("/") -> url
+            else -> {
+                // Copy composeResources to temp file
                 try {
                     val ext = url.substringAfterLast('.', "mp4")
                     val tmp = File(context.cacheDir, "cmp_res_${url.hashCode()}.$ext")
@@ -56,93 +39,193 @@ actual fun VideoPlayerSurface(
                             tmp.outputStream().use { output -> input.copyTo(output) }
                         }
                     }
-                    Uri.fromFile(tmp)
+                    tmp.absolutePath
                 } catch (e: Exception) {
                     null
                 }
             }
-            else -> null
         }
     }
 
-    // If we couldn't resolve at all, call finished and show black
-    if (resolvedUri == null) {
+    if (resolvedUrl == null) {
         LaunchedEffect(Unit) { onFinished?.invoke() }
         Box(modifier = modifier.fillMaxSize().background(Color.Black))
         return
     }
 
-    val exoPlayer = remember(resolvedUri) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(resolvedUri))
-            playWhenReady = !state.pauseRequested
-            volume = if (state.config.muted) 0f else 1f
-            repeatMode = if (state.config.loop) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
-            prepare()
-
-            addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    state.isPlaying = isPlaying
+    val surfaceView = remember { 
+        SurfaceView(context).apply {
+            setOnTouchListener { _, event ->
+                val x = event.x.toInt().toString()
+                val y = event.y.toInt().toString()
+                when (event.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> MPVLib.command(arrayOf("mouse", x, y, "0", "down"))
+                    android.view.MotionEvent.ACTION_MOVE -> MPVLib.command(arrayOf("mouse", x, y))
+                    android.view.MotionEvent.ACTION_UP -> MPVLib.command(arrayOf("mouse", x, y, "0", "up"))
                 }
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    state.isBuffering = playbackState == Player.STATE_BUFFERING
-                    if (playbackState == Player.STATE_ENDED) onFinished?.invoke()
-                }
-                override fun onPlayerError(error: PlaybackException) {
-                    state.error = error.message
-                    onFinished?.invoke()
-                }
-            })
-
-            if (state.config.startPosition > 0.0) {
-                seekTo((state.config.startPosition * 1000).toLong())
+                true
             }
         }
     }
 
-    // Sync position
-    LaunchedEffect(exoPlayer) {
-        while (true) {
-            state.position = exoPlayer.currentPosition / 1000.0
-            state.duration = exoPlayer.duration.let { if (it == C.TIME_UNSET) 0.0 else it / 1000.0 }
-            kotlinx.coroutines.delay(500)
+    DisposableEffect(resolvedUrl) {
+        val configDir = context.filesDir.absolutePath
+        val subfontFile = File(configDir, "subfont.ttf")
+        if (!subfontFile.exists()) {
+            try {
+                val systemFont = File("/system/fonts/Roboto-Regular.ttf")
+                if (systemFont.exists()) {
+                    systemFont.copyTo(subfontFile)
+                } else {
+                    val fallbackFont = File("/system/fonts/DroidSans.ttf")
+                    if (fallbackFont.exists()) fallbackFont.copyTo(subfontFile)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        MPVLib.create(context)
+        MPVLib.setOptionString("config", "yes")
+        MPVLib.setOptionString("config-dir", configDir)
+        MPVLib.setOptionString("vo", "gpu")
+        MPVLib.setOptionString("hwdec", state.config.hwdec)
+        MPVLib.setOptionString("osc", "yes")
+        MPVLib.setOptionString("osd-bar", "yes")
+        MPVLib.setOptionString("input-default-bindings", "yes")
+        MPVLib.setOptionString("input-vo-keyboard", "yes")
+        
+        if (state.config.muted) {
+            MPVLib.setOptionString("mute", "yes")
+        }
+        if (state.config.loop) {
+            MPVLib.setOptionString("loop-file", "yes")
+        }
+
+        // Subtitle options
+        MPVLib.setOptionString("sub-auto", "fuzzy")
+        MPVLib.setOptionString("embeddedfonts", if (state.config.embeddedFonts) "yes" else "no")
+        state.config.fontsDir?.let {
+            MPVLib.setOptionString("sub-fonts-dir", it)
+        }
+        MPVLib.setOptionString("sub-ass", "yes")
+        MPVLib.setOptionString("sub-ass-override", "scale")
+        
+        MPVLib.init()
+
+        val observer = object : MPVLib.EventObserver {
+            override fun eventProperty(property: String) {}
+            override fun eventProperty(property: String, value: Long) {}
+            override fun eventProperty(property: String, value: Boolean) {}
+            override fun eventProperty(property: String, value: String) {}
+            
+            override fun eventProperty(property: String, value: Double) {
+                if (property == "time-pos") {
+                    state.position = value
+                } else if (property == "duration") {
+                    state.duration = value
+                }
+            }
+
+            override fun event(eventId: Int) {
+                when (eventId) {
+                    MPVLib.MPV_EVENT_FILE_LOADED -> {
+                        state.isPlaying = true
+                        
+                        // Load pending subtitles
+                        state.allSubUrls?.let { subs ->
+                            subs.forEach { (url, isDefault) ->
+                                val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                if (localPath != null) {
+                                    val flag = if (isDefault) "select" else "auto"
+                                    MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                                }
+                            }
+                            state.allSubUrls = null
+                        }
+                    }
+                    MPVLib.MPV_EVENT_END_FILE -> {
+                        state.isPlaying = false
+                        if (!state.config.loop) {
+                            onFinished?.invoke()
+                        }
+                    }
+                }
+            }
+        }
+
+        MPVLib.addObserver(observer)
+        MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
+        MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
+
+        var urlLoaded = false
+        val callback = object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                MPVLib.attachSurface(holder.surface)
+                MPVLib.setOptionString("force-window", "yes")
+                if (!urlLoaded) {
+                    urlLoaded = true
+                    MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
+                    if (state.config.startPosition > 0.0) {
+                        MPVLib.command(arrayOf<String>("seek", state.config.startPosition.toString(), "absolute"))
+                    }
+                } else {
+                    MPVLib.setPropertyString("vo", "gpu")
+                }
+            }
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
+                MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
+            }
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                MPVLib.setPropertyString("vo", "null")
+                MPVLib.setPropertyString("force-window", "no")
+                MPVLib.detachSurface()
+            }
+        }
+        
+        surfaceView.holder.addCallback(callback)
+
+        onDispose {
+            MPVLib.removeObserver(observer)
+            surfaceView.holder.removeCallback(callback)
+            MPVLib.command(arrayOf<String>("stop"))
+            MPVLib.destroy()
         }
     }
 
-    // Pause/resume
     LaunchedEffect(state.pauseRequested) {
-        if (state.pauseRequested) exoPlayer.pause() else exoPlayer.play()
+        MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
     }
 
-    // Seek
     LaunchedEffect(state.seekTarget) {
         state.seekTarget?.let {
-            exoPlayer.seekTo((it * 1000).toLong())
+            MPVLib.command(arrayOf<String>("seek", it.toString(), "absolute"))
             state.seekTarget = null
         }
     }
-
-    DisposableEffect(exoPlayer) {
-        onDispose { exoPlayer.release() }
+    
+    // Runtime sub change
+    LaunchedEffect(state.subFileUrl) {
+        state.subFileUrl?.let { sub ->
+            val localPath = withContext(Dispatchers.IO) {
+                to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(sub)
+            }
+            if (localPath != null) {
+                MPVLib.command(arrayOf<String>("sub-add", localPath, "select"))
+            }
+            state.subFileUrl = null
+        }
     }
 
     AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = state.config.showControls
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        factory = {
+            surfaceView.apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                setBackgroundColor(android.graphics.Color.BLACK)
             }
         },
-        update = { playerView ->
-            playerView.player = exoPlayer
-            playerView.useController = state.config.showControls
-        },
-        modifier = modifier
+        modifier = modifier.background(Color.Black)
     )
 }

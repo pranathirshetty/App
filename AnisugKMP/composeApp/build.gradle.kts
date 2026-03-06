@@ -52,9 +52,10 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.kotlinx.coroutines.android)
-            implementation(libs.androidx.media3.exoplayer)
-            implementation(libs.androidx.media3.exoplayer.hls)
-            implementation(libs.androidx.media3.ui)
+            
+            // Native libmpv for Android (has ASS support via libass)
+            implementation("dev.jdtech.mpv:libmpv:0.4.1")
+            implementation("net.java.dev.jna:jna:5.14.0@aar")
         }
 
         desktopMain.dependencies {
