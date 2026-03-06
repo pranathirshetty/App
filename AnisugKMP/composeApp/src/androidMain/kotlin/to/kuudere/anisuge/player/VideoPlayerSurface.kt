@@ -90,10 +90,13 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("config-dir", configDir)
         MPVLib.setOptionString("vo", "gpu")
         MPVLib.setOptionString("hwdec", state.config.hwdec)
-        MPVLib.setOptionString("osc", "yes")
-        MPVLib.setOptionString("osd-bar", "yes")
-        MPVLib.setOptionString("input-default-bindings", "yes")
-        MPVLib.setOptionString("input-vo-keyboard", "yes")
+        val showOsc = if (state.config.showControls) "yes" else "no"
+        MPVLib.setOptionString("osc", showOsc)
+        MPVLib.setOptionString("osd-bar", showOsc)
+        MPVLib.setOptionString("osd-level", if (state.config.showControls) "1" else "0")
+        MPVLib.setOptionString("keep-open", "yes") // Prevent mpv from exiting or showing the drag-and-drop logo
+        MPVLib.setOptionString("input-default-bindings", showOsc)
+        MPVLib.setOptionString("input-vo-keyboard", showOsc)
         
         if (state.config.muted) {
             MPVLib.setOptionString("mute", "yes")

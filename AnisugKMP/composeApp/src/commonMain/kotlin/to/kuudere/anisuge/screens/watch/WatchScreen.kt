@@ -58,6 +58,7 @@ fun WatchScreen(
                 if (uiState.isFullscreen) {
                     WatchVideoPlayer(
                         uiState = uiState,
+                        viewModel = viewModel,
                         modifier = Modifier.fillMaxSize(),
                         onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
                         onBack = onBack
@@ -66,6 +67,7 @@ fun WatchScreen(
                     Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
                         WatchVideoPlayer(
                             uiState = uiState,
+                            viewModel = viewModel,
                             modifier = Modifier.fillMaxWidth().aspectRatio(16f/9f),
                             onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
                             onBack = onBack
@@ -210,6 +212,7 @@ fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: S
 @Composable
 fun WatchVideoPlayer(
     uiState: WatchUiState,
+    viewModel: WatchViewModel,
     modifier: Modifier = Modifier,
     onFullscreenToggle: () -> Unit,
     onBack: () -> Unit
@@ -268,9 +271,23 @@ fun WatchVideoPlayer(
                         isFullscreen = uiState.isFullscreen,
                         onFullscreenToggle = onFullscreenToggle,
                         onBack = onBack,
+                        onSettingsClick = { viewModel.toggleSettingsOverlay() },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+            }
+            
+            if (uiState.showSettingsOverlay) {
+                val allLinks = uiState.episodeData?.episodeLinks ?: emptyList()
+                SettingsOverlay(
+                    uiState = uiState,
+                    allLinks = allLinks,
+                    onDismiss = { viewModel.toggleSettingsOverlay() },
+                    onQualitySelected = { viewModel.setQuality(it) },
+                    onSubtitleSelected = { viewModel.setSubtitle(it) },
+                    onServerSelected = { viewModel.setServer(it) },
+                    onSpeedSelected = { viewModel.setSpeed(it) }
+                )
             }
         } else {
             Box(modifier = modifier.background(Color.Black)) {

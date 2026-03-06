@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -100,16 +101,17 @@ fun PlayerControls(
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
+                        .wrapContentHeight()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)
+                                colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
                             )
                         )
                         .align(Alignment.TopCenter)
+                        .padding(bottom = 24.dp) // extra padding to make gradient smooth
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onBack) {
@@ -117,18 +119,18 @@ fun PlayerControls(
                                 Icons.Default.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                         if (title.isNotEmpty()) {
                             Text(
                                 text = title,
                                 color = Color.White,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                                modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
                             )
                         } else {
                             Spacer(Modifier.weight(1f))
@@ -138,134 +140,212 @@ fun PlayerControls(
                                 Icons.Default.Settings,
                                 contentDescription = "Settings",
                                 tint = Color.White,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                     }
                 }
 
-                // Center play/pause button
+                // Center playback controls (rewind, play, forward)
                 Box(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     if (playerState.isBuffering) {
                         CircularProgressIndicator(
-                            color = Color.White,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(48.dp)
+                            color = Color.Red,
+                            strokeWidth = 4.dp,
+                            modifier = Modifier.size(56.dp)
                         )
                     } else {
-                        IconButton(
-                            onClick = {
-                                playerState.pauseRequested = !playerState.pauseRequested
-                                scheduleHide()
-                            },
-                            modifier = Modifier
-                                .size(64.dp)
-                                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                if (playerState.pauseRequested || !playerState.isPlaying)
-                                    Icons.Default.PlayArrow
-                                else
-                                    Icons.Default.Pause,
-                                contentDescription = "Play/Pause",
-                                tint = Color.White,
-                                modifier = Modifier.size(36.dp)
-                            )
+                            // Rewind 10s
+                            IconButton(
+                                onClick = {
+                                    val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
+                                    playerState.seekTarget = newPos
+                                    scheduleHide()
+                                },
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.Default.Replay10,
+                                    contentDescription = "Rewind 10s",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(32.dp))
+                            // Play/Pause
+                            IconButton(
+                                onClick = {
+                                    playerState.pauseRequested = !playerState.pauseRequested
+                                    scheduleHide()
+                                },
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                            ) {
+                                Icon(
+                                    if (playerState.pauseRequested || !playerState.isPlaying)
+                                        Icons.Default.PlayArrow
+                                    else
+                                        Icons.Default.Pause,
+                                    contentDescription = "Play/Pause",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(44.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(32.dp))
+                            // Forward 10s
+                            IconButton(
+                                onClick = {
+                                    val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
+                                    playerState.seekTarget = newPos
+                                    scheduleHide()
+                                },
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.Default.Forward10,
+                                    contentDescription = "Forward 10s",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
                         }
                     }
                 }
 
-                // Bottom gradient + seek bar + controls
-                Column(
+                // Bottom gradient + unified seek bar row
+                Box(
                     Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                             )
                         )
-                        .padding(bottom = 8.dp)
+                        .padding(top = 32.dp, bottom = 12.dp, start = 16.dp, end = 16.dp)
                 ) {
-                    // Seekbar
                     val duration = playerState.duration
                     val position = if (isSeeking) seekValue.toDouble() else playerState.position
                     val progress = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
 
-                    Slider(
-                        value = progress,
-                        onValueChange = { value ->
-                            isSeeking = true
-                            seekValue = (value * duration).toFloat()
-                            hideJob?.cancel()
-                        },
-                        onValueChangeFinished = {
-                            playerState.seekTarget = seekValue.toDouble()
-                            isSeeking = false
-                            scheduleHide()
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = Color.Red,
-                            activeTrackColor = Color.Red,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .height(24.dp)
-                    )
-
-                    // Time + controls row
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Time display
+                        // Current Position
                         Text(
-                            text = "${formatDuration(position)} / ${formatDuration(duration)}",
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 12.sp,
+                            text = formatDuration(position),
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        Spacer(Modifier.width(12.dp))
+
+                        // Custom Premium Thin Slider
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(24.dp)
+                                .pointerInput(duration) {
+                                    detectTapGestures(
+                                        onPress = { offset ->
+                                            if (duration <= 0) return@detectTapGestures
+                                            isSeeking = true
+                                            hideJob?.cancel()
+                                            seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                            
+                                            val released = tryAwaitRelease()
+                                            
+                                            if (released) {
+                                                playerState.seekTarget = seekValue.toDouble()
+                                                isSeeking = false
+                                                scheduleHide()
+                                            }
+                                        }
+                                    )
+                                }
+                                .pointerInput(duration) {
+                                    detectDragGestures(
+                                        onDragStart = { offset ->
+                                            if (duration <= 0) return@detectDragGestures
+                                            isSeeking = true
+                                            hideJob?.cancel()
+                                            seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                        },
+                                        onDrag = { change, _ ->
+                                            if (duration <= 0) return@detectDragGestures
+                                            seekValue = ((change.position.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                        },
+                                        onDragEnd = {
+                                            if (duration > 0) {
+                                                playerState.seekTarget = seekValue.toDouble()
+                                                isSeeking = false
+                                                scheduleHide()
+                                            }
+                                        },
+                                        onDragCancel = {
+                                            isSeeking = false
+                                            scheduleHide()
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            // Track
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            )
+                            // Active Track
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(fraction = progress)
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp))
+                                    .background(Color.Red)
+                            )
+                            // Thumb
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(fraction = progress)
+                                    .wrapContentWidth(Alignment.End)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Red)
+                                    )
+                            }
+                        }
+
+                        Spacer(Modifier.width(12.dp))
+
+                        // Duration
+                        Text(
+                            text = formatDuration(duration),
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
 
-                        Spacer(Modifier.weight(1f))
-
-                        // Rewind 10s
-                        IconButton(
-                            onClick = {
-                                val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
-                                playerState.seekTarget = newPos
-                                scheduleHide()
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Replay10,
-                                contentDescription = "Rewind 10s",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // Forward 10s
-                        IconButton(
-                            onClick = {
-                                val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
-                                playerState.seekTarget = newPos
-                                scheduleHide()
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Forward10,
-                                contentDescription = "Forward 10s",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        Spacer(Modifier.width(12.dp))
 
                         // Fullscreen toggle
                         IconButton(
@@ -279,7 +359,7 @@ fun PlayerControls(
                                 if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                                 contentDescription = "Fullscreen",
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
