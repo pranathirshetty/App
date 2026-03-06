@@ -285,10 +285,10 @@ fun WatchVideoPlayer(
             }
             
             if (uiState.showSettingsOverlay) {
-                val allLinks = uiState.episodeData?.episodeLinks ?: emptyList()
+                val servers = listOf("hiya", "hiya-dub", "zen", "zen2", "pahe", "allmanga", "allmanga-dub")
                 SettingsOverlay(
                     uiState = uiState,
-                    allLinks = allLinks,
+                    servers = servers,
                     onDismiss = { viewModel.toggleSettingsOverlay() },
                     onQualitySelected = { viewModel.setQuality(it) },
                     onSubtitleSelected = { viewModel.setSubtitle(it) },

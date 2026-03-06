@@ -65,12 +65,7 @@ class WatchViewModel(
                     fetchThumbnails(anilistId)
                 }
 
-                // Select server — prefer sub type, zen with subs, then anything
-                val allLinks = data.episodeLinks ?: emptyList()
-                println("[WatchVM] Available servers: ${allLinks.map { "${it.serverName}(${it.dataType})" }}")
-                val serverName = allLinks.firstOrNull { it.dataType == "sub" }?.serverName
-                    ?: allLinks.firstOrNull()?.serverName
-                    ?: "zen"
+                val serverName = "zen"
                 println("[WatchVM] Selected server: $serverName")
 
                 loadVideoStream(serverName)

@@ -21,7 +21,7 @@ import to.kuudere.anisuge.data.models.EpisodeLink
 @Composable
 fun SettingsOverlay(
     uiState: WatchUiState,
-    allLinks: List<EpisodeLink>,
+    servers: List<String>,
     onDismiss: () -> Unit,
     onQualitySelected: (String) -> Unit,
     onSubtitleSelected: (String?) -> Unit,
@@ -56,21 +56,21 @@ fun SettingsOverlay(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 LazyColumn {
-                if (allLinks.isNotEmpty()) {
+                if (servers.isNotEmpty()) {
                     item {
                         Text("Server", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
                     }
-                    items(allLinks) { link ->
-                        val isSelected = link.serverName == uiState.currentServer
+                    items(servers) { serverName ->
+                        val isSelected = serverName == uiState.currentServer
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onServerSelected(link.serverName ?: "zen") }
+                                .clickable { onServerSelected(serverName) }
                                 .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "${link.serverName} (${link.dataType})",
+                                serverName,
                                 color = if (isSelected) Color.Red else Color.White,
                                 modifier = Modifier.weight(1f)
                             )
