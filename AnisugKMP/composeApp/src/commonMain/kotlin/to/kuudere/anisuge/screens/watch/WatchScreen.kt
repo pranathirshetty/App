@@ -278,6 +278,7 @@ fun WatchVideoPlayer(
                         isFullscreen = uiState.isFullscreen,
                         onFullscreenToggle = onFullscreenToggle,
                         onBack = onBack,
+                        onCaptionsClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.SUBTITLES) },
                         onSettingsClick = { viewModel.toggleSettingsOverlay() },
                         modifier = Modifier.fillMaxSize()
                     )

@@ -44,7 +44,7 @@ fun SettingsOverlay(
     selectedAudioTrack: Int? = null,
     onAudioTrackSelected: (Int) -> Unit = {}
 ) {
-    var currentPage by remember { mutableStateOf(SettingsMenuPage.MAIN) }
+    var currentPage by remember { mutableStateOf(uiState.initialSettingsPage ?: SettingsMenuPage.MAIN) }
 
     Box(
         modifier = Modifier

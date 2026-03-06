@@ -13,6 +13,8 @@ import to.kuudere.anisuge.data.services.InfoService
 import to.kuudere.anisuge.player.VideoPlayerConfig
 import to.kuudere.anisuge.player.VideoPlayerState
 
+import to.kuudere.anisuge.screens.watch.SettingsMenuPage
+
 data class WatchUiState(
     val isLoading: Boolean = true,
     val isLoadingVideo: Boolean = false,
@@ -29,6 +31,7 @@ data class WatchUiState(
     val playbackSpeed: Double = 1.0,
     val savedWatchPosition: Double = 0.0,
     val showSettingsOverlay: Boolean = false,
+    val initialSettingsPage: SettingsMenuPage? = SettingsMenuPage.MAIN,
     val activeSidePanel: String? = null, // "episodes" or "comments"
     val isFullscreen: Boolean = false
 )
@@ -162,8 +165,13 @@ class WatchViewModel(
         loadVideoStream(server)
     }
 
-    fun toggleSettingsOverlay() {
-        _uiState.update { it.copy(showSettingsOverlay = !it.showSettingsOverlay) }
+    fun toggleSettingsOverlay(page: SettingsMenuPage? = null) {
+        _uiState.update { 
+            it.copy(
+                showSettingsOverlay = !it.showSettingsOverlay,
+                initialSettingsPage = page ?: SettingsMenuPage.MAIN
+            ) 
+        }
     }
 
     fun toggleSidePanel(panel: String?) {
