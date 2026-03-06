@@ -17,6 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,7 +88,7 @@ fun SettingsOverlay(
                             // Quality
                             if (uiState.availableQualities.isNotEmpty()) {
                                 SettingsMenuItem(
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White) }, // Icon
+                                    icon = { Icon(getSignalIcon(), contentDescription = null, tint = Color.White) }, // Icon
                                     title = "Quality",
                                     subtitle = uiState.currentQuality,
                                     onClick = { currentPage = SettingsMenuPage.QUALITY }
@@ -92,7 +97,7 @@ fun SettingsOverlay(
 
                             // Playback Speed
                             SettingsMenuItem(
-                                icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White) },
+                                icon = { Icon(getGaugeIcon(), contentDescription = null, tint = Color.White) },
                                 title = "Playback speed",
                                 subtitle = if (uiState.playbackSpeed == 1.0) "Normal" else "${uiState.playbackSpeed}x",
                                 onClick = { currentPage = SettingsMenuPage.SPEED }
@@ -102,7 +107,7 @@ fun SettingsOverlay(
                             if (uiState.availableSubtitles.isNotEmpty()) {
                                 val currentLabel = uiState.availableSubtitles.firstOrNull { it.second == uiState.currentSubtitleUrl }?.first ?: "Off"
                                 SettingsMenuItem(
-                                    icon = { Icon(Icons.Default.List, contentDescription = null, tint = Color.White) },
+                                    icon = { Icon(getClosedCaptionIcon(), contentDescription = null, tint = Color.White) },
                                     title = "Captions",
                                     subtitle = currentLabel,
                                     onClick = { currentPage = SettingsMenuPage.SUBTITLES }
@@ -113,7 +118,7 @@ fun SettingsOverlay(
                             if (audioTracks.isNotEmpty()) {
                                 val currentLabel = audioTracks.firstOrNull { it.first == selectedAudioTrack }?.second ?: "Default"
                                 SettingsMenuItem(
-                                    icon = { Icon(Icons.Default.Check, contentDescription = null, tint = Color.White) },
+                                    icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
                                     title = "Audio Track",
                                     subtitle = currentLabel,
                                     onClick = { currentPage = SettingsMenuPage.AUDIO }
@@ -121,7 +126,7 @@ fun SettingsOverlay(
                             } else {
                                 // Fallback cycle
                                 SettingsMenuItem(
-                                    icon = { Icon(Icons.Default.Check, contentDescription = null, tint = Color.White) },
+                                    icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
                                     title = "Audio Track",
                                     subtitle = "Cycle",
                                     onClick = { onCycleAudio(); onDismiss() }
@@ -131,7 +136,7 @@ fun SettingsOverlay(
                             // Server
                             if (servers.isNotEmpty()) {
                                 SettingsMenuItem(
-                                    icon = { Icon(Icons.Default.Share, contentDescription = null, tint = Color.White) },
+                                    icon = { Icon(getServerIcon(), contentDescription = null, tint = Color.White) },
                                     title = "Server",
                                     subtitle = uiState.currentServer,
                                     onClick = { currentPage = SettingsMenuPage.SERVER }
@@ -285,4 +290,148 @@ private fun SubMenuItem(
         }
         Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1)
     }
+}
+
+private fun getLanguagesIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "Languages",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(5f, 8f); lineToRelative(6f, 6f)
+            moveTo(4f, 14f); lineToRelative(6f, -6f); lineToRelative(2f, -3f)
+            moveTo(2f, 5f); horizontalLineToRelative(12f)
+            moveTo(7f, 2f); horizontalLineToRelative(1f)
+            moveTo(22f, 22f); lineToRelative(-5f, -10f); lineToRelative(-5f, 10f)
+            moveTo(14f, 18f); horizontalLineToRelative(6f)
+        }
+    }.build()
+}
+
+private fun getClosedCaptionIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "ClosedCaption",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(10f, 9.17f)
+            arcToRelative(3f, 3f, 0f, isMoreThanHalf = true, isPositiveArc = false, 0f, 5.66f)
+            moveTo(17f, 9.17f)
+            arcToRelative(3f, 3f, 0f, isMoreThanHalf = true, isPositiveArc = false, 0f, 5.66f)
+            
+            moveTo(4f, 5f)
+            horizontalLineToRelative(16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, 2f)
+            verticalLineToRelative(10f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, 2f)
+            horizontalLineToRelative(-16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, -2f)
+            verticalLineToRelative(-10f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, -2f)
+            close()
+        }
+    }.build()
+}
+
+private fun getGaugeIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "Gauge",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(12f, 14f)
+            lineToRelative(4f, -4f)
+            moveTo(3.34f, 19f)
+            arcToRelative(10f, 10f, 0f, isMoreThanHalf = true, isPositiveArc = true, 17.32f, 0f)
+        }
+    }.build()
+}
+
+private fun getSignalIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "Signal",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(2f, 20f); horizontalLineToRelative(0.01f)
+            moveTo(7f, 20f); verticalLineToRelative(-4f)
+            moveTo(12f, 20f); verticalLineToRelative(-8f)
+            moveTo(17f, 20f); verticalLineTo(8f)
+            moveTo(22f, 4f); verticalLineToRelative(16f)
+        }
+    }.build()
+}
+
+private fun getServerIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "Server",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(4f, 2f)
+            horizontalLineToRelative(16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, 2f)
+            verticalLineToRelative(4f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, 2f)
+            horizontalLineToRelative(-16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, -2f)
+            verticalLineToRelative(-4f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, -2f)
+            close()
+            
+            moveTo(4f, 14f)
+            horizontalLineToRelative(16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, 2f)
+            verticalLineToRelative(4f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, 2f)
+            horizontalLineToRelative(-16f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, -2f, -2f)
+            verticalLineToRelative(-4f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, -2f)
+            close()
+            
+            moveTo(6f, 6f); lineToRelative(0.01f, 0f)
+            moveTo(6f, 18f); lineToRelative(0.01f, 0f)
+        }
+    }.build()
 }
