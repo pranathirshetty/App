@@ -187,7 +187,7 @@ class WatchViewModel(
         fetchEpisodeData(episodeNumber)
     }
 
-    fun saveProgress(currentTime: Double, duration: Double) {
+    fun saveProgress(currentTime: Double, duration: Double, language: String = "sub") {
         val currState = _uiState.value
         val episodeId = currState.episodeData?.episodeId ?: return
         val server = currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
@@ -200,7 +200,8 @@ class WatchViewModel(
                 episodeId = episodeId,
                 currentTime = currentTime,
                 duration = duration,
-                server = server
+                server = server,
+                language = language
             )
         }
     }

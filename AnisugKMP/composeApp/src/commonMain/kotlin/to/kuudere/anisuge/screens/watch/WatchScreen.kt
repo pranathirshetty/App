@@ -250,11 +250,13 @@ fun WatchVideoPlayer(
                 playerState.subFileUrl = uiState.currentSubtitleUrl ?: "NONE"
             }
 
-            LaunchedEffect(playerState.isPlaying) {
-                while (playerState.isPlaying) {
+            LaunchedEffect(playerState.isPlaying, playerState.isPaused) {
+                while (playerState.isPlaying && !playerState.isPaused) {
                     kotlinx.coroutines.delay(5000)
                     if (playerState.duration > 0) {
-                        viewModel.saveProgress(playerState.position, playerState.duration)
+                        val currentAudioLabel = playerState.audioTracks.firstOrNull { it.first == playerState.selectedAudioTrack }?.second?.lowercase() ?: ""
+                        val trackLang = if (currentAudioLabel.contains("eng")) "dub" else "sub"
+                        viewModel.saveProgress(playerState.position, playerState.duration, language = trackLang)
                     }
                 }
             }
