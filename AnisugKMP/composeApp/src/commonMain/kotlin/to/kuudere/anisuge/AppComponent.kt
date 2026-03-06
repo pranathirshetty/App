@@ -45,4 +45,8 @@ object AppComponent {
     val searchService: SearchService by lazy {
         SearchService(sessionStore, httpClient)
     }
+
+    val infoService: to.kuudere.anisuge.data.services.InfoService by lazy {
+        to.kuudere.anisuge.data.services.InfoService(sessionStore, httpClient)
+    }
 }

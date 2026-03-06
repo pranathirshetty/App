@@ -22,7 +22,11 @@ import to.kuudere.anisuge.screens.home.HomeScreen
 import to.kuudere.anisuge.screens.home.HomeViewModel
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
+import to.kuudere.anisuge.screens.search.KUUDERE_GENRES
+import to.kuudere.anisuge.screens.info.AnimeInfoScreen
+import to.kuudere.anisuge.screens.info.AnimeInfoViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
+import androidx.navigation.NamedNavArgument
 
 @Composable
 fun App(onAppExit: () -> Unit = {}) {
@@ -32,6 +36,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
         val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService) }
         val searchVm = remember { SearchViewModel(AppComponent.searchService) }
+        val infoVm   = remember { AnimeInfoViewModel(AppComponent.infoService) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -73,9 +78,33 @@ fun App(onAppExit: () -> Unit = {}) {
                     HomeScreen(
                         homeViewModel = homeVm,
                         searchViewModel = searchVm,
-                        onAnimeClick = { _ -> /* TODO: navigate to anime info */ },
+                        onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { _, _, _ -> /* TODO: navigate to watch */ },
                         onExit       = onAppExit,
+                    )
+                }
+
+                composable(Screen.Search.route) {
+                    SearchScreen(
+                        viewModel = searchVm,
+                        onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Screen.Info.route) { backStackEntry ->
+                    val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
+                    AnimeInfoScreen(
+                        animeId = animeId,
+                        viewModel = infoVm,
+                        onBack = { navController.popBackStack() },
+                        onWatchEpisode = { id, lang, ep -> /* TODO: navigate to watch */ },
+                        onGenreClick = { genre ->
+                            searchVm.clearFilters()
+                            searchVm.onGenreToggle(genre)
+                            searchVm.search()
+                            navController.navigate(Screen.Search.route)
+                        }
                     )
                 }
             }

@@ -47,7 +47,8 @@ import to.kuudere.anisuge.data.models.AnimeItem
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
-    onAnimeClick: (String) -> Unit
+    onAnimeClick: (String) -> Unit,
+    onBack: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val scrollState = rememberLazyGridState()
@@ -133,7 +134,7 @@ private fun FilterSection(state: SearchUiState, viewModel: SearchViewModel) {
 }
 
 // ─── Shared filter data (1:1 with Kuudere API) ──────────────────────────────
-private val KUUDERE_GENRES = listOf(
+val KUUDERE_GENRES = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
     "Mystery", "Romance", "Sci-Fi", "Slice of Life", "Sports",
     "Supernatural", "Thriller", "Ecchi", "Harem", "Isekai", "Mecha",

@@ -251,7 +251,7 @@ private fun HomeContent(
             AnimeSection(
                 title = "Latest Episodes",
                 items = state.latestEpisodes,
-                onItemClick = { item -> onWatchClick(item.id, "sub", item.epCount ?: 1) },
+                onItemClick = { item -> onAnimeClick(item.id) },
             )
         }
 
