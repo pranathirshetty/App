@@ -140,6 +140,22 @@ internal class MpvPlayer(
     private fun startEventLoop() {
         val handle = ctx ?: return
         val mpv = lib ?: return
+
+        // Dedicated position polling loop since MPV_EVENT_TICK can be unreliable
+        scope.launch {
+            while (isActive && ctx != null) {
+                if (state.isPlaying && !state.isBuffering) {
+                    val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
+                    if (posPtr != null) {
+                        val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
+                        mpv.mpv_free(posPtr)
+                        withContext(Dispatchers.Main) { state.position = pos }
+                    }
+                }
+                kotlinx.coroutines.delay(250)
+            }
+        }
+
         scope.launch {
             var lastSentPause = false
             var pendingSub: String? = null
@@ -318,7 +334,7 @@ internal class MpvPlayer(
         val rc = renderCtx?.value ?: return null
         val mpv = lib ?: return null
 
-        val stride = width * 4L  // 4 bytes per pixel for "rgb0"
+        val stride = width * 4L  // 4 bytes per pixel for "bgra"
         val buffer = com.sun.jna.Memory(stride * height)
 
         val sizeMem = com.sun.jna.Memory(8)
@@ -329,7 +345,7 @@ internal class MpvPlayer(
         strideMem.setLong(0, stride)
 
         val fmtMem = com.sun.jna.Memory(5)
-        fmtMem.setString(0, "rgb0")
+        fmtMem.setString(0, "bgra")
 
         val params = mpv_render_param().toArray(6) as Array<mpv_render_param>
         params[0].type = 17; params[0].data = sizeMem
