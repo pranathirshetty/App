@@ -242,7 +242,7 @@ internal class MpvPlayer(
                             val subsToLoad = pendingAllSubs ?: state.allSubUrls
                             if (!subsToLoad.isNullOrEmpty()) {
                                 println("[MpvPlayer] FILE_LOADED: loading ${subsToLoad.size} subtitle(s)")
-                                withContext(Dispatchers.IO) {
+                                launch(Dispatchers.IO) {
                                     subsToLoad.forEach { (url, isDefault) ->
                                         val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                         if (localPath != null) {
@@ -261,7 +261,7 @@ internal class MpvPlayer(
                                 if (singleSub == "NONE") {
                                     mpv.mpv_set_option_string(handle, "sid", "no")
                                 } else {
-                                    withContext(Dispatchers.IO) { setSubFile(singleSub) }
+                                    launch(Dispatchers.IO) { setSubFile(singleSub) }
                                 }
                                 pendingSub = null
                             }
@@ -299,7 +299,7 @@ internal class MpvPlayer(
                         if (sub == "NONE") {
                             mpv.mpv_set_option_string(handle, "sid", "no")
                         } else {
-                            withContext(Dispatchers.IO) { setSubFile(sub) }
+                            launch(Dispatchers.IO) { setSubFile(sub) }
                         }
                         withContext(Dispatchers.Main) { state.subFileUrl = null }
                     } else {
@@ -322,7 +322,7 @@ internal class MpvPlayer(
                 state.allSubUrls?.let { subs ->
                     if (state.isPlaying) {
                         println("[MpvPlayer] Runtime: loading ${subs.size} subtitle(s)")
-                        withContext(Dispatchers.IO) {
+                        launch(Dispatchers.IO) {
                             subs.forEach { (url, isDefault) ->
                                 val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                 if (localPath != null) {

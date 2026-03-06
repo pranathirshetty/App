@@ -55,8 +55,8 @@ fun SettingsOverlay(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(if (uiState.isFullscreen) 0.45f else 0.95f)
                 .widthIn(max = 400.dp, min = 300.dp)
+                .fillMaxWidth(if (uiState.isFullscreen) 0.45f else 0.95f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color.Black.copy(alpha = 0.8f))
                 .clickable(enabled = false, onClick = {}) // block touch propagation
