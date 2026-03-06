@@ -372,7 +372,7 @@ fun PlayerControls(
                                             hideJob?.cancel()
                                             seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
                                         },
-                                        onDrag = { change, dragAmount ->
+                                        onDrag = { change, _ ->
                                             if (duration <= 0) return@detectDragGestures
                                             val dx = change.position.x
                                             seekValue = ((dx / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
