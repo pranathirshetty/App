@@ -21,7 +21,7 @@ data class WatchUiState(
     val episodeData: EpisodeDataResponse? = null,
     val thumbnails: Map<String, String> = emptyMap(),
     val currentEpisodeNumber: Int = 1,
-    val currentServer: String = "zen",
+    val currentServer: String = "zen2",
     val streamingData: StreamingData? = null,
     val availableQualities: List<Pair<String, String>> = emptyList(), // Pair(Quality, URL)
     val currentQuality: String = "Auto",
@@ -68,7 +68,7 @@ class WatchViewModel(
                     fetchThumbnails(anilistId)
                 }
 
-                val serverName = "zen"
+                val serverName = "zen2"
                 println("[WatchVM] Selected server: $serverName")
 
                 loadVideoStream(serverName)
