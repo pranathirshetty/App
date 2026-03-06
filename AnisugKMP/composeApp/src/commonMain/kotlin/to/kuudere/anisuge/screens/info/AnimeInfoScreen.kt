@@ -139,16 +139,18 @@ private fun MobileLayout(
         Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
             Column(Modifier.fillMaxWidth()) {
                 Box {
-                    // Blur Background
+                    // Blur Background — use cover as fallback with stronger blur
+                    val hasBanner = !anime.banner.isNullOrEmpty()
+                    val bgImage = if (hasBanner) anime.banner else anime.cover
                     AsyncImage(
-                        model = anime.banner.ifEmpty { anime.cover },
+                        model = bgImage,
                         contentDescription = "Background",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(250.dp)
-                            .blur(24.dp)
-                            .alpha(0.6f)
+                            .blur(if (hasBanner) 20.dp else 40.dp)
+                            .alpha(if (hasBanner) 0.6f else 0.8f)
                     )
                     // Background Gradient
                     Box(
@@ -157,8 +159,8 @@ private fun MobileLayout(
                             .height(250.dp)
                             .background(
                                 Brush.verticalGradient(
-                                    0.0f to Color.Black.copy(alpha = 0.1f),
-                                    0.5f to Color.Black.copy(alpha = 0.5f),
+                                    0.0f to Color.Black.copy(alpha = 0.2f),
+                                    0.5f to Color.Black.copy(alpha = 0.6f),
                                     1.0f to Color.Black
                                 )
                             )
@@ -261,7 +263,7 @@ private fun MobileLayout(
                  Text("Storyline", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Normal)
                  Spacer(Modifier.height(12.dp))
                  Text(
-                     text = stripHtmlTags(anime.description),
+                     text = stripHtmlTags(anime.description ?: ""),
                      color = Color.Gray,
                      fontSize = 14.sp,
                      lineHeight = 22.sp,
@@ -359,7 +361,7 @@ private fun DesktopLayout(
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         Box(Modifier.fillMaxWidth().height(500.dp)) {
             AsyncImage(
-                model = anime.banner.ifEmpty { anime.cover },
+                model = anime.banner?.ifEmpty { anime.cover },
                 contentDescription = "Banner",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -401,18 +403,18 @@ private fun DesktopLayout(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.RemoveRedEye, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(anime.views, color = Color.Gray, fontSize = 14.sp)
+                            Text(anime.views ?: "0", color = Color.Gray, fontSize = 14.sp)
                             Spacer(Modifier.width(16.dp))
                             Icon(Icons.Default.Favorite, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(anime.likes, color = Color.Gray, fontSize = 14.sp)
+                            Text(anime.likes ?: "0", color = Color.Gray, fontSize = 14.sp)
                             Spacer(Modifier.width(16.dp))
                             Box(
                                 Modifier
                                     .background(Color.Green.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             ) {
-                                Text(anime.status, color = Color.Green, fontSize = 12.sp)
+                                Text(anime.status ?: "Unknown", color = Color.Green, fontSize = 12.sp)
                             }
                         }
                         Spacer(Modifier.height(24.dp))
@@ -436,7 +438,7 @@ private fun DesktopLayout(
                         }
                         Spacer(Modifier.height(24.dp))
                         Text(
-                            text = stripHtmlTags(anime.description),
+                            text = stripHtmlTags(anime.description ?: ""),
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 14.sp,
                             lineHeight = 21.sp
@@ -484,7 +486,7 @@ private fun DesktopLayout(
                 }
             }
         }
-        Spacer(Modifier.height(140.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 

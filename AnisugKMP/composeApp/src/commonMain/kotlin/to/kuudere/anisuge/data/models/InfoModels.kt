@@ -7,33 +7,37 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class AnimeDetails(
     val id: String = "",
-    val english: String = "Unknown",
-    val romaji: String = "Unknown",
-    val native: String = "Unknown",
-    val ageRating: String = "Unknown",
+    val english: String? = null,
+    val romaji: String? = null,
+    val native: String? = null,
+    val ageRating: String? = null,
     val malScore: Double? = null,
-    val averageScore: Int = 0,
-    val duration: Int = 0,
+    val averageScore: Int? = 0,
+    val duration: Int? = 0,
     val genres: List<String>? = emptyList(),
-    val cover: String = "",
-    val banner: String = "",
-    val season: String = "Unknown",
-    val startDate: String = "Unknown",
-    val status: String = "Unknown",
+    val cover: String? = "",
+    val banner: String? = "",
+    val season: String? = null,
+    val startDate: String? = null,
+    val status: String? = null,
     val synonyms: List<String>? = emptyList(),
     val studios: List<String>? = emptyList(),
-    val type: String = "Unknown",
-    val year: Int = 0,
-    val epCount: Int = 0,
-    val subbedCount: Int = 0,
-    val dubbedCount: Int = 0,
-    val description: String = "No description available.",
+    val type: String? = null,
+    val year: Int? = 0,
+    val epCount: Int? = 0,
+    val subbedCount: Int? = 0,
+    val dubbedCount: Int? = 0,
+    val description: String? = null,
     @SerialName("in_watchlist") val inWatchlist: Boolean = false,
-    val views: String = "0",
-    val likes: String = "0",
+    val views: String? = "0",
+    val likes: String? = "0",
     val folder: String? = null,
 ) {
-    val title: String get() = if (english != "Unknown" && english.isNotBlank()) english else romaji
+    val title: String get() {
+        val eng = english?.takeIf { it.isNotBlank() }
+        val rom = romaji?.takeIf { it.isNotBlank() }
+        return eng ?: rom ?: "Unknown"
+    }
 }
 
 @Serializable
