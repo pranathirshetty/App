@@ -111,12 +111,15 @@ fun PlayerControls(
                         .padding(bottom = 24.dp) // extra padding to make gradient smooth
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                Icons.Default.ArrowBack, // reverted
                                 contentDescription = "Back",
                                 tint = Color.White,
                                 modifier = Modifier.size(28.dp)
@@ -151,7 +154,8 @@ fun PlayerControls(
                     Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (playerState.isBuffering) {
+                    val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+                    if (isLoading) {
                         CircularProgressIndicator(
                             color = Color.Red,
                             strokeWidth = 4.dp,
@@ -234,14 +238,16 @@ fun PlayerControls(
                                 colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
                             )
                         )
-                        .padding(top = 32.dp, bottom = 12.dp, start = 16.dp, end = 16.dp)
                 ) {
                     val duration = playerState.duration
                     val position = if (isSeeking) seekValue.toDouble() else playerState.position
                     val progress = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
 
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .padding(top = 32.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Current Position

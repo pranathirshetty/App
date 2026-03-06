@@ -120,8 +120,13 @@ actual fun VideoPlayerSurface(
         val observer = object : MPVLib.EventObserver {
             override fun eventProperty(property: String) {}
             override fun eventProperty(property: String, value: Long) {}
-            override fun eventProperty(property: String, value: Boolean) {}
             override fun eventProperty(property: String, value: String) {}
+            
+            override fun eventProperty(property: String, value: Boolean) {
+                if (property == "paused-for-cache") {
+                    state.isBuffering = value
+                }
+            }
             
             override fun eventProperty(property: String, value: Double) {
                 if (property == "time-pos") {
@@ -182,6 +187,7 @@ actual fun VideoPlayerSurface(
         MPVLib.addObserver(observer)
         MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
         MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
+        MPVLib.observeProperty("paused-for-cache", MPVLib.MPV_FORMAT_FLAG)
 
         var urlLoaded = false
         val callback = object : SurfaceHolder.Callback {
