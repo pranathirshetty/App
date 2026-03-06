@@ -154,11 +154,16 @@ internal class MpvPlayer(
                     }
 
                     val bufPtr = mpv.mpv_get_property_string(handle, "paused-for-cache")
-                    if (bufPtr != null) {
-                        val isBuf = bufPtr.getString(0) == "yes"
-                        mpv.mpv_free(bufPtr)
-                        withContext(Dispatchers.Main) { state.isBuffering = isBuf }
-                    }
+                    // "seeking" is true when mpv is actively jumping on the timeline
+                    val seekPtr = mpv.mpv_get_property_string(handle, "seeking")
+
+                    var isBuf = false
+                    if (bufPtr != null) { isBuf = isBuf || bufPtr.getString(0) == "yes"; mpv.mpv_free(bufPtr) }
+                    if (seekPtr != null) { isBuf = isBuf || seekPtr.getString(0) == "yes"; mpv.mpv_free(seekPtr) }
+
+                    // Only show buffering if we are NOT intentionally paused, OR if we are seeking
+                    // Actually, if we are paused, paused-for-cache might still be true if it was buffering when paused
+                    withContext(Dispatchers.Main) { state.isBuffering = isBuf }
 
                     val pausePtr = mpv.mpv_get_property_string(handle, "pause")
                     if (pausePtr != null) {
@@ -167,7 +172,7 @@ internal class MpvPlayer(
                         withContext(Dispatchers.Main) { state.isPaused = isPaused }
                     }
                 }
-                kotlinx.coroutines.delay(250)
+                kotlinx.coroutines.delay(50)
             }
         }
 
@@ -176,105 +181,108 @@ internal class MpvPlayer(
             var pendingSub: String? = null
             var pendingAllSubs: List<Pair<String, Boolean>>? = null
             while (isActive && ctx != null) {
-                val event = mpv.mpv_wait_event(handle, 0.5) ?: continue
-                when (event.mpvEventId()) {
-                    LibMpv.MPV_EVENT_END_FILE  -> {
-                        withContext(Dispatchers.Main) { state.isPlaying = false }
-                        if (!config.loop) onFinished?.invoke()
-                    }
-                    LibMpv.MPV_EVENT_FILE_LOADED -> {
-                        withContext(Dispatchers.Main) {
-                            state.isPlaying = true
-                            state.isBuffering = false
-                            val durPtr = mpv.mpv_get_property_string(handle, "duration")
-                            if (durPtr != null) {
-                                state.duration = durPtr.getString(0).toDoubleOrNull() ?: 0.0
-                                mpv.mpv_free(durPtr)
-                            }
+                val event = mpv.mpv_wait_event(handle, 0.05)
+                if (event != null) {
+                    when (event.mpvEventId()) {
+                        LibMpv.MPV_EVENT_END_FILE  -> {
+                            withContext(Dispatchers.Main) { state.isPlaying = false }
+                            if (!config.loop) onFinished?.invoke()
                         }
+                        LibMpv.MPV_EVENT_FILE_LOADED -> {
+                            withContext(Dispatchers.Main) {
+                                state.isPlaying = true
+                                state.isBuffering = false
+                                val durPtr = mpv.mpv_get_property_string(handle, "duration")
+                                if (durPtr != null) {
+                                    state.duration = durPtr.getString(0).toDoubleOrNull() ?: 0.0
+                                    mpv.mpv_free(durPtr)
+                                }
+                            }
 
-                        // Extract Audio Tracks
-                        try {
-                            val countPtr = mpv.mpv_get_property_string(handle, "track-list/count")
-                            if (countPtr != null) {
-                                val count = countPtr.getString(0).toIntOrNull() ?: 0
-                                mpv.mpv_free(countPtr)
-                                val tracks = mutableListOf<Pair<Int, String>>()
-                                for (i in 0 until count) {
-                                    val typePtr = mpv.mpv_get_property_string(handle, "track-list/$i/type")
-                                    if (typePtr != null) {
-                                        val type = typePtr.getString(0)
-                                        mpv.mpv_free(typePtr)
-                                        if (type == "audio") {
-                                            val idPtr = mpv.mpv_get_property_string(handle, "track-list/$i/id")
-                                            if (idPtr != null) {
-                                                val id = idPtr.getString(0).toIntOrNull() ?: -1
-                                                mpv.mpv_free(idPtr)
-                                                if (id != -1) {
-                                                    val langPtr = mpv.mpv_get_property_string(handle, "track-list/$i/lang")
-                                                    val lang = langPtr?.getString(0) ?: "Audio $id"
-                                                    if (langPtr != null) mpv.mpv_free(langPtr)
-                                                    
-                                                    val titlePtr = mpv.mpv_get_property_string(handle, "track-list/$i/title")
-                                                    val title = titlePtr?.getString(0)
-                                                    if (titlePtr != null) mpv.mpv_free(titlePtr)
-                                                    
-                                                    val label = if (title != null) "$lang - $title" else lang
-                                                    tracks.add(id to label)
+                            // Extract Audio Tracks
+                            try {
+                                val countPtr = mpv.mpv_get_property_string(handle, "track-list/count")
+                                if (countPtr != null) {
+                                    val count = countPtr.getString(0).toIntOrNull() ?: 0
+                                    mpv.mpv_free(countPtr)
+                                    val tracks = mutableListOf<Pair<Int, String>>()
+                                    for (i in 0 until count) {
+                                        val typePtr = mpv.mpv_get_property_string(handle, "track-list/$i/type")
+                                        if (typePtr != null) {
+                                            val type = typePtr.getString(0)
+                                            mpv.mpv_free(typePtr)
+                                            if (type == "audio") {
+                                                val idPtr = mpv.mpv_get_property_string(handle, "track-list/$i/id")
+                                                if (idPtr != null) {
+                                                    val id = idPtr.getString(0).toIntOrNull() ?: -1
+                                                    mpv.mpv_free(idPtr)
+                                                    if (id != -1) {
+                                                        val langPtr = mpv.mpv_get_property_string(handle, "track-list/$i/lang")
+                                                        val lang = langPtr?.getString(0) ?: "Audio $id"
+                                                        if (langPtr != null) mpv.mpv_free(langPtr)
+                                                        
+                                                        val titlePtr = mpv.mpv_get_property_string(handle, "track-list/$i/title")
+                                                        val title = titlePtr?.getString(0)
+                                                        if (titlePtr != null) mpv.mpv_free(titlePtr)
+                                                        
+                                                        val label = if (title != null) "$lang - $title" else lang
+                                                        tracks.add(id to label)
+                                                    }
                                                 }
                                             }
                                         }
                                     }
+                                    withContext(Dispatchers.Main) { state.audioTracks = tracks }
                                 }
-                                withContext(Dispatchers.Main) { state.audioTracks = tracks }
+                            } catch (e: Exception) {
+                                println("[MpvPlayer] Error extracting tracks: ${e.message}")
                             }
-                        } catch (e: Exception) {
-                            println("[MpvPlayer] Error extracting tracks: ${e.message}")
-                        }
 
-                        // Load all subtitles — default selected, rest available via OSC
-                        val subsToLoad = pendingAllSubs ?: state.allSubUrls
-                        if (!subsToLoad.isNullOrEmpty()) {
-                            println("[MpvPlayer] FILE_LOADED: loading ${subsToLoad.size} subtitle(s)")
-                            withContext(Dispatchers.IO) {
-                                subsToLoad.forEach { (url, isDefault) ->
-                                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                                    if (localPath != null) {
-                                        val flag = if (isDefault) "select" else "auto"
-                                        lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
-                                        println("[MpvPlayer] sub-add [$flag] -> $localPath")
+                            // Load all subtitles — default selected, rest available via OSC
+                            val subsToLoad = pendingAllSubs ?: state.allSubUrls
+                            if (!subsToLoad.isNullOrEmpty()) {
+                                println("[MpvPlayer] FILE_LOADED: loading ${subsToLoad.size} subtitle(s)")
+                                withContext(Dispatchers.IO) {
+                                    subsToLoad.forEach { (url, isDefault) ->
+                                        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                        if (localPath != null) {
+                                            val flag = if (isDefault) "select" else "auto"
+                                            lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
+                                            println("[MpvPlayer] sub-add [$flag] -> $localPath")
+                                        }
                                     }
                                 }
+                                withContext(Dispatchers.Main) { state.allSubUrls = null }
+                                pendingAllSubs = null
                             }
-                            withContext(Dispatchers.Main) { state.allSubUrls = null }
-                            pendingAllSubs = null
-                        }
-                        
-                        val singleSub = pendingSub
-                        if (singleSub != null) {
-                            if (singleSub == "NONE") {
-                                mpv.mpv_set_option_string(handle, "sid", "no")
-                            } else {
-                                withContext(Dispatchers.IO) { setSubFile(singleSub) }
+                            
+                            val singleSub = pendingSub
+                            if (singleSub != null) {
+                                if (singleSub == "NONE") {
+                                    mpv.mpv_set_option_string(handle, "sid", "no")
+                                } else {
+                                    withContext(Dispatchers.IO) { setSubFile(singleSub) }
+                                }
+                                pendingSub = null
                             }
-                            pendingSub = null
                         }
-                    }
-                    LibMpv.MPV_EVENT_TICK -> {
-                        val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
-                        if (posPtr != null) {
-                            val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
-                            mpv.mpv_free(posPtr)
-                            withContext(Dispatchers.Main) { state.position = pos }
+                        LibMpv.MPV_EVENT_TICK -> {
+                            val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
+                            if (posPtr != null) {
+                                val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
+                                mpv.mpv_free(posPtr)
+                                withContext(Dispatchers.Main) { state.position = pos }
+                            }
                         }
+                        LibMpv.MPV_EVENT_SHUTDOWN -> break
                     }
-                    LibMpv.MPV_EVENT_SHUTDOWN -> break
                 }
 
                 // React to UI-driven pause toggle
                 val wantPause = state.pauseRequested
                 if (wantPause != lastSentPause) {
                     if (wantPause) pause() else resume()
+                    withContext(Dispatchers.Main) { state.isPaused = wantPause } // Instant UI snap
                     lastSentPause = wantPause
                 }
 
