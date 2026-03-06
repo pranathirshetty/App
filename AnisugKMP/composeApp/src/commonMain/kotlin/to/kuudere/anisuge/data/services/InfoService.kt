@@ -16,6 +16,8 @@ import to.kuudere.anisuge.data.models.EpisodeDataResponse
 import to.kuudere.anisuge.data.models.SessionInfo
 import to.kuudere.anisuge.data.models.ThumbnailsResponse
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.content.TextContent
 
 class InfoService(
     private val sessionStore: SessionStore,
@@ -94,6 +96,37 @@ class InfoService(
         } catch (e: Exception) {
             println("[InfoService] getVideoStream error: ${e.message}")
             null
+        }
+    }
+
+    suspend fun saveProgress(
+        animeId: String,
+        episodeId: String,
+        currentTime: Double,
+        duration: Double,
+        server: String,
+        language: String = "sub"
+    ): Boolean {
+        return try {
+            val stored = sessionStore.get() ?: return false
+            val payload = buildJsonObject {
+                put("animeId", animeId)
+                put("episodeId", episodeId)
+                put("currentTime", currentTime)
+                put("duration", duration)
+                put("server", server)
+                put("language", language)
+            }
+            println("[InfoService] Saving progress for $animeId / $episodeId => $currentTime / $duration")
+            val response = httpClient.post("$BASE_URL/api/save-progress") {
+                header("Cookie", sessionToCookie(stored))
+                setBody(TextContent(payload.toString(), ContentType.Application.Json))
+            }
+            println("[InfoService] Save-progress responded with: ${response.status} - ${response.bodyAsText()}")
+            response.status.value in 200..299
+        } catch (e: Exception) {
+            println("[InfoService] saveProgress error: ${e.message}")
+            false
         }
     }
 }

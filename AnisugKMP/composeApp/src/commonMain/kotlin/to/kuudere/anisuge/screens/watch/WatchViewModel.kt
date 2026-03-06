@@ -186,4 +186,22 @@ class WatchViewModel(
         _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null) }
         fetchEpisodeData(episodeNumber)
     }
+
+    fun saveProgress(currentTime: Double, duration: Double) {
+        val currState = _uiState.value
+        val episodeId = currState.episodeData?.episodeId ?: return
+        val server = currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+        if (currentAnimeId.isEmpty() || duration <= 0) return
+
+        viewModelScope.launch {
+            infoService.saveProgress(
+                animeId = currentAnimeId,
+                episodeId = episodeId,
+                currentTime = currentTime,
+                duration = duration,
+                server = server
+            )
+        }
+    }
 }

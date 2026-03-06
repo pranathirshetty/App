@@ -250,6 +250,15 @@ fun WatchVideoPlayer(
                 playerState.subFileUrl = uiState.currentSubtitleUrl ?: "NONE"
             }
 
+            LaunchedEffect(playerState.isPlaying) {
+                while (playerState.isPlaying) {
+                    kotlinx.coroutines.delay(5000)
+                    if (playerState.duration > 0) {
+                        viewModel.saveProgress(playerState.position, playerState.duration)
+                    }
+                }
+            }
+
             val animeInfo = uiState.episodeData?.animeInfo
             val currentEp = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
             val title = buildString {
