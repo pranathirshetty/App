@@ -140,8 +140,11 @@ private fun MobileLayout(
             Column(Modifier.fillMaxWidth()) {
                 Box {
                     // Blur Background — use cover as fallback with stronger blur
-                    val hasBanner = !anime.banner.isNullOrEmpty()
-                    val bgImage = if (hasBanner) anime.banner else anime.cover
+                    val bannerUrl = anime.banner?.takeIf { 
+                        it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
+                    }
+                    val bgImage = bannerUrl ?: anime.cover
+                    val hasBanner = bannerUrl != null
                     AsyncImage(
                         model = bgImage,
                         contentDescription = "Background",
@@ -149,8 +152,8 @@ private fun MobileLayout(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(250.dp)
-                            .blur(if (hasBanner) 20.dp else 40.dp)
-                            .alpha(if (hasBanner) 0.6f else 0.8f)
+                            .blur(if (hasBanner) 16.dp else 48.dp)
+                            .alpha(if (hasBanner) 0.6f else 0.75f)
                     )
                     // Background Gradient
                     Box(
@@ -159,8 +162,8 @@ private fun MobileLayout(
                             .height(250.dp)
                             .background(
                                 Brush.verticalGradient(
-                                    0.0f to Color.Black.copy(alpha = 0.2f),
-                                    0.5f to Color.Black.copy(alpha = 0.6f),
+                                    0.0f to Color.Black.copy(alpha = 0.0f),
+                                    0.4f to Color.Black.copy(alpha = 0.4f),
                                     1.0f to Color.Black
                                 )
                             )
@@ -360,8 +363,12 @@ private fun DesktopLayout(
 
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         Box(Modifier.fillMaxWidth().height(500.dp)) {
+            val bannerUrl = anime.banner?.takeIf { 
+                it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
+            }
+            val bgImage = bannerUrl ?: anime.cover
             AsyncImage(
-                model = anime.banner?.ifEmpty { anime.cover },
+                model = bgImage,
                 contentDescription = "Banner",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
