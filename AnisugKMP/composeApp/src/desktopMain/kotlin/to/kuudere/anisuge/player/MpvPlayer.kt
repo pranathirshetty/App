@@ -144,12 +144,27 @@ internal class MpvPlayer(
         // Dedicated position polling loop since MPV_EVENT_TICK can be unreliable
         scope.launch {
             while (isActive && ctx != null) {
-                if (state.isPlaying && !state.isBuffering) {
+                if (state.isPlaying) {
                     val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
                     if (posPtr != null) {
                         val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
                         mpv.mpv_free(posPtr)
+                        // Ignore small bounce-backs if we are actively seeking or buffering?
                         withContext(Dispatchers.Main) { state.position = pos }
+                    }
+
+                    val bufPtr = mpv.mpv_get_property_string(handle, "paused-for-cache")
+                    if (bufPtr != null) {
+                        val isBuf = bufPtr.getString(0) == "yes"
+                        mpv.mpv_free(bufPtr)
+                        withContext(Dispatchers.Main) { state.isBuffering = isBuf }
+                    }
+
+                    val pausePtr = mpv.mpv_get_property_string(handle, "pause")
+                    if (pausePtr != null) {
+                        val isPaused = pausePtr.getString(0) == "yes"
+                        mpv.mpv_free(pausePtr)
+                        withContext(Dispatchers.Main) { state.isPaused = isPaused }
                     }
                 }
                 kotlinx.coroutines.delay(250)

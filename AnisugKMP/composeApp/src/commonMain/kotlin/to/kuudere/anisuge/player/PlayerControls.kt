@@ -58,12 +58,29 @@ fun PlayerControls(
     var controlsVisible by remember { mutableStateOf(true) }
     var isSeeking by remember { mutableStateOf(false) }
     var seekValue by remember { mutableStateOf(0f) }
+    var expectedPosition by remember { mutableStateOf<Double?>(null) }
     val scope = rememberCoroutineScope()
     var hideJob by remember { mutableStateOf<Job?>(null) }
 
     val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
 
-    // Auto-hide controls after 3s of inactivity (only if not loading/buffering)
+    // Clear expected position when actual catches up
+    LaunchedEffect(playerState.position) {
+        val expected = expectedPosition
+        if (expected != null && kotlin.math.abs(playerState.position - expected) < 2.0) {
+            expectedPosition = null
+        }
+    }
+
+    // Timeout expected position after 3s to prevent infinite freeze
+    LaunchedEffect(expectedPosition) {
+        if (expectedPosition != null) {
+            delay(3000)
+            expectedPosition = null
+        }
+    }
+
+    // Auto-hide controls after 3.5s of inactivity
     fun scheduleHide() {
         hideJob?.cancel()
         hideJob = scope.launch {
@@ -130,13 +147,15 @@ fun PlayerControls(
                             // Double tap left → rewind 10s
                             val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
                             playerState.seekTarget = newPos
+                            expectedPosition = newPos
                         } else if (offset.x > width * 2 / 3) {
                             // Double tap right → forward 10s
                             val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
                             playerState.seekTarget = newPos
+                            expectedPosition = newPos
                         } else {
                             // Double tap center → toggle play/pause
-                            playerState.pauseRequested = !playerState.pauseRequested
+                            playerState.pauseRequested = !playerState.isPaused
                         }
                         controlsVisible = true
                         scheduleHide()
@@ -233,6 +252,7 @@ fun PlayerControls(
                                 onClick = {
                                     val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
                                     playerState.seekTarget = newPos
+                                    expectedPosition = newPos
                                     scheduleHide()
                                 },
                                 modifier = Modifier
@@ -250,7 +270,7 @@ fun PlayerControls(
                             // Play/Pause
                             IconButton(
                                 onClick = {
-                                    playerState.pauseRequested = !playerState.pauseRequested
+                                    playerState.pauseRequested = !playerState.isPaused
                                     scheduleHide()
                                 },
                                 modifier = Modifier
@@ -258,7 +278,7 @@ fun PlayerControls(
                                     .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                             ) {
                                 Icon(
-                                    if (playerState.pauseRequested || !playerState.isPlaying)
+                                    if (playerState.isPaused || !playerState.isPlaying)
                                         Icons.Default.PlayArrow
                                     else
                                         Icons.Default.Pause,
@@ -273,6 +293,7 @@ fun PlayerControls(
                                 onClick = {
                                     val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
                                     playerState.seekTarget = newPos
+                                    expectedPosition = newPos
                                     scheduleHide()
                                 },
                                 modifier = Modifier
@@ -302,8 +323,13 @@ fun PlayerControls(
                         )
                 ) {
                     val duration = playerState.duration
-                    val position = if (isSeeking) seekValue.toDouble() else playerState.position
-                    val progress = if (duration > 0) (position / duration).toFloat().coerceIn(0f, 1f) else 0f
+                    
+                    val activePosition = if (isSeeking) {
+                        seekValue.toDouble()
+                    } else {
+                        expectedPosition ?: playerState.position
+                    }
+                    val progress = if (duration > 0) (activePosition / duration).toFloat().coerceIn(0f, 1f) else 0f
 
                     Row(
                         Modifier
@@ -314,7 +340,7 @@ fun PlayerControls(
                     ) {
                         // Current Position
                         Text(
-                            text = formatDuration(position),
+                            text = formatDuration(activePosition),
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -333,6 +359,7 @@ fun PlayerControls(
                                             if (duration <= 0) return@detectTapGestures
                                             val tapValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
                                             playerState.seekTarget = tapValue.toDouble()
+                                            expectedPosition = tapValue.toDouble()
                                             scheduleHide()
                                         }
                                     )
@@ -353,6 +380,7 @@ fun PlayerControls(
                                         onDragEnd = {
                                             if (duration > 0) {
                                                 playerState.seekTarget = seekValue.toDouble()
+                                                expectedPosition = seekValue.toDouble()
                                                 isSeeking = false
                                                 scheduleHide()
                                             }

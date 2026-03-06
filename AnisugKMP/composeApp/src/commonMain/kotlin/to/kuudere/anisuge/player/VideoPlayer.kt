@@ -17,6 +17,7 @@ class VideoPlayerState(config: VideoPlayerConfig) {
 
     // Read-only playback state (updated by platform player impl)
     var isPlaying   by mutableStateOf(false)
+    var isPaused    by mutableStateOf(false)
     var position    by mutableStateOf(0.0)   // seconds
     var duration    by mutableStateOf(0.0)   // seconds
     var isBuffering by mutableStateOf(false)
