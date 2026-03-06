@@ -11,9 +11,22 @@ sealed class Screen(val route: String) {
             const val route = "info/{animeId}"
         }
     }
-    data class Watch(val animeId: String, val episodeNumber: Int) : Screen("watch/$animeId/$episodeNumber") {
+    data class Watch(
+        val animeId: String, 
+        val episodeNumber: Int, 
+        val server: String? = null, 
+        val lang: String? = null
+    ) : Screen(
+        "watch/$animeId/$episodeNumber" + buildString {
+            if (server != null || lang != null) append("?")
+            val params = mutableListOf<String>()
+            if (server != null) params.add("server=$server")
+            if (lang != null) params.add("lang=$lang")
+            append(params.joinToString("&"))
+        }
+    ) {
         companion object {
-            const val route = "watch/{animeId}/{episodeNumber}"
+            const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}"
         }
     }
 }

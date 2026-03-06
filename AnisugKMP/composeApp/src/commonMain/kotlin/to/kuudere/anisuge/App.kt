@@ -29,6 +29,7 @@ import to.kuudere.anisuge.screens.watch.WatchScreen
 import to.kuudere.anisuge.screens.watch.WatchViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 import androidx.navigation.NamedNavArgument
+import androidx.navigation.navArgument
 
 @Composable
 fun App(onAppExit: () -> Unit = {}) {
@@ -82,7 +83,7 @@ fun App(onAppExit: () -> Unit = {}) {
                         homeViewModel = homeVm,
                         searchViewModel = searchVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
-                        onWatchClick = { id, _, ep -> navController.navigate(Screen.Watch(id, ep).route) },
+                        onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
                         onExit       = onAppExit,
                     )
                 }
@@ -101,7 +102,7 @@ fun App(onAppExit: () -> Unit = {}) {
                         animeId = animeId,
                         viewModel = infoVm,
                         onBack = { navController.popBackStack() },
-                        onWatchEpisode = { id, lang, ep -> navController.navigate(Screen.Watch(id, ep).route) },
+                        onWatchEpisode = { id, lang, ep -> navController.navigate(Screen.Watch(id, ep, null, lang).route) },
                         onGenreClick = { genre ->
                             searchVm.clearFilters()
                             searchVm.onGenreToggle(genre)
@@ -111,14 +112,26 @@ fun App(onAppExit: () -> Unit = {}) {
                     )
                 }
 
-                composable(Screen.Watch.route) { backStackEntry ->
+                composable(
+                    route = Screen.Watch.route,
+                    arguments = listOf(
+                        navArgument("animeId") { type = androidx.navigation.NavType.StringType },
+                        navArgument("episodeNumber") { type = androidx.navigation.NavType.StringType },
+                        navArgument("server") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("lang") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
+                    )
+                ) { backStackEntry ->
                     val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
                     val episodeNumStr = backStackEntry.arguments?.getString("episodeNumber") ?: "1"
                     val episodeNum = episodeNumStr.toIntOrNull() ?: 1
+                    val server = backStackEntry.arguments?.getString("server")
+                    val lang = backStackEntry.arguments?.getString("lang")
 
                     WatchScreen(
                         animeId = animeId,
                         episodeNumber = episodeNum,
+                        server = server,
+                        lang = lang,
                         viewModel = watchVm,
                         onBack = { navController.popBackStack() }
                     )

@@ -122,7 +122,7 @@ fun HomeScreen(
     homeViewModel: HomeViewModel,
     searchViewModel: SearchViewModel,
     onAnimeClick: (String) -> Unit,
-    onWatchClick: (String, String, Int) -> Unit,
+    onWatchClick: (String, String, Int, String?) -> Unit,
     onExit: () -> Unit = {},
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
@@ -241,7 +241,7 @@ fun HomeScreen(
 private fun HomeContent(
     state: HomeUiState,
     onAnimeClick: (String) -> Unit,
-    onWatchClick: (String, String, Int) -> Unit,
+    onWatchClick: (String, String, Int, String?) -> Unit,
     onWatchlistClick: (AnimeItem) -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -251,7 +251,7 @@ private fun HomeContent(
             HeroCarousel(
                 items = state.topAiring,
                 onAnimeClick = { onAnimeClick(it.id) },
-                onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep) },
+                onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep, null) },
                 onWatchlistClick = onWatchlistClick,
             )
         }
@@ -263,7 +263,7 @@ private fun HomeContent(
             SectionHeader(title = "Continue Watching", onViewMore = null)
             ContinueWatchingRow(
                 items = state.continueWatching,
-                onWatchClick = { id, lang, ep -> onWatchClick(id, lang, ep) },
+                onWatchClick = { id, lang, ep, server -> onWatchClick(id, lang, ep, server) },
             )
             Spacer(Modifier.height(24.dp))
         }
@@ -652,7 +652,7 @@ private fun FanCarousel(
 @Composable
 private fun ContinueWatchingRow(
     items: List<ContinueWatchingItem>,
-    onWatchClick: (String, String, Int) -> Unit,
+    onWatchClick: (String, String, Int, String?) -> Unit,
 ) {
     LazyRow(
         contentPadding    = PaddingValues(horizontal = 16.dp),
@@ -664,12 +664,13 @@ private fun ContinueWatchingRow(
             // Parse anime id from link e.g. "/watch/{id}?ep=1&lang=sub"
             val animeId = item.link.removePrefix("/").split("/").getOrNull(1) ?: ""
             val lang    = Uri.parseQueryParam(item.link, "lang") ?: "sub"
+            val server  = Uri.parseQueryParam(item.link, "server")
 
             Column(
                 Modifier
                     .width(260.dp)
                     .hoverable(inter)
-                    .clickable { onWatchClick(animeId, lang, item.episode) }
+                    .clickable { onWatchClick(animeId, lang, item.episode, server) }
             ) {
                 Box(
                     Modifier

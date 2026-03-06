@@ -35,6 +35,8 @@ import to.kuudere.anisuge.player.rememberVideoPlayerState
 fun WatchScreen(
     animeId: String,
     episodeNumber: Int,
+    server: String? = null,
+    lang: String? = null,
     viewModel: WatchViewModel,
     onBack: () -> Unit
 ) {
@@ -44,7 +46,7 @@ fun WatchScreen(
     LockScreenOrientation(uiState.isFullscreen)
 
     LaunchedEffect(animeId, episodeNumber) {
-        viewModel.initialize(animeId, episodeNumber)
+        viewModel.initialize(animeId, episodeNumber, server, lang)
     }
 
     Scaffold(
