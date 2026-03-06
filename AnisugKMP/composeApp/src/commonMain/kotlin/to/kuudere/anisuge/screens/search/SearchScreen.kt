@@ -64,8 +64,8 @@ fun SearchScreen(
 
     Scaffold(
         containerColor = Color.Black
-    ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+    ) { _ ->
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             val isSmall = maxWidth < 800.dp
             val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 180.dp)
             val hPadding = if (isSmall) 12.dp else 24.dp
@@ -75,7 +75,7 @@ fun SearchScreen(
                 columns = columns,
                 state = scrollState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = hPadding, end = hPadding, top = 24.dp, bottom = 100.dp),
+                contentPadding = PaddingValues(start = hPadding, end = hPadding, top = 8.dp, bottom = 100.dp),
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {

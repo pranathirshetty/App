@@ -11,8 +11,17 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.Crossfade
+import anisugkmp.composeapp.generated.resources.Res
+import anisugkmp.composeapp.generated.resources.logo_txt
+import org.jetbrains.compose.resources.painterResource
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.pager.HorizontalPager
@@ -157,18 +166,31 @@ fun HomeScreen(
             }
 
             Column(Modifier.weight(1f).fillMaxHeight()) {
+                // ── Mobile header (logo + avatar) ────────────────────────
+                if (!isDesktop) {
+                    MobileTopBar(avatarUrl = homeState.userProfile?.avatar)
+                }
+
                 Box(Modifier.weight(1f).fillMaxWidth()) {
-                    val currentIndex = AnisugTab.entries.indexOf(currentTab)
                     AnimatedContent(
                         targetState = currentTab,
                         transitionSpec = {
                             val toIndex = AnisugTab.entries.indexOf(targetState)
                             val fromIndex = AnisugTab.entries.indexOf(initialState)
-                            val goingDown = toIndex > fromIndex
-                            val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
-                            val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
-                            (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
-                                .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
+                            if (isDesktop) {
+                                // Desktop: subtle vertical slide
+                                val goingDown = toIndex > fromIndex
+                                val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
+                                val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
+                                (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
+                                    .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
+                            } else {
+                                // Mobile: horizontal swipe feel
+                                val goingRight = toIndex > fromIndex
+                                val enter = slideInHorizontally(tween(300)) { if (goingRight) it else -it } + fadeIn(tween(300))
+                                val exit  = slideOutHorizontally(tween(300)) { if (goingRight) -it else it } + fadeOut(tween(200))
+                                enter.togetherWith(exit)
+                            }
                         }
                     ) { tab ->
                         when (tab) {
@@ -180,7 +202,7 @@ fun HomeScreen(
                         }
                     }
                 }
-                
+
                 if (!isDesktop) {
                     AnisugBottomBar(
                         selectedTab = currentTab,
@@ -252,7 +274,7 @@ private fun HomeContent(
             )
         }
 
-        Spacer(Modifier.height(100.dp))
+        Spacer(Modifier.height(48.dp))
     }
 }
 
@@ -981,45 +1003,106 @@ private fun SidebarIcon(
 // ── Bottom Nav Bar (Small Screens) ──────────────────────────────────────────
 
 @Composable
+private fun MobileTopBar(avatarUrl: String?) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0B0B0B))
+            .windowInsetsPadding(WindowInsets.statusBars)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Logo left
+            androidx.compose.foundation.Image(
+                painter = painterResource(Res.drawable.logo_txt),
+                contentDescription = "Anisuge",
+                modifier = Modifier.height(28.dp),
+            )
+
+            // User avatar right
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1F1F1F)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!avatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Profile",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Settings,
+                        contentDescription = "Profile",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+        // Subtle separator
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
+    }
+}
+
+@Composable
 private fun AnisugBottomBar(
     selectedTab: AnisugTab,
     onTabSelect: (AnisugTab) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF0B0B0B))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
+        // Subtle top separator
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+        // Calendar | Home | Search | Bookmarks | Settings
         BottomBarIcon(
-            Icons.Outlined.Home, 
-            isSelected = selectedTab == AnisugTab.Home, 
-            selectedTint = Color(0xFFFF4444),
-            onClick = { onTabSelect(AnisugTab.Home) }
-        )
-        BottomBarIcon(
-            Icons.Outlined.Explore, 
-            isSelected = selectedTab == AnisugTab.Search, 
-            onClick = { onTabSelect(AnisugTab.Search) }
-        )
-        BottomBarIcon(
-            Icons.Outlined.Bookmarks, 
-            isSelected = selectedTab == AnisugTab.Bookmarks,
-            onClick = { onTabSelect(AnisugTab.Bookmarks) }
-        )
-        BottomBarIcon(
-            Icons.Outlined.CalendarToday, 
+            Icons.Outlined.CalendarToday,
             isSelected = selectedTab == AnisugTab.Calendar,
             onClick = { onTabSelect(AnisugTab.Calendar) }
         )
         BottomBarIcon(
-            Icons.Outlined.Settings, 
+            Icons.Outlined.Home,
+            isSelected = selectedTab == AnisugTab.Home,
+            selectedTint = Color(0xFFFF4444),
+            onClick = { onTabSelect(AnisugTab.Home) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Explore,
+            isSelected = selectedTab == AnisugTab.Search,
+            onClick = { onTabSelect(AnisugTab.Search) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Bookmarks,
+            isSelected = selectedTab == AnisugTab.Bookmarks,
+            onClick = { onTabSelect(AnisugTab.Bookmarks) }
+        )
+        BottomBarIcon(
+            Icons.Outlined.Settings,
             isSelected = selectedTab == AnisugTab.Settings,
             onClick = { onTabSelect(AnisugTab.Settings) }
         )
     }
+}
 }
 
 @Composable
