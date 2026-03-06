@@ -190,7 +190,8 @@ class WatchViewModel(
     fun saveProgress(currentTime: Double, duration: Double, language: String = "sub") {
         val currState = _uiState.value
         val episodeId = currState.episodeData?.episodeId ?: return
-        val server = currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        var server = currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        if (server == "Zen2") server = "Zen-2"
 
         if (currentAnimeId.isEmpty() || duration <= 0) return
 

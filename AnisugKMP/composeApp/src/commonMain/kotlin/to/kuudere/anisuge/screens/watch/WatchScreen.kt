@@ -295,7 +295,7 @@ fun WatchVideoPlayer(
             }
             
             if (uiState.showSettingsOverlay) {
-                val servers = listOf("hiya", "hiya-dub", "zen", "zen2", "pahe", "allmanga", "allmanga-dub")
+                val servers = listOf("hiya", "hiya-dub", "zen", "zen2")
                 SettingsOverlay(
                     uiState = uiState,
                     servers = servers,
