@@ -358,6 +358,13 @@ fun PlayerControls(
                                     cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
                                 )
                                 
+                                // Active Progress Track (Red) underneath the highlights
+                                drawRoundRect(
+                                    color = Color.Red,
+                                    size = Size(canvasWidth * progress, canvasHeight),
+                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                                )
+                                
                                 // Yellow Highlights for Intro and Outro
                                 val intro = streamingData?.intro
                                 if (intro?.start != null && intro.end != null && duration > 0) {
@@ -365,7 +372,7 @@ fun PlayerControls(
                                     val endX = ((intro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
                                     if (endX > startX) {
                                         drawRect(
-                                            color = Color.Yellow.copy(alpha = 0.6f),
+                                            color = Color.Yellow,
                                             topLeft = Offset(startX, 0f),
                                             size = Size(endX - startX, canvasHeight)
                                         )
@@ -378,19 +385,12 @@ fun PlayerControls(
                                     val endX = ((outro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
                                     if (endX > startX) {
                                         drawRect(
-                                            color = Color.Yellow.copy(alpha = 0.6f),
+                                            color = Color.Yellow,
                                             topLeft = Offset(startX, 0f),
                                             size = Size(endX - startX, canvasHeight)
                                         )
                                     }
                                 }
-
-                                // Active Progress Track (Red) over the highlights
-                                drawRoundRect(
-                                    color = Color.Red,
-                                    size = Size(canvasWidth * progress, canvasHeight),
-                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
-                                )
                                 
                                 // Chapter Breaks (Gap Lines) drawn over the active progress
                                 streamingData?.chapters?.forEach { chapter ->
