@@ -106,7 +106,8 @@ fun SettingsOverlay(
 
                             // Captions / Subtitles
                             if (uiState.availableSubtitles.isNotEmpty()) {
-                                val currentLabel = uiState.availableSubtitles.firstOrNull { it.second == uiState.currentSubtitleUrl }?.first ?: "Off"
+                                val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
+                                val currentLabel = selectedSub?.title ?: selectedSub?.resolvedLang ?: "Off"
                                 SettingsMenuItem(
                                     icon = { Icon(getClosedCaptionIcon(), contentDescription = null, tint = Color.White) },
                                     title = "Captions",
@@ -216,9 +217,11 @@ fun SettingsOverlay(
                                         onClick = { onSubtitleSelected(null); onDismiss() }
                                     )
                                 }
-                                items(uiState.availableSubtitles) { (lang, url) ->
+                                items(uiState.availableSubtitles) { subData ->
+                                    val url = subData.url
+                                    val label = subData.title ?: subData.resolvedLang ?: "Unknown"
                                     SubMenuItem(
-                                        title = lang,
+                                        title = label,
                                         isSelected = url == uiState.currentSubtitleUrl,
                                         onClick = { onSubtitleSelected(url); onDismiss() }
                                     )

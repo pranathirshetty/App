@@ -242,8 +242,8 @@ fun WatchVideoPlayer(
             
             LaunchedEffect(uiState.availableSubtitles) {
                 if (uiState.availableSubtitles.isNotEmpty()) {
-                    playerState.allSubUrls = uiState.availableSubtitles.map { (_, url) ->
-                        url to (url == uiState.currentSubtitleUrl)
+                    playerState.allSubUrls = uiState.availableSubtitles.mapNotNull { sub ->
+                        sub.url?.let { it to (it == uiState.currentSubtitleUrl) }
                     }
                 }
             }
@@ -316,8 +316,58 @@ fun WatchVideoPlayer(
                     servers = servers,
                     onDismiss = { viewModel.toggleSettingsOverlay() },
                     onQualitySelected = { viewModel.setQuality(it) },
-                    onSubtitleSelected = { viewModel.setSubtitle(it) },
-                    onServerSelected = { viewModel.setServer(it) },
+                    onSubtitleSelected = { url -> 
+                        val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == url }
+                        val lang = selectedSub?.title ?: selectedSub?.resolvedLang
+                        viewModel.setSubtitle(url, lang) 
+                    },
+                    onServerSelected = { serverLabel -> 
+                        val currentServer = uiState.currentServer.lowercase()
+                        val newServer = serverLabel.lowercase()
+                        
+                        val isFromZen = currentServer.startsWith("zen")
+                        val isToZen = newServer.startsWith("zen")
+                        val isFromHiya = currentServer.startsWith("hiya")
+                        val isToHiya = newServer.startsWith("hiya")
+
+                        val currentAudioLabel = playerState.audioTracks.firstOrNull { it.first == playerState.selectedAudioTrack }?.second?.lowercase() ?: ""
+                        val currentTrackLang = if (currentAudioLabel.contains("eng")) "dub" else "sub"
+                        
+                        var targetAudioLang: String? = null
+                        val currentSubData = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
+                        var targetSubtitleLang = currentSubData?.title ?: currentSubData?.resolvedLang
+                        var targetSubtitleLangCode = currentSubData?.language ?: currentSubData?.lang
+                        
+                        // Zen > zen > subtitle title, time, audio track
+                        if (isFromZen && isToZen) {
+                            targetAudioLang = currentTrackLang
+                        } 
+                        // hiya > zen(1-2) > time, subtitle lang > default audio sub
+                        // hiya-dub > zen(1-2) > time, subtitle lang > default audio dub
+                        else if (isFromHiya && isToZen) {
+                            targetAudioLang = if (currentServer == "hiya-dub") "dub" else "sub"
+                            // Note: Zen servers ignore exactly named 'English' string since they use 'S&S@DiabloTripleA' 
+                            //   so we rely fully on `targetSubtitleLangCode == 'eng'`
+                        } 
+                        // Zen > hiya > time only
+                        else if (isFromZen && isToHiya) {
+                            targetAudioLang = null
+                            targetSubtitleLang = null
+                            targetSubtitleLangCode = null
+                        } 
+                        // Hiya > hia > time & subtitle title
+                        else if (isFromHiya && isToHiya) {
+                            targetAudioLang = null
+                        }
+                        
+                        viewModel.changeServerWithState(
+                            newServer = serverLabel, 
+                            position = playerState.position, 
+                            targetAudioLang = targetAudioLang,
+                            targetSubtitleLang = targetSubtitleLang,
+                            targetSubtitleLangCode = targetSubtitleLangCode
+                        )
+                    },
                     onSpeedSelected = { viewModel.setSpeed(it) },
                     onCycleAudio = { playerState.cycleAudio = true },
                     audioTracks = playerState.audioTracks,

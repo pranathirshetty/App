@@ -25,7 +25,7 @@ data class WatchUiState(
     val streamingData: StreamingData? = null,
     val availableQualities: List<Pair<String, String>> = emptyList(), // Pair(Quality, URL)
     val currentQuality: String = "Auto",
-    val availableSubtitles: List<Pair<String, String>> = emptyList(), // Pair(Lang, URL)
+    val availableSubtitles: List<to.kuudere.anisuge.data.models.SubtitleData> = emptyList(), // Store the full data object
     val currentSubtitleUrl: String? = null,
     val currentFontsDir: String? = null,
     val playbackSpeed: Double = 1.0,
@@ -34,7 +34,9 @@ data class WatchUiState(
     val initialSettingsPage: SettingsMenuPage? = SettingsMenuPage.MAIN,
     val activeSidePanel: String? = null, // "episodes" or "comments"
     val isFullscreen: Boolean = false,
-    val targetLang: String? = null
+    val targetLang: String? = null,
+    val targetSubtitleLang: String? = null,
+    val targetSubtitleLangCode: String? = null
 )
 
 class WatchViewModel(
@@ -155,17 +157,36 @@ class WatchViewModel(
                     qualities.add("Auto" to streamData.m3u8_url)
                 }
 
-                val subtitles = mutableListOf<Pair<String, String>>()
+                val subtitles = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
                 var defaultSubUrl: String? = null
+                var matchedTargetSubUrl: String? = null
+                var partialMatchedTargetSubUrl: String? = null
                 
-                streamData.subtitles?.forEach {
+                streamData.subtitles?.forEach { subData ->
                     // Skip PGS/SUP format — not supported by libmpv sub-add
-                    if (it.format?.lowercase() == "sup") return@forEach
-                    val label = it.resolvedLang ?: return@forEach
-                    val url = it.url ?: return@forEach
-                    subtitles.add(label to url)
-                    if (it.is_default == true) {
+                    if (subData.format?.lowercase() == "sup") return@forEach
+                    val url = subData.url ?: return@forEach
+                    subtitles.add(subData)
+                    if (subData.is_default == true) {
                         defaultSubUrl = url
+                    }
+                    val label = subData.title ?: subData.resolvedLang ?: ""
+                    val langCode = subData.language ?: subData.lang ?: ""
+                    
+                    if (currState.targetSubtitleLang != null) {
+                        if (label.equals(currState.targetSubtitleLang, ignoreCase = true) || 
+                            langCode.equals(currState.targetSubtitleLangCode, ignoreCase = true)) {
+                            matchedTargetSubUrl = url
+                        } else if (
+                            label.lowercase().contains(currState.targetSubtitleLang.lowercase()) ||
+                            currState.targetSubtitleLang.lowercase().contains(label.lowercase())
+                        ) {
+                            if (partialMatchedTargetSubUrl == null) partialMatchedTargetSubUrl = url
+                        }
+                    } else if (currState.targetSubtitleLangCode != null) {
+                        if (langCode.equals(currState.targetSubtitleLangCode, ignoreCase = true)) {
+                            matchedTargetSubUrl = url
+                        }
                     }
                 }
 
@@ -182,11 +203,11 @@ class WatchViewModel(
                         availableQualities = qualities,
                         currentQuality = qualities.firstOrNull()?.first ?: "Auto",
                         availableSubtitles = subtitles,
-                        currentSubtitleUrl = defaultSubUrl ?: subtitles.firstOrNull()?.second,
+                        currentSubtitleUrl = matchedTargetSubUrl ?: partialMatchedTargetSubUrl ?: defaultSubUrl ?: subtitles.firstOrNull()?.url,
                         currentFontsDir = localFontsDir
                     )
                 }
-                println("[WatchVM] subtitle=${defaultSubUrl ?: subtitles.firstOrNull()?.second}, fontsDir=$localFontsDir, subtitleCount=${subtitles.size}")
+                println("[WatchVM] subtitle=${defaultSubUrl ?: subtitles.firstOrNull()?.url}, fontsDir=$localFontsDir, subtitleCount=${subtitles.size}")
             } else {
                 _uiState.update { it.copy(isLoadingVideo = false) }
             }
@@ -197,8 +218,14 @@ class WatchViewModel(
         _uiState.update { it.copy(currentQuality = quality, showSettingsOverlay = false) }
     }
 
-    fun setSubtitle(url: String?) {
-        _uiState.update { it.copy(currentSubtitleUrl = url, showSettingsOverlay = false) }
+    fun setSubtitle(url: String?, subtitleLang: String? = null) {
+        _uiState.update { 
+            it.copy(
+                currentSubtitleUrl = url, 
+                targetSubtitleLang = subtitleLang ?: it.targetSubtitleLang,
+                showSettingsOverlay = false
+            ) 
+        }
     }
 
     fun setSpeed(speed: Double) {
@@ -208,6 +235,25 @@ class WatchViewModel(
     fun setServer(server: String) {
         _uiState.update { it.copy(showSettingsOverlay = false) }
         loadVideoStream(server)
+    }
+
+    fun changeServerWithState(
+        newServer: String, 
+        position: Double, 
+        targetAudioLang: String?, 
+        targetSubtitleLang: String?,
+        targetSubtitleLangCode: String? = null
+    ) {
+        _uiState.update { 
+            it.copy(
+                savedWatchPosition = position,
+                targetLang = targetAudioLang,
+                targetSubtitleLang = targetSubtitleLang,
+                targetSubtitleLangCode = targetSubtitleLangCode,
+                showSettingsOverlay = false
+            ) 
+        }
+        loadVideoStream(newServer)
     }
 
     fun toggleSettingsOverlay(page: SettingsMenuPage? = null) {
