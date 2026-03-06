@@ -22,7 +22,11 @@ fun SettingsOverlay(
     onQualitySelected: (String) -> Unit,
     onSubtitleSelected: (String?) -> Unit,
     onServerSelected: (String) -> Unit,
-    onSpeedSelected: (Double) -> Unit
+    onSpeedSelected: (Double) -> Unit,
+    onCycleAudio: () -> Unit,
+    audioTracks: List<Pair<Int, String>> = emptyList(),
+    selectedAudioTrack: Int? = null,
+    onAudioTrackSelected: (Int) -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -40,7 +44,7 @@ fun SettingsOverlay(
             LazyColumn {
                 if (allLinks.isNotEmpty()) {
                     item {
-                        Text("Server & Audio", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                        Text("Server", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
                     }
                     items(allLinks) { link ->
                         val isSelected = link.serverName == uiState.currentServer
@@ -54,6 +58,47 @@ fun SettingsOverlay(
                             Text(
                                 "${link.serverName} (${link.dataType})",
                                 color = if (isSelected) Color.Red else Color.White,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+                
+                if (audioTracks.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Audio Track", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    items(audioTracks) { (id, label) ->
+                        val isSelected = id == selectedAudioTrack
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onAudioTrackSelected(id) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                label,
+                                color = if (isSelected) Color.Red else Color.White,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Audio Track", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onCycleAudio() }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Cycle Audio Track",
+                                color = Color.White,
                                 modifier = Modifier.weight(1f)
                             )
                         }

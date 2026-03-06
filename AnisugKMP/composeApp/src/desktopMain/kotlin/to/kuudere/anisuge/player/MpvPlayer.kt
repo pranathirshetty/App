@@ -150,6 +150,46 @@ internal class MpvPlayer(
                                 mpv.mpv_free(durPtr)
                             }
                         }
+
+                        // Extract Audio Tracks
+                        try {
+                            val countPtr = mpv.mpv_get_property_string(handle, "track-list/count")
+                            if (countPtr != null) {
+                                val count = countPtr.getString(0).toIntOrNull() ?: 0
+                                mpv.mpv_free(countPtr)
+                                val tracks = mutableListOf<Pair<Int, String>>()
+                                for (i in 0 until count) {
+                                    val typePtr = mpv.mpv_get_property_string(handle, "track-list/$i/type")
+                                    if (typePtr != null) {
+                                        val type = typePtr.getString(0)
+                                        mpv.mpv_free(typePtr)
+                                        if (type == "audio") {
+                                            val idPtr = mpv.mpv_get_property_string(handle, "track-list/$i/id")
+                                            if (idPtr != null) {
+                                                val id = idPtr.getString(0).toIntOrNull() ?: -1
+                                                mpv.mpv_free(idPtr)
+                                                if (id != -1) {
+                                                    val langPtr = mpv.mpv_get_property_string(handle, "track-list/$i/lang")
+                                                    val lang = langPtr?.getString(0) ?: "Audio $id"
+                                                    if (langPtr != null) mpv.mpv_free(langPtr)
+                                                    
+                                                    val titlePtr = mpv.mpv_get_property_string(handle, "track-list/$i/title")
+                                                    val title = titlePtr?.getString(0)
+                                                    if (titlePtr != null) mpv.mpv_free(titlePtr)
+                                                    
+                                                    val label = if (title != null) "$lang - $title" else lang
+                                                    tracks.add(id to label)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                withContext(Dispatchers.Main) { state.audioTracks = tracks }
+                            }
+                        } catch (e: Exception) {
+                            println("[MpvPlayer] Error extracting tracks: ${e.message}")
+                        }
+
                         // Load all subtitles — default selected, rest available via OSC
                         val subsToLoad = pendingAllSubs ?: state.allSubUrls
                         if (!subsToLoad.isNullOrEmpty()) {
@@ -166,6 +206,16 @@ internal class MpvPlayer(
                             }
                             withContext(Dispatchers.Main) { state.allSubUrls = null }
                             pendingAllSubs = null
+                        }
+                        
+                        val singleSub = pendingSub
+                        if (singleSub != null) {
+                            if (singleSub == "NONE") {
+                                mpv.mpv_set_option_string(handle, "sid", "no")
+                            } else {
+                                withContext(Dispatchers.IO) { setSubFile(singleSub) }
+                            }
+                            pendingSub = null
                         }
                     }
                     LibMpv.MPV_EVENT_TICK -> {
@@ -196,12 +246,26 @@ internal class MpvPlayer(
                 state.subFileUrl?.let { sub ->
                     if (state.isPlaying) {
                         println("[MpvPlayer] Runtime sub change -> $sub")
-                        withContext(Dispatchers.IO) { setSubFile(sub) }
+                        if (sub == "NONE") {
+                            mpv.mpv_set_option_string(handle, "sid", "no")
+                        } else {
+                            withContext(Dispatchers.IO) { setSubFile(sub) }
+                        }
                         withContext(Dispatchers.Main) { state.subFileUrl = null }
                     } else {
                         pendingSub = sub
                         withContext(Dispatchers.Main) { state.subFileUrl = null }
                     }
+                }
+
+                if (state.cycleAudio) {
+                    lib?.mpv_command(ctx!!, arrayOf("cycle", "audio", null))
+                    withContext(Dispatchers.Main) { state.cycleAudio = false }
+                }
+
+                state.selectedAudioTrack?.let { aid ->
+                    mpv.mpv_set_option_string(handle, "aid", aid.toString())
+                    // Don't clear selectedAudioTrack so state remains consistent
                 }
 
                 // Handle all-subs load (on new episode/server change before file ready)

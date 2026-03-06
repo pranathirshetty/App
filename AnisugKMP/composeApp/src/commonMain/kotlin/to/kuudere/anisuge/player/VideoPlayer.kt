@@ -27,6 +27,11 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     var seekTarget      by mutableStateOf<Double?>(null)
     var subFileUrl      by mutableStateOf<String?>(null)  // single sub change at runtime
     var allSubUrls      by mutableStateOf<List<Pair<String, Boolean>>?>(null) // (url, isDefault)
+    var cycleAudio      by mutableStateOf(false)
+    var selectedAudioTrack by mutableStateOf<Int?>(null)
+    
+    // Extracted tracks (populated by player)
+    var audioTracks     by mutableStateOf<List<Pair<Int, String>>>(emptyList())
 
     // Signal from AWT canvas → Compose UI (incremented on each canvas click)
     var canvasClicked   by mutableStateOf(0)

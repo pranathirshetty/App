@@ -15,6 +15,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import dev.jdtech.mpv.MPVLib
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -135,13 +136,34 @@ actual fun VideoPlayerSurface(
                     MPVLib.MPV_EVENT_FILE_LOADED -> {
                         state.isPlaying = true
                         
-                        // Load pending subtitles
+                        // Extract Audio Tracks
+                        try {
+                            val count = MPVLib.getPropertyInt("track-list/count")
+                            val tracks = mutableListOf<Pair<Int, String>>()
+                            for (i in 0 until (count ?: 0)) {
+                                val type = MPVLib.getPropertyString("track-list/$i/type")
+                                if (type == "audio") {
+                                    val id = MPVLib.getPropertyInt("track-list/$i/id") ?: continue
+                                    val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: "Audio $id"
+                                    val title = MPVLib.getPropertyString("track-list/$i/title")
+                                    val label = if (title != null) "$lang - $title" else lang
+                                    tracks.add(id to label)
+                                }
+                            }
+                            state.audioTracks = tracks
+                        } catch (e: Exception) {
+                            println("[VideoPlayerSurface] Error extracting tracks: ${e.message}")
+                        }
+                        
+                        // Load pending subtitles asynchronously to prevent JNI blocking
                         state.allSubUrls?.let { subs ->
-                            subs.forEach { (url, isDefault) ->
-                                val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                                if (localPath != null) {
-                                    val flag = if (isDefault) "select" else "auto"
-                                    MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                subs.forEach { (url, isDefault) ->
+                                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                    if (localPath != null) {
+                                        val flag = if (isDefault) "select" else "auto"
+                                        MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                                    }
                                 }
                             }
                             state.allSubUrls = null
@@ -210,13 +232,33 @@ actual fun VideoPlayerSurface(
     // Runtime sub change
     LaunchedEffect(state.subFileUrl) {
         state.subFileUrl?.let { sub ->
-            val localPath = withContext(Dispatchers.IO) {
-                to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(sub)
-            }
-            if (localPath != null) {
-                MPVLib.command(arrayOf<String>("sub-add", localPath, "select"))
+            if (sub == "NONE") {
+                MPVLib.setPropertyInt("sid", 0) // Disable subtitles
+            } else {
+                val localPath = withContext(Dispatchers.IO) {
+                    to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(sub)
+                }
+                if (localPath != null) {
+                    MPVLib.command(arrayOf<String>("sub-add", localPath, "select"))
+                }
             }
             state.subFileUrl = null
+        }
+    }
+    
+    // LaunchedEffect removed because allSubUrls is parsed natively during FILE_LOADED
+    
+    // Cycle audio tracks
+    LaunchedEffect(state.cycleAudio) {
+        if (state.cycleAudio) {
+            MPVLib.command(arrayOf<String>("cycle", "audio"))
+            state.cycleAudio = false
+        }
+    }
+
+    LaunchedEffect(state.selectedAudioTrack) {
+        state.selectedAudioTrack?.let { aid ->
+            MPVLib.setPropertyInt("aid", aid)
         }
     }
 

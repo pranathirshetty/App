@@ -1,4 +1,8 @@
 package to.kuudere.anisuge.platform
+import androidx.compose.runtime.Composable
 
-/** True on desktop (JVM), false on Android/iOS */
 expect val isDesktopPlatform: Boolean
+
+/** Requests landscape on Android, ignored/different on desktop */
+@Composable
+expect fun LockScreenOrientation(landscape: Boolean)
