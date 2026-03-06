@@ -263,6 +263,19 @@ fun WatchVideoPlayer(
                 }
             }
 
+            LaunchedEffect(playerState.audioTracks, uiState.targetLang) {
+                if (playerState.audioTracks.isNotEmpty() && uiState.targetLang != null) {
+                    val target = uiState.targetLang
+                    val track = playerState.audioTracks.find { 
+                        val label = it.second.lowercase()
+                        if (target == "dub") label.contains("eng") else (label.contains("jpn") || label.contains("ja")) 
+                    }
+                    if (track != null && playerState.selectedAudioTrack != track.first) {
+                        playerState.selectedAudioTrack = track.first
+                    }
+                }
+            }
+
             val animeInfo = uiState.episodeData?.animeInfo
             val currentEp = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
             val title = buildString {

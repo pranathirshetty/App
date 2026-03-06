@@ -180,6 +180,7 @@ internal class MpvPlayer(
             var lastSentPause = false
             var pendingSub: String? = null
             var pendingAllSubs: List<Pair<String, Boolean>>? = null
+            var lastSentAudioTrack: Int? = null
             while (isActive && ctx != null) {
                 val event = mpv.mpv_wait_event(handle, 0.05)
                 if (event != null) {
@@ -311,11 +312,14 @@ internal class MpvPlayer(
                 if (state.cycleAudio) {
                     lib?.mpv_command(ctx!!, arrayOf("cycle", "audio", null))
                     withContext(Dispatchers.Main) { state.cycleAudio = false }
+                    lastSentAudioTrack = null // reset so next explicit selection forces update
                 }
 
                 state.selectedAudioTrack?.let { aid ->
-                    mpv.mpv_set_option_string(handle, "aid", aid.toString())
-                    // Don't clear selectedAudioTrack so state remains consistent
+                    if (aid != lastSentAudioTrack) {
+                        mpv.mpv_set_option_string(handle, "aid", aid.toString())
+                        lastSentAudioTrack = aid
+                    }
                 }
 
                 // Handle all-subs load (on new episode/server change before file ready)

@@ -33,7 +33,8 @@ data class WatchUiState(
     val showSettingsOverlay: Boolean = false,
     val initialSettingsPage: SettingsMenuPage? = SettingsMenuPage.MAIN,
     val activeSidePanel: String? = null, // "episodes" or "comments"
-    val isFullscreen: Boolean = false
+    val isFullscreen: Boolean = false,
+    val targetLang: String? = null
 )
 
 class WatchViewModel(
@@ -70,6 +71,7 @@ class WatchViewModel(
 
                 val fallbackPriority = listOf("zen2", "zen", "hiya", "hiya-dub")
                 var targetServerName: String? = null
+                var finalLang: String? = reqLang
                 val links = data.episodeLinks ?: emptyList()
                 
                 if (reqServer != null && reqLang != null) {
@@ -81,11 +83,12 @@ class WatchViewModel(
                     if (matchedLink != null) {
                         targetServerName = reqServer.lowercase()
                         if (targetServerName == "zen-2") targetServerName = "zen2"
+                        finalLang = reqLang
                     }
                 }
                 
                 if (targetServerName == null) {
-                    val targetLang = reqLang ?: "sub"
+                    val fallbackLang = reqLang ?: "sub"
                     for (candidate in fallbackPriority) {
                         val apiServerName = when (candidate) {
                             "zen2" -> "Zen-2"
@@ -93,7 +96,7 @@ class WatchViewModel(
                             "hiya", "hiya-dub" -> "Hiya"
                             else -> candidate
                         }
-                        val apiLang = if (candidate.endsWith("-dub")) "dub" else targetLang
+                        val apiLang = if (candidate.endsWith("-dub")) "dub" else fallbackLang
                         
                         val matched = links.find { 
                             it.serverName.equals(apiServerName, ignoreCase = true) && 
@@ -102,13 +105,16 @@ class WatchViewModel(
                         
                         if (matched != null) {
                             targetServerName = if (candidate == "hiya" && apiLang == "dub") "hiya-dub" else candidate
+                            finalLang = apiLang
                             break
                         }
                     }
                 }
 
                 val serverName = targetServerName ?: "zen2"
-                println("[WatchVM] Selected server: $serverName (requested: $reqServer, lang: $reqLang)")
+                println("[WatchVM] Selected server: $serverName (requested: $reqServer, lang: $reqLang, targetLang: $finalLang)")
+                
+                _uiState.update { it.copy(targetLang = finalLang) }
 
                 loadVideoStream(serverName)
             } else {
