@@ -82,7 +82,7 @@ actual fun VideoPlayerSurface(
         if (resolvedUrl.isEmpty()) return@LaunchedEffect
         val p = player ?: return@LaunchedEffect
 
-        val skiaImageInfo = org.jetbrains.skia.ImageInfo.makeN32Premul(widthRef.value, heightRef.value)
+        // Ensure absolute BGRA color type instead of OS-dependent N32 which guesses RGBA on Windows
         
         while (isActive) {
             val w = widthRef.value
@@ -92,7 +92,12 @@ actual fun VideoPlayerSurface(
                 val bytes = withContext(Dispatchers.IO) { p.renderFrame(w, h) }
                 if (bytes != null) {
                     val skiaBitmap = org.jetbrains.skia.Bitmap()
-                    skiaBitmap.allocPixels(org.jetbrains.skia.ImageInfo.makeN32Premul(w, h))
+                    val skiaImageInfo = org.jetbrains.skia.ImageInfo(
+                        w, h,
+                        org.jetbrains.skia.ColorType.BGRA_8888,
+                        org.jetbrains.skia.ColorAlphaType.PREMUL
+                    )
+                    skiaBitmap.allocPixels(skiaImageInfo)
                     skiaBitmap.installPixels(bytes)
                     frameBitmap = skiaBitmap.asComposeImageBitmap()
                 }
