@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeDetails
+import to.kuudere.anisuge.ui.WatchlistBottomSheet
 import to.kuudere.anisuge.data.models.EpisodeItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +50,14 @@ fun AnimeInfoScreen(
     }
 
     val state by viewModel.uiState.collectAsState()
-    var showEpisodes by remember { mutableStateOf(false) }
+    var showEpisodes by remember { mutableStateOf(true) }
+
+    // Auto-load episodes since it's the default tab
+    LaunchedEffect(state.details) {
+        if (state.details != null && state.episodes.isEmpty() && !state.isLoadingEpisodes) {
+            viewModel.loadEpisodes()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (state.isLoading) {
@@ -480,107 +488,83 @@ private fun DesktopLayout(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WatchlistDropdownIcon(
     state: AnimeInfoUiState,
     onUpdate: (String) -> Unit
 ) {
-    val options = listOf("Watching", "On Hold", "Plan To Watch", "Dropped", "Completed", "Remove")
-    var expanded by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        IconButton(
-            onClick = {}, // Handled by ExposedDropdownMenuBox
-            modifier = Modifier.menuAnchor(type = MenuAnchorType.PrimaryNotEditable)
-        ) {
-            if (state.isUpdatingWatchlist) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-            } else {
-                Icon(
-                    if (state.inWatchlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Watchlist",
-                    tint = Color.White
-                )
-            }
+    IconButton(onClick = { showSheet = true }) {
+        if (state.isUpdatingWatchlist) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+        } else {
+            Icon(
+                if (state.inWatchlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = "Watchlist",
+                tint = Color.White
+            )
         }
-        
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color(0xFF1E1E1E)
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, color = Color.White) },
-                    onClick = {
-                        expanded = false
-                        onUpdate(option)
-                    }
-                )
-            }
-        }
+    }
+
+    if (showSheet) {
+        WatchlistBottomSheet(
+            currentFolder = state.folder,
+            onSelect = { option ->
+                showSheet = false
+                onUpdate(option)
+            },
+            onDismiss = { showSheet = false }
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WatchlistDropdownButton(
     state: AnimeInfoUiState,
     onUpdate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val options = listOf("Watching", "On Hold", "Plan To Watch", "Dropped", "Completed", "Remove")
-    var expanded by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
+    val buttonText = when {
+        state.isUpdatingWatchlist -> "Updating..."
+        state.inWatchlist -> (state.folder ?: "In Watchlist")
+        else -> "Add to Watchlist"
+    }
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = modifier
+    Button(
+        onClick = { showSheet = true },
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E), contentColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp)
     ) {
-        val buttonText = if (state.isUpdatingWatchlist) "Updating..." else if (state.inWatchlist) (state.folder ?: "In Watchlist") else "Add to Watchlist"
-        
-        Button(
-            onClick = {}, // Handled by ExposedDropdownMenuBox
-            modifier = Modifier.fillMaxSize().menuAnchor(type = MenuAnchorType.PrimaryNotEditable),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp)
-        ) {
-            if (state.isUpdatingWatchlist) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
-            } else {
-                Icon(
-                    if (state.inWatchlist) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(buttonText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (state.isUpdatingWatchlist) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+        } else {
+            Icon(
+                if (state.inWatchlist) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
         }
-        
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color.White
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, color = Color.Black) },
-                    onClick = {
-                        expanded = false
-                        onUpdate(option)
-                    }
-                )
-            }
-        }
+        Spacer(Modifier.width(8.dp))
+        Text(buttonText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+
+    if (showSheet) {
+        WatchlistBottomSheet(
+            currentFolder = state.folder,
+            onSelect = { option ->
+                showSheet = false
+                onUpdate(option)
+            },
+            onDismiss = { showSheet = false }
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EpisodeListSection(
     state: AnimeInfoUiState,
@@ -588,14 +572,14 @@ private fun EpisodeListSection(
 ) {
     if (state.isLoadingEpisodes) {
         Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Color(0xFFFF4444))
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
         }
         return
     }
 
     if (state.episodes.isEmpty()) {
         Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-            Text("No episodes found", color = Color.White)
+            Text("No episodes found", color = Color.Gray)
         }
         return
     }
@@ -603,89 +587,156 @@ private fun EpisodeListSection(
     var searchQuery by remember { mutableStateOf("") }
     var currentPageStart by remember { mutableStateOf(1) }
     val episodesPerPage = 100
-    
     val totalEpisodes = state.episodes.size
     val pageGroups = (1..totalEpisodes step episodesPerPage).toList()
-    
+
     Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // Dropdown for Groups
-            var groupsExpanded by remember { mutableStateOf(false) }
-            Box {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1E1E1E))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .clickable { groupsExpanded = true }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    val end = currentPageStart + episodesPerPage - 1
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("$currentPageStart - $end", color = Color.White, fontSize = 14.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Default.ArrowDropDown, null, tint = Color.White)
-                    }
+        // Season header + Group selector
+        var showGroupSheet by remember { mutableStateOf(false) }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF1A1A1A))
+                .clickable { showGroupSheet = true }
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                    Text(
+                        "Episodes $currentPageStart - $end",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "$totalEpisodes episodes / Released ${state.details?.subbedCount ?: totalEpisodes}",
+                        color = Color.Gray,
+                        fontSize = 13.sp
+                    )
                 }
-                DropdownMenu(
-                    expanded = groupsExpanded,
-                    onDismissRequest = { groupsExpanded = false },
-                    modifier = Modifier.background(Color(0xFF1E1E1E))
-                ) {
-                    pageGroups.forEach { start ->
-                        DropdownMenuItem(
-                            text = { Text("$start - ${start + episodesPerPage - 1}", color = Color.White) },
-                            onClick = {
-                                currentPageStart = start
-                                groupsExpanded = false
-                            }
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Expand",
+                    tint = Color.White
+                )
+            }
+        }
+
+        if (showGroupSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showGroupSheet = false },
+                containerColor = Color(0xFF111111),
+                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                dragHandle = {
+                    Box(
+                        Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.3f))
                         )
                     }
                 }
-            }
-
-            Spacer(Modifier.width(16.dp))
-
-            // Search
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.weight(1f).height(50.dp),
-                placeholder = { Text("Search episode...", color = Color.White.copy(alpha = 0.7f)) },
-                leadingIcon = { Icon(Icons.Outlined.Search, null, tint = Color.White.copy(alpha = 0.7f)) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, null, tint = Color.White.copy(alpha = 0.7f))
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 32.dp)
+                ) {
+                    Text(
+                        "Select Episode Range",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    pageGroups.forEach { start ->
+                        val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                        val isSelected = start == currentPageStart
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                .clickable {
+                                    currentPageStart = start
+                                    showGroupSheet = false
+                                }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Episodes $start - $end",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedContainerColor = Color(0xFF1E1E1E),
-                    unfocusedContainerColor = Color(0xFF1E1E1E),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
-                shape = RoundedCornerShape(8.dp),
-                singleLine = true
-            )
+                }
+            }
         }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Search bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            placeholder = { Text("Search episode...", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp) },
+            leadingIcon = { Icon(Icons.Outlined.Search, null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(20.dp)) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.White.copy(alpha = 0.1f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
+                focusedContainerColor = Color(0xFF1A1A1A),
+                unfocusedContainerColor = Color(0xFF1A1A1A),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Color.White
+            ),
+            shape = RoundedCornerShape(10.dp),
+            singleLine = true
+        )
 
         Spacer(Modifier.height(16.dp))
 
+        // Filtered episode cards
         val filtered = state.episodes.filter {
             val num = it.number
             val inRange = num >= currentPageStart && num < currentPageStart + episodesPerPage
             if (searchQuery.isEmpty()) return@filter inRange
-            
             val matchNum = num.toString().contains(searchQuery)
-            val titleMatches = it.titles?.firstOrNull()?.contains(searchQuery, ignoreCase = true) == true
+            val titleMatches = it.titles?.filterNotNull()?.firstOrNull()?.contains(searchQuery, ignoreCase = true) == true
             inRange && (matchNum || titleMatches)
         }.sortedBy { it.number }
 
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             filtered.forEach { episode ->
                 EpisodeItemRow(
                     episode = episode,
@@ -702,38 +753,76 @@ private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: ()
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF1E1E1E))
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Thumbnail — 20:9 aspect ratio
         Box(
             Modifier
-                .width(100.dp)
-                .height(56.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color.Black),
+                .weight(0.45f)
+                .aspectRatio(20f / 9f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1A1A1A)),
             contentAlignment = Alignment.Center
         ) {
             if (thumbnail != null) {
                 AsyncImage(
                     model = thumbnail,
-                    contentDescription = "Thumbnail",
+                    contentDescription = "Episode ${episode.number}",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
             }
-            Icon(Icons.Default.PlayCircleOutline, null, tint = Color.White)
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+            Icon(
+                Icons.Default.PlayCircle,
+                contentDescription = "Play",
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(32.dp)
+            )
+            Text(
+                text = episode.number.toString().padStart(2, '0'),
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp)
+            )
         }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text("Episode ${episode.number}", color = Color.White, fontWeight = FontWeight.Bold)
-            val subTitle = episode.titles?.firstOrNull() ?: ""
-            if (subTitle.isNotEmpty() && subTitle != "Episode ${episode.number}") {
-                Text(subTitle, color = Color.Gray, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+        // Right side — title, subtitle, download icon top-right
+        Box(Modifier.weight(0.55f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val title = episode.titles?.filterNotNull()?.firstOrNull()
+                Text(
+                    text = title ?: "Episode ${episode.number}",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 32.dp)
+                )
+                Text(
+                    text = "Episode ${episode.number}",
+                    color = Color.Gray,
+                    fontSize = 13.sp
+                )
+            }
+            // Download icon top-right
+            IconButton(
+                onClick = { /* Download */ },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(28.dp)
+            ) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

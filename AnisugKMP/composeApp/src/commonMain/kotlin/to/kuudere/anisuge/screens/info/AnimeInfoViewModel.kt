@@ -40,7 +40,15 @@ class AnimeInfoViewModel(
         currentAnimeId = id
         
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    episodes = emptyList(),
+                    thumbnails = emptyMap(),
+                    isLoadingEpisodes = false
+                )
+            }
             val response = infoService.getAnimeDetails(id)
             if (response != null) {
                 _uiState.update {

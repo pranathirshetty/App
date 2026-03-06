@@ -50,7 +50,7 @@ data class WatchlistUpdateResponse(
 @Serializable
 data class EpisodeItem(
     val number: Int = 0,
-    val titles: List<String>? = emptyList(),
+    val titles: List<String?>? = emptyList(),
 )
 
 @Serializable
