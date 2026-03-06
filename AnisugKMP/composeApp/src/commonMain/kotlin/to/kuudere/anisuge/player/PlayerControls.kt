@@ -329,19 +329,11 @@ fun PlayerControls(
                                 .height(24.dp)
                                 .pointerInput(duration) {
                                     detectTapGestures(
-                                        onPress = { offset ->
+                                        onTap = { offset ->
                                             if (duration <= 0) return@detectTapGestures
-                                            isSeeking = true
-                                            hideJob?.cancel()
-                                            seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
-                                            
-                                            val released = tryAwaitRelease()
-                                            
-                                            if (released) {
-                                                playerState.seekTarget = seekValue.toDouble()
-                                                isSeeking = false
-                                                scheduleHide()
-                                            }
+                                            val tapValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                            playerState.seekTarget = tapValue.toDouble()
+                                            scheduleHide()
                                         }
                                     )
                                 }
@@ -353,9 +345,10 @@ fun PlayerControls(
                                             hideJob?.cancel()
                                             seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
                                         },
-                                        onDrag = { change, _ ->
+                                        onDrag = { change, dragAmount ->
                                             if (duration <= 0) return@detectDragGestures
-                                            seekValue = ((change.position.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                            val dx = change.position.x
+                                            seekValue = ((dx / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
                                         },
                                         onDragEnd = {
                                             if (duration > 0) {
