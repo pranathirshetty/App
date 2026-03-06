@@ -49,17 +49,29 @@ fun PlayerControls(
     val scope = rememberCoroutineScope()
     var hideJob by remember { mutableStateOf<Job?>(null) }
 
-    // Auto-hide controls after 3s of inactivity
+    val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+
+    // Auto-hide controls after 3s of inactivity (only if not loading/buffering)
     fun scheduleHide() {
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(3500)
-            if (!isSeeking) controlsVisible = false
+            if (!isSeeking && !isLoading) controlsVisible = false
         }
     }
 
-    // Show controls initially then auto-hide
+    // Show controls initially
     LaunchedEffect(Unit) { scheduleHide() }
+
+    // If it's loading, keep controls visible
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            controlsVisible = true
+            hideJob?.cancel()
+        } else {
+            scheduleHide()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -113,7 +125,7 @@ fun PlayerControls(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
                             .padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -246,7 +258,7 @@ fun PlayerControls(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
                             .padding(top = 32.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
