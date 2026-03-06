@@ -42,10 +42,10 @@ class InfoService(
         }
     }
 
-    suspend fun getEpisodes(animeId: String): EpisodeDataResponse? {
+    suspend fun getEpisodes(animeId: String, episodeNumber: Int = 1): EpisodeDataResponse? {
         return try {
             val stored = sessionStore.get()
-            val response = httpClient.get("$BASE_URL/api/watch/$animeId/1") {
+            val response = httpClient.get("$BASE_URL/api/watch/$animeId/$episodeNumber") {
                 if (stored != null) header("Cookie", sessionToCookie(stored))
             }
             response.body<EpisodeDataResponse>()
@@ -81,6 +81,19 @@ class InfoService(
         } catch (e: Exception) {
             println("[InfoService] updateWatchlistStatus error: ${e.message}")
             false
+        }
+    }
+
+    suspend fun getVideoStream(anilistId: Int, episodeNumber: Int, server: String): to.kuudere.anisuge.data.models.WatchServerResponse? {
+        return try {
+            val stored = sessionStore.get()
+            val response = httpClient.get("$BASE_URL/$anilistId/$episodeNumber/$server") {
+                if (stored != null) header("Cookie", sessionToCookie(stored))
+            }
+            response.body<to.kuudere.anisuge.data.models.WatchServerResponse>()
+        } catch (e: Exception) {
+            println("[InfoService] getVideoStream error: ${e.message}")
+            null
         }
     }
 }

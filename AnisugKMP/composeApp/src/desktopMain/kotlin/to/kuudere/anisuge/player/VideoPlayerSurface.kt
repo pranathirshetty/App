@@ -26,7 +26,15 @@ actual fun VideoPlayerSurface(
         object : java.awt.Canvas() {
             override fun paint (g: java.awt.Graphics?) {}
             override fun update(g: java.awt.Graphics?) {}
-        }.apply { background = java.awt.Color.BLACK }
+        }.apply {
+            background = java.awt.Color.BLACK
+            addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    // Increment inside AWT thread — Compose reads it via mutableStateOf
+                    state.canvasClicked++
+                }
+            })
+        }
     }
 
     val player = remember(state.config) {
@@ -78,10 +86,6 @@ actual fun VideoPlayerSurface(
                 player.destroy()
             }
         }
-    }
-
-    LaunchedEffect(state.subFileUrl) {
-        state.subFileUrl?.let { player.setSubFile(it) }
     }
 
     SwingPanel(

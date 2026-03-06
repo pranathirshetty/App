@@ -9,6 +9,7 @@ import androidx.compose.ui.window.application
 import to.kuudere.anisuge.platform.LocalWindowScope
 
 fun main() = application {
+    System.setProperty("compose.interop.blending", "true")
     Window(
         onCloseRequest = ::exitApplication,
         title = "Anisuge",

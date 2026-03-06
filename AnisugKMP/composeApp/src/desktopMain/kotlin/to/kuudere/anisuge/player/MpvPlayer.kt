@@ -58,20 +58,32 @@ internal class MpvPlayer(
         r = mpv.mpv_set_option_string(handle, "loop-file", if (config.loop) "inf" else "no")
         println("[MpvPlayer] set loop-file → $r")
         
-        // Enable terminal output so we can see mpv errors
+        // Reduce terminal noise — only show errors
         mpv.mpv_set_option_string(handle, "terminal", "yes")
-        mpv.mpv_set_option_string(handle, "msg-level", "all=v")
+        mpv.mpv_set_option_string(handle, "msg-level", "all=error,osc=warn")
 
         // Subtitle options
         mpv.mpv_set_option_string(handle, "sub-auto", "fuzzy")
         mpv.mpv_set_option_string(handle, "embeddedfonts", if (config.embeddedFonts) "yes" else "no")
+        // Always try to use fonts-dir if provided to allow ASS styling
+        if (config.fontsDir != null) {
+            mpv.mpv_set_option_string(handle, "sub-fonts-dir", config.fontsDir)
+        }
         mpv.mpv_set_option_string(handle, "sub-font-provider", "fontconfig")
+        mpv.mpv_set_option_string(handle, "sub-ass", "yes")
+        mpv.mpv_set_option_string(handle, "sub-ass-override", "scale")
 
-        // UI options
-        mpv.mpv_set_option_string(handle, "osc", "no")
-        mpv.mpv_set_option_string(handle, "osd-level", "0")
-        mpv.mpv_set_option_string(handle, "input-default-bindings", "no")
-        mpv.mpv_set_option_string(handle, "input-vo-keyboard", "no")
+        // UI: enable mpv's built-in OSC (on-screen controller) — renders inside canvas
+        // This is the only practical way to show player controls over a SwingPanel
+        mpv.mpv_set_option_string(handle, "osc", if (config.showControls) "yes" else "no")
+        mpv.mpv_set_option_string(handle, "osd-level", if (config.showControls) "1" else "0")
+        mpv.mpv_set_option_string(handle, "osd-bar", if (config.showControls) "yes" else "no")
+        // Enable mouse/keyboard so OSC is interactive
+        mpv.mpv_set_option_string(handle, "input-default-bindings", if (config.showControls) "yes" else "no")
+        mpv.mpv_set_option_string(handle, "input-vo-keyboard", if (config.showControls) "yes" else "no")
+        // OSC style — uosc-like title bar positioning
+        mpv.mpv_set_option_string(handle, "osc-layout", "box")
+        mpv.mpv_set_option_string(handle, "osc-seekbarstyle", "bar")
         // Always keep last frame visible to prevent white flash during navigation
         mpv.mpv_set_option_string(handle, "keep-open", "yes")
 
@@ -103,9 +115,13 @@ internal class MpvPlayer(
         lib?.mpv_command(ctx!!, arrayOf("seek", seconds.toString(), "absolute", null))
     }
 
-    fun setSubFile(path: String) {
+    fun setSubFile(url: String) {
         ctx ?: return
-        lib?.mpv_command(ctx!!, arrayOf("sub-add", path, "select", null))
+        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+            ?: return println("[MpvPlayer] setSubFile: prepareSubtitle returned null for $url")
+        println("[MpvPlayer] sub-add -> $localPath")
+        val r = lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, "select", null))
+        println("[MpvPlayer] sub-add result: $r")
     }
 
     // ── Internal event loop ─────────────────────────────────────────────────
@@ -114,6 +130,9 @@ internal class MpvPlayer(
         val handle = ctx ?: return
         val mpv = lib ?: return
         scope.launch {
+            var lastSentPause = false
+            var pendingSub: String? = null
+            var pendingAllSubs: List<Pair<String, Boolean>>? = null
             while (isActive && ctx != null) {
                 val event = mpv.mpv_wait_event(handle, 0.5) ?: continue
                 when (event.mpvEventId()) {
@@ -131,6 +150,23 @@ internal class MpvPlayer(
                                 mpv.mpv_free(durPtr)
                             }
                         }
+                        // Load all subtitles — default selected, rest available via OSC
+                        val subsToLoad = pendingAllSubs ?: state.allSubUrls
+                        if (!subsToLoad.isNullOrEmpty()) {
+                            println("[MpvPlayer] FILE_LOADED: loading ${subsToLoad.size} subtitle(s)")
+                            withContext(Dispatchers.IO) {
+                                subsToLoad.forEach { (url, isDefault) ->
+                                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                    if (localPath != null) {
+                                        val flag = if (isDefault) "select" else "auto"
+                                        lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
+                                        println("[MpvPlayer] sub-add [$flag] -> $localPath")
+                                    }
+                                }
+                            }
+                            withContext(Dispatchers.Main) { state.allSubUrls = null }
+                            pendingAllSubs = null
+                        }
                     }
                     LibMpv.MPV_EVENT_TICK -> {
                         val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
@@ -143,17 +179,49 @@ internal class MpvPlayer(
                     LibMpv.MPV_EVENT_SHUTDOWN -> break
                 }
 
-                // React to UI-driven commands
-                if (state.pauseRequested != !state.isPlaying) {
-                    if (state.pauseRequested) pause() else resume()
+                // React to UI-driven pause toggle
+                val wantPause = state.pauseRequested
+                if (wantPause != lastSentPause) {
+                    if (wantPause) pause() else resume()
+                    lastSentPause = wantPause
                 }
+
+                // Handle seek
                 state.seekTarget?.let { target ->
                     seekTo(target)
                     withContext(Dispatchers.Main) { state.seekTarget = null }
                 }
+
+                // Handle runtime sub switch (single track, e.g. user picks from UI)
                 state.subFileUrl?.let { sub ->
-                    setSubFile(sub)
-                    withContext(Dispatchers.Main) { state.subFileUrl = null }
+                    if (state.isPlaying) {
+                        println("[MpvPlayer] Runtime sub change -> $sub")
+                        withContext(Dispatchers.IO) { setSubFile(sub) }
+                        withContext(Dispatchers.Main) { state.subFileUrl = null }
+                    } else {
+                        pendingSub = sub
+                        withContext(Dispatchers.Main) { state.subFileUrl = null }
+                    }
+                }
+
+                // Handle all-subs load (on new episode/server change before file ready)
+                state.allSubUrls?.let { subs ->
+                    if (state.isPlaying) {
+                        println("[MpvPlayer] Runtime: loading ${subs.size} subtitle(s)")
+                        withContext(Dispatchers.IO) {
+                            subs.forEach { (url, isDefault) ->
+                                val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                if (localPath != null) {
+                                    val flag = if (isDefault) "select" else "auto"
+                                    lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
+                                }
+                            }
+                        }
+                        withContext(Dispatchers.Main) { state.allSubUrls = null }
+                    } else {
+                        pendingAllSubs = subs
+                        withContext(Dispatchers.Main) { state.allSubUrls = null }
+                    }
                 }
             }
         }

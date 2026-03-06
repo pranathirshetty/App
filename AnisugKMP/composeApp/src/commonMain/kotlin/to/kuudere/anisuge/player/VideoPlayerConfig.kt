@@ -24,4 +24,6 @@ data class VideoPlayerConfig(
     val hwdec: String = "auto",
     /** Seek to this position on load (seconds) */
     val startPosition: Double = 0.0,
+    /** Directory for custom fonts */
+    val fontsDir: String? = null,
 )

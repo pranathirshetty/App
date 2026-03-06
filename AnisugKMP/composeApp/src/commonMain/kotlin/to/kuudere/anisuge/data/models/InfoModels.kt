@@ -53,19 +53,39 @@ data class WatchlistUpdateResponse(
 
 @Serializable
 data class EpisodeItem(
+    val id: String = "",
     val number: Int = 0,
     val titles: List<String?>? = emptyList(),
+    val ago: String? = null
 )
 
 @Serializable
 data class AnimeInfoMeta(
-    val anilist: Int? = null
+    val anilist: Int? = null,
+    val english: String? = null,
+    val folder: String? = null,
+    @SerialName("inWatchlist") val inWatchlist: Boolean? = null,
+    val userLiked: Boolean? = null,
+    val userUnliked: Boolean? = null,
+    val likes: Int? = 0,
+    val dislikes: Int? = 0
+)
+
+@Serializable
+data class EpisodeLink(
+    val dataLink: String? = null,
+    val dataType: String? = null,
+    val serverName: String? = null
 )
 
 @Serializable
 data class EpisodeDataResponse(
+    @SerialName("episode_id") val episodeId: String? = null,
+    val current: Int? = null,
+    @SerialName("total_comments") val totalComments: Int? = 0,
     @SerialName("all_episodes") val allEpisodes: List<EpisodeItem>? = emptyList(),
-    @SerialName("anime_info") val animeInfo: AnimeInfoMeta? = null
+    @SerialName("anime_info") val animeInfo: AnimeInfoMeta? = null,
+    @SerialName("episode_links") val episodeLinks: List<EpisodeLink>? = emptyList()
 )
 
 @Serializable

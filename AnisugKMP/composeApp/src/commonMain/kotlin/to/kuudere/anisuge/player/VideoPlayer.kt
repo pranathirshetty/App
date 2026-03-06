@@ -25,7 +25,11 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     // Commands from UI → player (platform impl watches these)
     var pauseRequested  by mutableStateOf(false)
     var seekTarget      by mutableStateOf<Double?>(null)
-    var subFileUrl      by mutableStateOf<String?>(null)
+    var subFileUrl      by mutableStateOf<String?>(null)  // single sub change at runtime
+    var allSubUrls      by mutableStateOf<List<Pair<String, Boolean>>?>(null) // (url, isDefault)
+
+    // Signal from AWT canvas → Compose UI (incremented on each canvas click)
+    var canvasClicked   by mutableStateOf(0)
 }
 
 @Composable
@@ -38,6 +42,7 @@ fun rememberVideoPlayerState(
     embeddedFonts:Boolean = true,
     hwdec:        String  = "auto",
     startPosition:Double  = 0.0,
+    fontsDir:     String? = null,
 ): VideoPlayerState = remember(url) {
     VideoPlayerState(
         VideoPlayerConfig(
@@ -49,6 +54,7 @@ fun rememberVideoPlayerState(
             embeddedFonts = embeddedFonts,
             hwdec         = hwdec,
             startPosition = startPosition,
+            fontsDir      = fontsDir,
         )
     )
 }

@@ -11,4 +11,9 @@ sealed class Screen(val route: String) {
             const val route = "info/{animeId}"
         }
     }
+    data class Watch(val animeId: String, val episodeNumber: Int) : Screen("watch/$animeId/$episodeNumber") {
+        companion object {
+            const val route = "watch/{animeId}/{episodeNumber}"
+        }
+    }
 }
