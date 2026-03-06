@@ -101,7 +101,11 @@ fun SearchScreen(
                     }
                 } else {
                     items(state.results) { anime ->
-                        SearchAnimeCard(item = anime, onClick = { onAnimeClick(anime.id) })
+                        to.kuudere.anisuge.ui.AnimeCard(
+                            item     = anime,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick  = { onAnimeClick(anime.id) }
+                        )
                     }
                 }
 
@@ -467,76 +471,3 @@ private fun FilterDropdown(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SearchAnimeCard(item: AnimeItem, onClick: () -> Unit) {
-    BoxWithConstraints(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        val isNarrow = maxWidth < 130.dp
-        Column(Modifier.fillMaxWidth()) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.7f)
-                    .clip(RoundedCornerShape(8.dp))
-            ) {
-                AsyncImage(
-                    model = if (item.imageUrl.startsWith("http")) item.imageUrl else "https://kuudere.to/img/poster/${item.imageUrl}",
-                    contentDescription = item.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF00B0FF)))
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text = item.title,
-                    color = Color.White,
-                    fontSize = if (isNarrow) 10.sp else 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            if (!isNarrow) {
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (!item.type.isNullOrBlank()) SmallBadge(item.type)
-                    Row(
-                        Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E1E)).padding(horizontal = 4.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Mic, null, tint = Color.Gray, modifier = Modifier.size(9.dp))
-                        if ((item.subbedCount ?: 0) > 0) {
-                            Spacer(Modifier.width(2.dp))
-                            Icon(Icons.Default.ClosedCaption, null, tint = Color.Gray, modifier = Modifier.size(9.dp))
-                        }
-                        Spacer(Modifier.width(3.dp))
-                        Text((item.epCount ?: 0).toString(), color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SmallBadge(text: String) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color(0xFF1E1E1E))
-            .padding(horizontal = 6.dp, vertical = 2.dp)
-    ) {
-        Text(text, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
-}

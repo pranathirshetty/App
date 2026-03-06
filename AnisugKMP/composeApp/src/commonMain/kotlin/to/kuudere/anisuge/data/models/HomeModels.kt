@@ -21,6 +21,7 @@ data class AnimeItem(
     val epCount:      Int? = 0,
     val subbedCount:  Int? = 0,
     val dubbedCount:  Int? = 0,
+    val duration:     Int? = 24,
 ) {
     val title: String get() = english?.ifBlank { romaji } ?: romaji ?: ""
     val imageUrl: String get() = cover ?: ""

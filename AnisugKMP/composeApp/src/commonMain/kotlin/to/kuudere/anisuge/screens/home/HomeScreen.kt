@@ -724,10 +724,9 @@ private fun AnimeSection(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 itemsIndexed(items) { _, item ->
-                    AnimeCard(
-                        item   = item,
-                        width  = if (isXlScreen) 200.dp else 160.dp,
-                        height = if (isXlScreen) 280.dp else 225.dp,
+                    to.kuudere.anisuge.ui.AnimeCard(
+                        item    = item,
+                        modifier = Modifier.width(if (isXlScreen) 200.dp else 155.dp),
                         onClick = { onItemClick(item) }
                     )
                 }
@@ -737,90 +736,6 @@ private fun AnimeSection(
     }
 }
 
-@Composable
-private fun AnimeCard(item: AnimeItem, width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
-    val inter    = remember { MutableInteractionSource() }
-    val hovered  by inter.collectIsHoveredAsState()
-    val elevation by animateDpAsState(if (hovered) 12.dp else 0.dp, tween(200))
-
-    Column(
-        Modifier
-            .width(width)
-            .hoverable(inter)
-            .clickable(onClick = onClick)
-            .offset(y = -elevation / 2)
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(height)
-                .clip(RoundedCornerShape(8.dp))
-        ) {
-            // Background image
-            AsyncImage(
-                model              = item.imageUrl,
-                contentDescription = item.title,
-                contentScale       = ContentScale.Crop,
-                modifier           = Modifier.fillMaxSize(),
-            )
-
-            // Bottom Gradient
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.5f),
-                            Color.Black.copy(alpha = 0.8f),
-                        ),
-                        startY = 0f,
-                        endY   = Float.POSITIVE_INFINITY,
-                    )
-                )
-            )
-
-            // Top-left Badges
-            androidx.compose.foundation.layout.FlowRow(
-                Modifier.align(Alignment.TopStart).padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (!item.type.isNullOrBlank()) {
-                    SmallBadge(text = item.type)
-                }
-                if ((item.epCount ?: 0) > 0) {
-                    SmallBadge(text = item.epCount.toString(), color = Color(0xFFFFEB3B)) // Yellow
-                }
-                if ((item.dubbedCount ?: 0) > 0) {
-                    SmallBadge(text = item.dubbedCount.toString(), color = Color(0xFF42A5F5)) // Blue
-                }
-            }
-
-            // Bottom Title & Eps
-            Column(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = item.title,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Episodes ${item.epCount ?: "?"}",
-                    color = Color.LightGray,
-                    fontSize = 12.sp
-                )
-            }
-        }
-    }
-}
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
