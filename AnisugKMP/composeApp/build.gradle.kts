@@ -5,9 +5,15 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.androidApplication)
 }
 
 kotlin {
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
+    }
     jvm("desktop")
 
     sourceSets {
@@ -42,6 +48,15 @@ kotlin {
             implementation(libs.okio)
         }
 
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.androidx.media3.exoplayer)
+            implementation(libs.androidx.media3.exoplayer.hls)
+            implementation(libs.androidx.media3.ui)
+        }
+
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
@@ -54,6 +69,28 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+    }
+}
+
+android {
+    namespace = "to.kuudere.anisuge"
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+
+    defaultConfig {
+        applicationId = "to.kuudere.anisuge"
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        compose = true
     }
 }
 
