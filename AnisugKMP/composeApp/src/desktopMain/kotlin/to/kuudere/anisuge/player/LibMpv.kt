@@ -17,6 +17,15 @@ private interface CLib : Library {
     }
 }
 
+@com.sun.jna.Structure.FieldOrder("type", "data")
+open class mpv_render_param : com.sun.jna.Structure() {
+    @JvmField var type: Int = 0
+    @JvmField var data: Pointer? = null
+    override fun toArray(size: Int): Array<mpv_render_param> {
+        return super.toArray(size) as Array<mpv_render_param>
+    }
+}
+
 /**
  * Raw JNA bindings to libmpv's C API (client.h).
  * Only the functions we actually need are mapped — the rest can be added later.
@@ -41,6 +50,17 @@ internal interface LibMpv : Library {
 
     // ── Events ───────────────────────────────────────────────────────────────
     fun mpv_wait_event(ctx: Pointer, timeout: Double): Pointer
+
+    // ── Render API ───────────────────────────────────────────────────────────
+    fun mpv_render_context_create(res: com.sun.jna.ptr.PointerByReference, mpv: Pointer, params: mpv_render_param): Int
+    fun mpv_render_context_free(ctx: Pointer)
+    
+    interface mpv_render_update_fn : com.sun.jna.Callback {
+        fun invoke(cb_ctx: Pointer?)
+    }
+    fun mpv_render_context_set_update_callback(ctx: Pointer, callback: mpv_render_update_fn, cb_ctx: Pointer?)
+    fun mpv_render_context_update(ctx: Pointer): Long
+    fun mpv_render_context_render(ctx: Pointer, params: mpv_render_param): Int
 
     companion object {
         const val MPV_EVENT_NONE        = 0

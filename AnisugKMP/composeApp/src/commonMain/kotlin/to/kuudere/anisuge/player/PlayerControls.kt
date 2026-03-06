@@ -85,9 +85,39 @@ fun PlayerControls(
         }
     }
 
+    // Hook up desktop AWT Canvas clicks to toggle visibility
+    LaunchedEffect(playerState.canvasClicked) {
+        if (playerState.canvasClicked > 0) {
+            controlsVisible = !controlsVisible
+            if (controlsVisible) scheduleHide()
+        }
+    }
+
+    // Hook up desktop AWT Canvas pointer moves to wake up controls
+    LaunchedEffect(playerState.canvasPointerMoved) {
+        if (playerState.canvasPointerMoved > 0) {
+            controlsVisible = true
+            scheduleHide()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .background(Color.Transparent)
+            .pointerInput("hover") {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
+                        if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Move) {
+                            if (!controlsVisible && !isLoading) {
+                                controlsVisible = true
+                            }
+                            scheduleHide()
+                        }
+                    }
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {

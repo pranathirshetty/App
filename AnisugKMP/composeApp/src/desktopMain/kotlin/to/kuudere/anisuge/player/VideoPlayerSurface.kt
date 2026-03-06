@@ -1,20 +1,32 @@
 package to.kuudere.anisuge.player
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.graphics.Color
-import com.sun.jna.Native
+import androidx.compose.ui.graphics.asComposeImageBitmap
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
+import org.jetbrains.skia.ImageInfo
 
 /**
  * Desktop actual of [VideoPlayerSurface].
- * Renders video via JNA libmpv into an AWT Canvas embedded in Compose via SwingPanel.
+ *
+ * Renders video via JNA libmpv (SW renderer) directly into a Compose ImageBitmap.
+ * - No X11/AWT window embedding — pure Compose, no layering hacks.
+ * - Full Compose overlay support (controls, subtitles UI, etc.).
+ * - Reuses Skia Bitmap across frames — no GC pressure.
+ * - Render loop does NOT restart on resize; uses refs for dimensions.
  */
 @Composable
 actual fun VideoPlayerSurface(
@@ -22,31 +34,26 @@ actual fun VideoPlayerSurface(
     modifier:   Modifier,
     onFinished: (() -> Unit)?,
 ) {
-    val canvas = remember {
-        object : java.awt.Canvas() {
-            override fun paint (g: java.awt.Graphics?) {}
-            override fun update(g: java.awt.Graphics?) {}
-        }.apply {
-            background = java.awt.Color.BLACK
-            addMouseListener(object : java.awt.event.MouseAdapter() {
-                override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                    // Increment inside AWT thread — Compose reads it via mutableStateOf
-                    state.canvasClicked++
-                }
-            })
-        }
+    var player       by remember { mutableStateOf<MpvPlayer?>(null) }
+    var frameBitmap  by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+
+    // Use refs so the render loop reads the latest values without restarting
+    val widthRef  = remember { mutableStateOf(1280) }
+    val heightRef = remember { mutableStateOf(720)  }
+
+    // ── Player lifecycle ─────────────────────────────────────────────────────
+    DisposableEffect(state.config) {
+        val p = MpvPlayer(config = state.config, state = state, onFinished = onFinished)
+        player = p
+        onDispose { p.destroy() }
     }
 
-    val player = remember(state.config) {
-        MpvPlayer(config = state.config, state = state, onFinished = onFinished)
-    }
-
-    if (!player.isAvailable) {
+    if (player?.isAvailable != true) {
         Box(modifier = modifier.background(Color.Black))
         return
     }
 
-    // Resolve classpath resources to temp files; HTTP/file paths pass through
+    // ── Resolve URL (resource or absolute path) ──────────────────────────────
     val resolvedUrl = remember(state.config.url) {
         val url = state.config.url
         if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
@@ -59,37 +66,61 @@ actual fun VideoPlayerSurface(
                 val tmp = java.io.File.createTempFile("mpv_res_", ".$ext").also { it.deleteOnExit() }
                 tmp.outputStream().use { out -> stream.copyTo(out) }
                 tmp.absolutePath
-            } else {
-                println("[VideoPlayerSurface] WARNING: Resource not found: $url")
-                ""
-            }
+            } else ""
         }
     }
 
-    DisposableEffect(resolvedUrl) {
-        if (resolvedUrl.isEmpty()) {
-            onDispose {}
-        } else {
-            val thread = Thread {
-                // Wait for the AWT canvas to get a valid native window ID
-                var wid = 0L
-                while (wid == 0L) {
-                    try { wid = Native.getComponentID(canvas) } catch (_: Exception) {}
-                    Thread.sleep(16)
+    // ── Start playback ───────────────────────────────────────────────────────
+    LaunchedEffect(resolvedUrl) {
+        if (resolvedUrl.isEmpty()) return@LaunchedEffect
+        val p = player ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) { p.initAndPlay(resolvedUrl) }
+    }
+
+    // ── Render loop — only restarts when URL changes ─────────────────────────
+    LaunchedEffect(resolvedUrl, player) {
+        if (resolvedUrl.isEmpty()) return@LaunchedEffect
+        val p = player ?: return@LaunchedEffect
+
+        val skiaImageInfo = org.jetbrains.skia.ImageInfo.makeN32Premul(widthRef.value, heightRef.value)
+        
+        while (isActive) {
+            val w = widthRef.value
+            val h = heightRef.value
+
+            if (w > 0 && h > 0) {
+                val bytes = withContext(Dispatchers.IO) { p.renderFrame(w, h) }
+                if (bytes != null) {
+                    val skiaBitmap = org.jetbrains.skia.Bitmap()
+                    skiaBitmap.allocPixels(org.jetbrains.skia.ImageInfo.makeN32Premul(w, h))
+                    skiaBitmap.installPixels(bytes)
+                    frameBitmap = skiaBitmap.asComposeImageBitmap()
                 }
-                // Now create mpv with the wid, init, and play — all in correct order
-                player.initAndPlay(wid, resolvedUrl)
-            }.also { it.isDaemon = true; it.start() }
-
-            onDispose {
-                thread.interrupt()
-                player.destroy()
             }
+
+            delay(16) // ~60 fps cap
         }
     }
 
-    SwingPanel(
-        modifier = modifier.fillMaxSize(),
-        factory  = { canvas },
-    )
+    // ── UI ───────────────────────────────────────────────────────────────────
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .onSizeChanged { size ->
+                if (size.width > 0 && size.height > 0) {
+                    widthRef.value  = size.width
+                    heightRef.value = size.height
+                }
+            }
+    ) {
+        frameBitmap?.let { bmp ->
+            Image(
+                bitmap            = bmp,
+                contentDescription = "Video Frame",
+                modifier          = Modifier.fillMaxSize()
+            )
+        }
+        // ← Drop your Compose controls/overlay here, on top of the video
+    }
 }

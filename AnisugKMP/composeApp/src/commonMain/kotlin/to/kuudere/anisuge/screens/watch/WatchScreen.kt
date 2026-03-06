@@ -229,9 +229,8 @@ fun WatchVideoPlayer(
             ?: uiState.availableQualities.firstOrNull()?.second
 
         if (currentUrl != null) {
-            // Desktop: use mpv's built-in OSC (Compose can't overlay AWT SwingPanel)
-            // Android: disable OSC, use Compose PlayerControls overlay
-            val useOsc = isDesktopPlatform
+            // Desktop: We now use our custom Compose PlayerControls instead of mpv's OSC
+            val useOsc = false
             val playerState = rememberVideoPlayerState(
                 url = currentUrl,
                 startPosition = uiState.savedWatchPosition,
@@ -270,20 +269,18 @@ fun WatchVideoPlayer(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Compose player controls overlay (Android only — desktop uses mpv OSC)
-                if (!useOsc) {
-                    PlayerControls(
-                        playerState = playerState,
-                        streamingData = uiState.streamingData,
-                        title = title,
-                        isFullscreen = uiState.isFullscreen,
-                        onFullscreenToggle = onFullscreenToggle,
-                        onBack = onBack,
-                        onCaptionsClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.SUBTITLES) },
-                        onSettingsClick = { viewModel.toggleSettingsOverlay() },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                // Render out our cross-platform compose player controls overlay
+                PlayerControls(
+                    playerState = playerState,
+                    streamingData = uiState.streamingData,
+                    title = title,
+                    isFullscreen = uiState.isFullscreen,
+                    onFullscreenToggle = onFullscreenToggle,
+                    onBack = onBack,
+                    onCaptionsClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.SUBTITLES) },
+                    onSettingsClick = { viewModel.toggleSettingsOverlay() },
+                    modifier = Modifier.fillMaxSize()
+                )
             }
             
             if (uiState.showSettingsOverlay) {

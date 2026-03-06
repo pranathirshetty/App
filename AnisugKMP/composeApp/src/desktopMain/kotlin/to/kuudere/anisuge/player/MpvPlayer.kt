@@ -28,12 +28,14 @@ internal class MpvPlayer(
 
     val isAvailable: Boolean get() = lib != null
 
+    private var renderCtx: com.sun.jna.ptr.PointerByReference? = null
+
     /**
-     * Create the mpv handle, set ALL options (including wid) BEFORE initialising,
+     * Create the mpv handle, set ALL options BEFORE initialising,
      * then start playback. This is the correct libmpv lifecycle.
      */
-    fun initAndPlay(wid: Long, url: String) {
-        println("[MpvPlayer] initAndPlay: wid=$wid url=$url")
+    fun initAndPlay(url: String) {
+        println("[MpvPlayer] initAndPlay: url=$url")
         val mpv = lib ?: run {
             println("[MpvPlayer] ERROR: lib is null (libmpv not loaded)")
             return
@@ -47,10 +49,8 @@ internal class MpvPlayer(
 
         // ── Pre-init options ─────────────────────────────────────────────────
         var r: Int
-        r = mpv.mpv_set_option_string(handle, "wid", wid.toString())
-        println("[MpvPlayer] set wid=$wid → $r")
-        r = mpv.mpv_set_option_string(handle, "vo", "x11")
-        println("[MpvPlayer] set vo=x11 → $r")
+        r = mpv.mpv_set_option_string(handle, "vo", "libmpv")
+        println("[MpvPlayer] set vo=libmpv → $r")
         r = mpv.mpv_set_option_string(handle, "hwdec", config.hwdec)
         println("[MpvPlayer] set hwdec=${config.hwdec} → $r")
         r = mpv.mpv_set_option_string(handle, "mute", if (config.muted) "yes" else "no")
@@ -65,7 +65,6 @@ internal class MpvPlayer(
         // Subtitle options
         mpv.mpv_set_option_string(handle, "sub-auto", "fuzzy")
         mpv.mpv_set_option_string(handle, "embeddedfonts", if (config.embeddedFonts) "yes" else "no")
-        // Always try to use fonts-dir if provided to allow ASS styling
         if (config.fontsDir != null) {
             mpv.mpv_set_option_string(handle, "sub-fonts-dir", config.fontsDir)
         }
@@ -73,17 +72,15 @@ internal class MpvPlayer(
         mpv.mpv_set_option_string(handle, "sub-ass", "yes")
         mpv.mpv_set_option_string(handle, "sub-ass-override", "scale")
 
-        // UI: enable mpv's built-in OSC (on-screen controller) — renders inside canvas
-        // This is the only practical way to show player controls over a SwingPanel
-        mpv.mpv_set_option_string(handle, "osc", if (config.showControls) "yes" else "no")
-        mpv.mpv_set_option_string(handle, "osd-level", if (config.showControls) "1" else "0")
-        mpv.mpv_set_option_string(handle, "osd-bar", if (config.showControls) "yes" else "no")
-        // Enable mouse/keyboard so OSC is interactive
+        // UI: We disabled mpv's built-in OSC because we now render the 
+        // Compose PlayerControls UI overlay directly
+        mpv.mpv_set_option_string(handle, "osc", "no")
+        mpv.mpv_set_option_string(handle, "osd-level", "0")
+        mpv.mpv_set_option_string(handle, "osd-bar", "no")
+        mpv.mpv_set_option_string(handle, "input-cursor", "no")
         mpv.mpv_set_option_string(handle, "input-default-bindings", if (config.showControls) "yes" else "no")
         mpv.mpv_set_option_string(handle, "input-vo-keyboard", if (config.showControls) "yes" else "no")
-        // OSC style — uosc-like title bar positioning
-        mpv.mpv_set_option_string(handle, "osc-layout", "box")
-        mpv.mpv_set_option_string(handle, "osc-seekbarstyle", "bar")
+
         // Always keep last frame visible to prevent white flash during navigation
         mpv.mpv_set_option_string(handle, "keep-open", "yes")
 
@@ -95,6 +92,20 @@ internal class MpvPlayer(
             ctx = null
             return
         }
+
+        // Setup SW Render Context
+        val params = mpv_render_param().toArray(2) as Array<mpv_render_param>
+        params[0].type = 1 // MPV_RENDER_PARAM_API_TYPE
+        val strMem = com.sun.jna.Memory(3)
+        strMem.setString(0, "sw")
+        params[0].data = strMem
+        params[1].type = 0 // terminate array
+        params[1].data = null
+
+        val ctxRef = com.sun.jna.ptr.PointerByReference()
+        val rCtx = mpv.mpv_render_context_create(ctxRef, handle, params[0])
+        println("[MpvPlayer] render_context_create -> $rCtx")
+        renderCtx = ctxRef 
 
         // Load file
         r = mpv.mpv_command(handle, arrayOf("loadfile", url, null))
@@ -293,14 +304,47 @@ internal class MpvPlayer(
 
     fun destroy() {
         scope.cancel()
-        ctx?.let { handle ->
-            try {
-                // Stop playback first to prevent X11 BadWindow errors
-                lib?.mpv_command(handle, arrayOf("stop", null))
-                Thread.sleep(50) // Give mpv a moment to release the window
-                lib?.mpv_terminate_destroy(handle)
-            } catch (_: Exception) {}
+        val c = ctx
+        val rc = renderCtx
+        lib?.let { mpv ->
+            if (rc != null) mpv.mpv_render_context_free(rc.value)
+            if (c != null) mpv.mpv_terminate_destroy(c)
         }
         ctx = null
+        renderCtx = null
+    }
+
+    fun renderFrame(width: Int, height: Int): ByteArray? {
+        val rc = renderCtx?.value ?: return null
+        val mpv = lib ?: return null
+
+        val stride = width * 4L  // 4 bytes per pixel for "rgb0"
+        val buffer = com.sun.jna.Memory(stride * height)
+
+        val sizeMem = com.sun.jna.Memory(8)
+        sizeMem.setInt(0, width)
+        sizeMem.setInt(4, height)
+
+        val strideMem = com.sun.jna.Memory(8)
+        strideMem.setLong(0, stride)
+
+        val fmtMem = com.sun.jna.Memory(5)
+        fmtMem.setString(0, "rgb0")
+
+        val params = mpv_render_param().toArray(6) as Array<mpv_render_param>
+        params[0].type = 17; params[0].data = sizeMem
+        params[1].type = 18; params[1].data = fmtMem
+        params[2].type = 19; params[2].data = strideMem
+        params[3].type = 20; params[3].data = buffer
+        params[4].type = 0; params[4].data = null  // terminator
+
+        mpv.mpv_render_context_update(rc)
+        val r = mpv.mpv_render_context_render(rc, params[0])
+        if (r < 0) {
+            println("[MpvPlayer] render failed: $r")
+            return null
+        }
+
+        return buffer.getByteArray(0, (stride * height).toInt())
     }
 }
