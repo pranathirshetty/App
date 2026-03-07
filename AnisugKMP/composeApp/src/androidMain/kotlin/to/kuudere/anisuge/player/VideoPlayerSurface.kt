@@ -16,6 +16,7 @@ import dev.jdtech.mpv.MPVLib
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.io.File
 
 @Composable
@@ -69,6 +70,8 @@ actual fun VideoPlayerSurface(
         }
     }
 
+    val isSeeking = remember { mutableStateOf(false) }
+
     DisposableEffect(resolvedUrl) {
         val configDir = context.filesDir.absolutePath
         val subfontFile = File(configDir, "subfont.ttf")
@@ -97,6 +100,7 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("osd-level", if (state.config.showControls) "1" else "0")
         MPVLib.setOptionString("keep-open", "yes") // Prevent mpv from exiting or showing the drag-and-drop logo
         MPVLib.setOptionString("demuxer-seekable-cache", "no") // Force network re-fetch on seek; in-cache seek silently fails on HLS
+        MPVLib.setOptionString("hr-seek", "no") // Disable hr-seek: its two-pass seek (keyframe then precise) causes double-seek on HLS, landing at wrong position
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
         
@@ -118,7 +122,6 @@ actual fun VideoPlayerSurface(
         
         MPVLib.init()
 
-        var isSeeking = false
         var isPausedForCache = false
         val observer = object : MPVLib.EventObserver {
             override fun eventProperty(property: String) {}
@@ -129,11 +132,11 @@ actual fun VideoPlayerSurface(
                 when (property) {
                     "paused-for-cache" -> {
                         isPausedForCache = value
-                        state.isBuffering = isPausedForCache || isSeeking
+                        state.isBuffering = isPausedForCache || isSeeking.value
                     }
                     "seeking" -> {
-                        isSeeking = value
-                        state.isBuffering = isPausedForCache || isSeeking
+                        isSeeking.value = value
+                        state.isBuffering = isPausedForCache || isSeeking.value
                     }
                     "pause" -> {
                         state.isPaused = value
@@ -145,7 +148,7 @@ actual fun VideoPlayerSurface(
                 if (property == "time-pos") {
                     // Suppress stale time-pos updates while mpv is actively seeking;
                     // the slider would snap back to the pre-seek position otherwise.
-                    if (!isSeeking) {
+                    if (!isSeeking.value) {
                         state.position = value
                     }
                 } else if (property == "duration") {
@@ -255,18 +258,22 @@ actual fun VideoPlayerSurface(
     }
 
     LaunchedEffect(state.seekTarget) {
-        state.seekTarget?.let { target ->
-            state.seekTarget = null  // ← clear first
-            println("[VideoPlayerSurface] SEEK requested to: $target (current position: ${state.position})")
-            withContext(Dispatchers.IO) {
-                if (target <= 0.0) {
-                    MPVLib.setPropertyString("percent-pos", "0")
-                } else {
-                    MPVLib.command(arrayOf("seek", target.toString(), "absolute"))
-                }
+        val target = state.seekTarget ?: return@LaunchedEffect
+        if (isSeeking.value) return@LaunchedEffect
+        state.seekTarget = null
+        isSeeking.value = true
+
+        withContext(Dispatchers.IO) {
+            if (target <= 0.0) {
+                MPVLib.setPropertyString("force-seekable", "yes")
+                MPVLib.command(arrayOf("seek", "1.0", "absolute", "keyframes"))
+            } else {
+                MPVLib.command(arrayOf("seek", target.toString(), "absolute", "keyframes"))
             }
-            println("[VideoPlayerSurface] SEEK command sent for: $target")
         }
+
+        delay(500)
+        isSeeking.value = false
     }
     
     // Runtime sub change
