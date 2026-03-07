@@ -60,9 +60,12 @@ internal class MpvPlayer(
         r = mpv.mpv_set_option_string(handle, "loop-file", if (config.loop) "inf" else "no")
         println("[MpvPlayer] set loop-file → $r")
         
-        // Reduce terminal noise — only show errors
+        // Reduce terminal noise — suppress ffmpeg PPS/SPS spam
         mpv.mpv_set_option_string(handle, "terminal", "yes")
-        mpv.mpv_set_option_string(handle, "msg-level", "all=error,osc=warn")
+        mpv.mpv_set_option_string(handle, "msg-level", "all=error,ffmpeg=fatal,osc=warn")
+
+        // Exact seeking — prevents keyframe-snapping on HLS streams
+        mpv.mpv_set_option_string(handle, "hr-seek", "yes")
 
         // Subtitle options
         mpv.mpv_set_option_string(handle, "sub-auto", "fuzzy")
@@ -128,12 +131,14 @@ internal class MpvPlayer(
         val handle = ctx ?: return
         val mpv = lib ?: return
         isSeeking = true
-        // HLS streams can't seek to absolute 0 — clamp to 0.1s
         val safeTarget = seconds.coerceAtLeast(0.1)
-        mpv.mpv_command(handle, arrayOf("seek", safeTarget.toString(), "absolute", null))
+        println("[MpvPlayer] seekTo($seconds → $safeTarget) — isSeeking=true, current position=${state.position}")
+        val r = mpv.mpv_command(handle, arrayOf("seek", safeTarget.toString(), "absolute", "exact", null))
+        println("[MpvPlayer] seek command result=$r")
         scope.launch {
             kotlinx.coroutines.delay(500)
             isSeeking = false
+            println("[MpvPlayer] isSeeking=false, position now=${state.position}")
         }
     }
 
@@ -161,6 +166,10 @@ internal class MpvPlayer(
                         val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
                         mpv.mpv_free(posPtr)
                         if (!isSeeking) {
+                            val oldPos = state.position
+                            if (kotlin.math.abs(pos - oldPos) > 3.0) {
+                                println("[MpvPlayer] POLL jump: %.2f → %.2f (delta=%.2f)".format(oldPos, pos, pos - oldPos))
+                            }
                             withContext(Dispatchers.Main) { state.position = pos }
                         }
                     }
@@ -286,6 +295,10 @@ internal class MpvPlayer(
                                 if (posPtr != null) {
                                     val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
                                     mpv.mpv_free(posPtr)
+                                    val oldPos = state.position
+                                    if (kotlin.math.abs(pos - oldPos) > 3.0) {
+                                        println("[MpvPlayer] TICK jump: %.2f → %.2f (delta=%.2f)".format(oldPos, pos, pos - oldPos))
+                                    }
                                     withContext(Dispatchers.Main) { state.position = pos }
                                 }
                             }
