@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -75,6 +76,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -97,6 +99,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -248,11 +253,8 @@ private fun HomeContent(
     onRefresh: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
-    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-        isRefreshing = state.isLoading,
-        onRefresh = onRefresh,
-        modifier = Modifier.fillMaxSize()
-    ) {
+    
+    val innerContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         // ── Hero Carousel ──────────────────────────────────────────────
         if (state.topAiring.isNotEmpty()) {
@@ -305,7 +307,24 @@ private fun HomeContent(
         }
 
         Spacer(Modifier.height(48.dp))
+        }
     }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val isDesktop = maxWidth >= 1024.dp
+        if (isDesktop) {
+            Box(Modifier.fillMaxSize()) {
+                innerContent()
+            }
+        } else {
+            androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+                isRefreshing = state.isLoading,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                innerContent()
+            }
+        }
     }
 }
 
@@ -324,10 +343,19 @@ private fun HeroCarousel(
     val density = LocalDensity.current
     val windowSize = LocalWindowInfo.current.containerSize
     val screenHeightDp = with(density) { windowSize.height.toDp() }
-    val carouselHeight = screenHeightDp * 0.85f
+    val carouselHeight = screenHeightDp * 0.62f
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val isDesktop = maxWidth >= 1024.dp
+        val isLargeDevice = maxWidth >= 1300.dp
+        
+        val posterWidth = if (isLargeDevice) 240.dp else 160.dp
+        val bannerWidth = if (isLargeDevice) 360.dp else 240.dp
+        val titleSize = if (isLargeDevice) 44.sp else 32.sp
+        val titleLineHeight = if (isLargeDevice) 52.sp else 40.sp
+        val paddingAmount = if (isLargeDevice) 64.dp else 40.dp
+        val rowSpacing = if (isLargeDevice) 40.dp else 24.dp
+        val descLines = if (isLargeDevice) 4 else 3
 
         if (!isDesktop) {
             // ── Small screen: Fan stack carousel ────────────────────────
@@ -341,112 +369,204 @@ private fun HeroCarousel(
             )
         } else {
             // ── Desktop: full-bleed hero ─────────────────────────────────
+            val bgColor = Color(0xFF0B0B0B)
             Box(
                 Modifier
                     .fillMaxWidth()
                     .height(carouselHeight)
+                    .background(bgColor)
             ) {
-                val imageUrl = item.bannerUrl ?: item.imageUrl
+                AnimatedContent(
+                    targetState = currentIndex,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(400)) + slideInHorizontally(animationSpec = tween(400), initialOffsetX = { 200 })) togetherWith
+                        fadeOut(animationSpec = tween(400))
+                    },
+                    modifier = Modifier.fillMaxSize()
+                ) { targetIndex ->
+                    val animItem = items[targetIndex]
+                    val imageUrl = animItem.bannerUrl ?: animItem.imageUrl
+                    Box(Modifier.fillMaxSize()) {
 
                 AsyncImage(
                     model           = imageUrl,
-                    contentDescription = item.title,
+                    contentDescription = animItem.title,
                     contentScale    = ContentScale.Crop,
                     modifier        = Modifier.fillMaxSize(),
                 )
 
                 Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.5f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.4f),
-                                Color.Black.copy(alpha = 0.85f),
-                                Color.Black,
-                            )
+                    Modifier.fillMaxSize().drawWithCache {
+                        val verticalGradient = Brush.verticalGradient(
+                            0.3f to Color.Transparent,
+                            0.7f to bgColor.copy(alpha = 0.5f),
+                            0.95f to bgColor.copy(alpha = 0.98f),
+                            1.0f to bgColor
                         )
-                    )
-                )
-
-                Column(
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 32.dp, end = 32.dp, bottom = 40.dp),
-                ) {
-                    SpotlightTag(index = currentIndex)
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text       = item.title,
-                        color      = Color.White,
-                        fontSize   = 48.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        lineHeight = 54.sp,
-                        maxLines   = 3,
-                        overflow   = TextOverflow.Ellipsis,
-                        modifier   = Modifier.fillMaxWidth(0.55f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (item.type != null) {
-                            MetaTag(item.type, Icons.Default.Movie)
-                            Spacer(Modifier.width(10.dp))
-                        }
-                        MetaTag("${item.epCount ?: "?"} Episodes", Icons.Default.Layers)
-                        if (item.malScore != null) {
-                            Spacer(Modifier.width(10.dp))
-                            MalScoreBadge(item.malScore)
+                        val horizontalGradient = Brush.horizontalGradient(
+                            0.0f to bgColor.copy(alpha = 0.9f),
+                            0.5f to bgColor.copy(alpha = 0.4f),
+                            1.0f to bgColor.copy(alpha = 0.1f)
+                        )
+                        onDrawBehind {
+                            drawRect(brush = horizontalGradient, size = size)
+                            drawRect(brush = verticalGradient, size = size)
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text       = stripHtmlTags(item.description ?: ""),
-                        color      = Color.White.copy(alpha = 0.85f),
-                        fontSize   = 16.sp,
-                        lineHeight = 24.sp,
-                        maxLines   = 4,
-                        overflow   = TextOverflow.Ellipsis,
-                        modifier   = Modifier.fillMaxWidth(0.4f)
+                )
+
+                Row(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(start = paddingAmount, bottom = paddingAmount, end = paddingAmount),
+                    horizontalArrangement = Arrangement.spacedBy(rowSpacing),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left: Vertical Poster
+                    AsyncImage(
+                        model = if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://kuudere.to/img/poster/${animItem.imageUrl}",
+                        contentDescription = animItem.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .width(posterWidth)
+                            .aspectRatio(0.7f)
+                            .clip(RoundedCornerShape(12.dp))
                     )
-                    Spacer(Modifier.height(32.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = { onWatchClick(item, "sub", 1) },
-                            colors  = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                            shape   = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 16.dp),
+
+                    // Middle: Text Info
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = animItem.title,
+                            color = Color.White,
+                            fontSize = titleSize,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = titleLineHeight,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        Spacer(Modifier.height(16.dp))
+
+                        // Meta Row
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("WATCH NOW", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            val genresText = animItem.genres?.take(4)?.joinToString("   ")
+                            if (!genresText.isNullOrEmpty()) {
+                                Text(genresText, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            }
+                            
+                            if (animItem.malScore != null && animItem.malScore > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.BookmarkBorder, contentDescription = "Score", tint = Color.White.copy(alpha=0.6f), modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(animItem.malScore.toString(), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
                         }
-                        Spacer(Modifier.width(16.dp))
-                        OutlinedButton(
-                            onClick = { onAnimeClick(item) },
-                            shape   = RoundedCornerShape(12.dp),
-                            colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+
+                        Spacer(Modifier.height(24.dp))
+
+                        Text(
+                            text = stripHtmlTags(animItem.description ?: "").replace("\n", " ").replace("  ", " ").trim(),
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 15.sp,
+                            lineHeight = 24.sp,
+                            maxLines = descLines,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(Modifier.height(32.dp))
+
+                        // Preview / Buttons
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Info, null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Button(
+                                onClick = { onAnimeClick(animItem) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                                shape = RoundedCornerShape(24.dp),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.Info, contentDescription = "Info", modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Info", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .clickable { onWatchlistClick(animItem) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Watchlist", tint = Color.White, modifier = Modifier.size(22.dp))
+                            }
                         }
-                        Spacer(Modifier.width(16.dp))
-                        OutlinedButton(
-                            onClick = { onWatchlistClick(item) },
-                            shape   = RoundedCornerShape(12.dp),
-                            colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+                    }
+
+                    // Right: Episode Landscape Thumbnail
+                    Box(
+                        modifier = Modifier
+                            .width(bannerWidth)
+                            .aspectRatio(16f/9f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .clickable { onWatchClick(animItem, "sub", 1) }
+                    ) {
+                        AsyncImage(
+                            model = animItem.bannerUrl ?: (if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://kuudere.to/img/poster/${animItem.imageUrl}"),
+                            contentDescription = "Episode",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Gradient Overlay for Text Visibility
+                        Box(Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
+                                startY = 100f
+                            )
+                        ))
+                        Column(
+                            Modifier.align(Alignment.BottomStart).padding(20.dp)
                         ) {
-                            Icon(Icons.Outlined.Bookmark, null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add List", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Text(
+                                animItem.title,
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Episode 1" + if (animItem.epCount != null && animItem.epCount > 0) " / ${animItem.epCount}" else "",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp
+                            )
+                        }
+                        
+                        // Time badge bottom right
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 16.dp, bottom = 16.dp)
+                        ) {
+                            Text("24m", color = Color.White.copy(alpha=0.7f), fontSize = 13.sp)
                         }
                     }
                 }
+                } // End Box wrapping animItem content
+                } // End AnimatedContent
 
                 Row(
-                    Modifier.align(Alignment.BottomEnd).padding(end = 32.dp, bottom = 40.dp),
+                    Modifier.align(Alignment.BottomEnd).padding(end = paddingAmount, bottom = paddingAmount),
                 ) {
                     CarouselNavBtn(Icons.AutoMirrored.Filled.ArrowBack) {
                         currentIndex = (currentIndex - 1 + items.size) % items.size
