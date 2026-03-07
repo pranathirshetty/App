@@ -10,9 +10,15 @@ import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.ScheduleAnime
 import to.kuudere.anisuge.data.services.ScheduleService
 
+private const val PAGE_SIZE = 3
+
 data class ScheduleUiState(
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val schedule: Map<String, List<ScheduleAnime>> = emptyMap(),
+    val hasMore: Boolean = false,
+    val loadedDates: Int = 0,
+    val totalDates: Int = 0,
     val error: String? = null,
 )
 
@@ -28,12 +34,41 @@ class ScheduleViewModel(
 
     fun refresh() {
         scope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { ScheduleUiState(isLoading = true) }
             try {
-                val data = scheduleService.fetchSchedule()
-                _uiState.update { it.copy(isLoading = false, schedule = data) }
+                val resp = scheduleService.fetchSchedule(limit = PAGE_SIZE, offset = 0)
+                _uiState.update {
+                    it.copy(
+                        isLoading    = false,
+                        schedule     = resp.data,
+                        hasMore      = resp.hasMore,
+                        loadedDates  = resp.loadedDates ?: resp.data.size,
+                        totalDates   = resp.totalDates ?: resp.data.size,
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun loadMore() {
+        val current = _uiState.value
+        if (current.isLoadingMore || !current.hasMore) return
+        scope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try {
+                val resp = scheduleService.fetchSchedule(limit = PAGE_SIZE, offset = current.loadedDates)
+                _uiState.update { state ->
+                    state.copy(
+                        isLoadingMore = false,
+                        schedule      = state.schedule + resp.data,   // merge
+                        hasMore       = resp.hasMore,
+                        loadedDates   = state.loadedDates + (resp.loadedDates ?: resp.data.size),
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingMore = false) }
             }
         }
     }
