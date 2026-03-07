@@ -53,6 +53,8 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -120,6 +122,7 @@ import to.kuudere.anisuge.data.models.ContinueWatchingItem
 import to.kuudere.anisuge.platform.DraggableWindowArea
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
+import to.kuudere.anisuge.screens.watchlist.WatchlistScreen
 
 enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 
@@ -211,6 +214,7 @@ fun HomeScreen(
                                 onRefresh = { homeViewModel.refresh() }
                             )
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+                            AnisugTab.Bookmarks -> WatchlistScreen(onAnimeClick)
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
                             }
@@ -814,9 +818,20 @@ private fun ContinueWatchingRow(
     items: List<ContinueWatchingItem>,
     onWatchClick: (String, String, Int, String?) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     LazyRow(
+        state = listState,
         contentPadding    = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.draggable(
+            orientation = Orientation.Horizontal,
+            state = rememberDraggableState { delta ->
+                coroutineScope.launch {
+                    listState.scrollBy(-delta)
+                }
+            }
+        )
     ) {
         itemsIndexed(items) { _, item ->
             val inter = remember { MutableInteractionSource() }
@@ -938,9 +953,20 @@ private fun AnimeSection(
         val isXlScreen = maxWidth >= 1280.dp
         Column {
             SectionHeader(title = title, onViewMore = if (showViewMore) ({ }) else null)
+            val listState = rememberLazyListState()
+            val coroutineScope = rememberCoroutineScope()
             LazyRow(
+                state = listState,
                 contentPadding        = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.draggable(
+                    orientation = Orientation.Horizontal,
+                    state = rememberDraggableState { delta ->
+                        coroutineScope.launch {
+                            listState.scrollBy(-delta)
+                        }
+                    }
+                )
             ) {
                 itemsIndexed(items) { _, item ->
                     to.kuudere.anisuge.ui.AnimeCard(
