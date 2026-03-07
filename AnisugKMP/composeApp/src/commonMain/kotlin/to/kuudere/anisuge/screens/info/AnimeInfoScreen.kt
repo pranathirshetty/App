@@ -581,9 +581,11 @@ private fun DesktopLayout(
                     .fillMaxWidth()
                     .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
             ) {
-            var currentPageStart by remember { mutableStateOf(1) }
             val episodesPerPage = 100
             val totalEpisodes = state.episodes.size
+            var currentPageStart by remember(totalEpisodes > 0) { 
+                mutableStateOf(if (totalEpisodes > 0) maxOf(1, ((totalEpisodes - 1) / episodesPerPage) * episodesPerPage + 1) else 1)
+            }
             
             if (state.isLoadingEpisodes) {
                 Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
@@ -594,7 +596,7 @@ private fun DesktopLayout(
                     Text("No episodes available.", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
                 }
             } else {
-                var isAscending by remember { mutableStateOf(true) }
+                var isAscending by remember { mutableStateOf(false) }
                 var searchQuery by remember { mutableStateOf("") }
                 val pageGroups = (1..totalEpisodes step episodesPerPage).toList()
                 val displayGroups = if (isAscending) pageGroups else pageGroups.reversed()
