@@ -53,4 +53,8 @@ object AppComponent {
     val watchlistService: to.kuudere.anisuge.data.services.WatchlistService by lazy {
         to.kuudere.anisuge.data.services.WatchlistService(sessionStore, httpClient)
     }
+
+    val scheduleService: to.kuudere.anisuge.data.services.ScheduleService by lazy {
+        to.kuudere.anisuge.data.services.ScheduleService(sessionStore, httpClient)
+    }
 }
