@@ -63,6 +63,7 @@ fun PlayerControls(
     var hideJob by remember { mutableStateOf<Job?>(null) }
 
     val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+    val isPlayingActively = playerState.isPlaying && !playerState.isPaused
 
     // Clear expected position when actual catches up
     LaunchedEffect(playerState.position) {
@@ -85,16 +86,18 @@ fun PlayerControls(
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(3500)
-            if (!isSeeking && !isLoading) controlsVisible = false
+            if (!isSeeking && !isLoading && isPlayingActively) {
+                controlsVisible = false
+            }
         }
     }
 
     // Show controls initially
     LaunchedEffect(Unit) { scheduleHide() }
 
-    // If it's loading, keep controls visible
-    LaunchedEffect(isLoading) {
-        if (isLoading) {
+    // If it's loading or not playing actively, keep controls visible
+    LaunchedEffect(isLoading, isPlayingActively) {
+        if (isLoading || !isPlayingActively) {
             controlsVisible = true
             hideJob?.cancel()
         } else {
@@ -138,8 +141,12 @@ fun PlayerControls(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
-                        controlsVisible = !controlsVisible
-                        if (controlsVisible) scheduleHide()
+                        if (isLoading || !isPlayingActively) {
+                            controlsVisible = true
+                        } else {
+                            controlsVisible = !controlsVisible
+                            if (controlsVisible) scheduleHide()
+                        }
                     },
                     onDoubleTap = { offset ->
                         val width = size.width
