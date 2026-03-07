@@ -367,10 +367,17 @@ private fun DesktopLayout(
     onWatchEpisode: (Int) -> Unit,
     onGenreClick: (String) -> Unit
 ) {
-    val scrollState = rememberScrollState()
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val baseWidth = 1400.dp
+        val scaleFactor = (maxWidth / baseWidth).coerceAtLeast(1f)
+        val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+        val scaledDensity = androidx.compose.ui.unit.Density(currentDensity.density * scaleFactor, currentDensity.fontScale)
 
-    Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(scrollState)) {
-        // Hero Section Box
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides scaledDensity) {
+            val scrollState = rememberScrollState()
+
+            Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(scrollState)) {
+                // Hero Section Box
         Box(Modifier.fillMaxWidth().height(500.dp)) {
             val bannerUrl = anime.banner?.takeIf { 
                 it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
@@ -413,13 +420,16 @@ private fun DesktopLayout(
                 )
             )
 
-            // Left aligned content matching Nuvio TV HeroSection
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth(0.6f)
-                    .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
-            ) {
+            // Constrained inner content
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.fillMaxHeight().widthIn(max = 1400.dp).fillMaxWidth()) {
+                    // Left aligned content matching Nuvio TV HeroSection
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth(0.6f)
+                            .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
+                    ) {
                 Text(
                     text = anime.title,
                     color = Color.White,
@@ -559,10 +569,18 @@ private fun DesktopLayout(
                     .clip(RoundedCornerShape(16.dp))
                     .border(2.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
             )
+                } // End inner max width Box
+            } // End inner content alignment Box
         } // End of Hero Box
 
         // Season Chunks and Episodes section below Hero Box
-        Column(Modifier.padding(start = 48.dp, bottom = 48.dp, end = 48.dp)) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier
+                    .widthIn(max = 1400.dp)
+                    .fillMaxWidth()
+                    .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
+            ) {
             var currentPageStart by remember { mutableStateOf(1) }
             val episodesPerPage = 100
             val totalEpisodes = state.episodes.size
@@ -577,6 +595,7 @@ private fun DesktopLayout(
                 }
             } else {
                 var isAscending by remember { mutableStateOf(true) }
+                var searchQuery by remember { mutableStateOf("") }
                 val pageGroups = (1..totalEpisodes step episodesPerPage).toList()
                 val displayGroups = if (isAscending) pageGroups else pageGroups.reversed()
                 
@@ -585,8 +604,44 @@ private fun DesktopLayout(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Episode Chunks Dropdown
-                    Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Search bar
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 15.sp),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                            modifier = Modifier
+                                .width(220.dp)
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            decorationBox = { innerTextField ->
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text("Search episodes...", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
+                                        }
+                                        innerTextField()
+                                    }
+                                    if (searchQuery.isNotEmpty()) {
+                                        Icon(
+                                            Icons.Default.Clear,
+                                            contentDescription = "Clear",
+                                            tint = Color.White.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(16.dp).clickable { searchQuery = "" }
+                                        )
+                                    }
+                                }
+                            }
+                        )
+
+                        // Episode Chunks Dropdown
+                        Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
                         var chunkExpanded by remember { mutableStateOf(false) }
                         val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
                         val currentText = if (pageGroups.size > 1) "Eps $currentPageStart-$end" else "Season 1"
@@ -664,6 +719,8 @@ private fun DesktopLayout(
                             }
                         }
                     }
+
+                    } // Close inner Row
 
                     // Sort Button Dropdown
                     Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
@@ -760,13 +817,25 @@ private fun DesktopLayout(
 
                 // Episode List
                 val filteredEpisodes = state.episodes.filter { 
-                    it.number in currentPageStart until (currentPageStart + episodesPerPage)
+                    if (searchQuery.isNotBlank()) {
+                        val numMatch = it.number.toString().contains(searchQuery)
+                        val titleMatch = it.titles?.filterNotNull()?.firstOrNull()?.contains(searchQuery, ignoreCase = true) == true
+                        numMatch || titleMatch
+                    } else {
+                        it.number in currentPageStart until (currentPageStart + episodesPerPage)
+                    }
                 }.let { list ->
                     if (isAscending) list.sortedBy { it.number } else list.sortedByDescending { it.number }
                 }
                 
                 val listState = rememberLazyListState()
                 val coroutineScope = rememberCoroutineScope()
+
+                androidx.compose.runtime.LaunchedEffect(currentPageStart, isAscending, searchQuery) {
+                    if (filteredEpisodes.isNotEmpty()) {
+                        listState.animateScrollToItem(0)
+                    }
+                }
 
                 Box(modifier = Modifier.fillMaxWidth()) {
                     LazyRow(
@@ -818,9 +887,12 @@ private fun DesktopLayout(
                         }
                     }
                 }
-            }
-        }
-    }
+            } // Close Box (Navigation + LazyRow)
+        } // Close Column
+    } // Close Outer Box for episodes
+    } // Close Main Scroll Column
+    } // Close CompositionLocalProvider
+    } // Close BoxWithConstraints
 }
 
 @Composable
@@ -871,10 +943,10 @@ private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, modifie
         ) {
             Box(
                 Modifier
-                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
-                Text("EPISODE ${episode.number}", color = Color.LightGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("EPISODE ${episode.number}", color = Color.White.copy(alpha = 0.9f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
             
             Spacer(Modifier.height(4.dp))
