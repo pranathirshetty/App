@@ -161,19 +161,26 @@ fun WatchlistScreen(
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             AdvancedFilterDropdown(
-                                "Genre", state.genre, listOf("All genres", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
-                                { viewModel.updateFilters(newGenre = it) }, Icons.Default.Style, Modifier.weight(1f)
+                                label = "Genre", 
+                                value = state.selectedGenres.joinToString(", ").ifBlank { null }, 
+                                hint = "Any genre",
+                                options = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                onOptionSelected = { viewModel.onGenreToggle(it) }, 
+                                icon = Icons.Default.Style, 
+                                modifier = Modifier.weight(1f),
+                                multiSelect = true,
+                                onClear = { viewModel.clearGenres() }
                             )
                             AdvancedFilterDropdown(
-                                "Sorting", state.sort, listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
+                                "Sorting", if (state.sort == "Recently Updated") null else state.sort, "Recently Updated", listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
                                 { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
                             )
                             AdvancedFilterDropdown(
-                                "Format", state.format, listOf("All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
+                                "Format", if (state.format == "All formats") null else state.format, "All formats", listOf("TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
                                 { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
                             )
                             AdvancedFilterDropdown(
-                                "Status", state.status, listOf("All statuses", "FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
+                                "Status", if (state.status == "All statuses") null else state.status, "All statuses", listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
                                 { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
                             )
                         }
@@ -280,11 +287,18 @@ fun WatchlistScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     AdvancedFilterDropdown(
-                                        "Genre", state.genre, listOf("All genres", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
-                                        { viewModel.updateFilters(newGenre = it) }, Icons.Default.Style, Modifier.weight(1f)
+                                        label = "Genre", 
+                                        value = state.selectedGenres.joinToString(", ").ifBlank { null }, 
+                                        hint = "Any genre",
+                                        options = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                        onOptionSelected = { viewModel.onGenreToggle(it) }, 
+                                        icon = Icons.Default.Style, 
+                                        modifier = Modifier.weight(1f),
+                                        multiSelect = true,
+                                        onClear = { viewModel.clearGenres() }
                                     )
                                     AdvancedFilterDropdown(
-                                        "Sorting", state.sort, listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
+                                        "Sorting", if (state.sort == "Recently Updated") null else state.sort, "Recently Updated", listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
                                         { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
                                     )
                                 }
@@ -294,11 +308,11 @@ fun WatchlistScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     AdvancedFilterDropdown(
-                                        "Format", state.format, listOf("All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
+                                        "Format", if (state.format == "All formats") null else state.format, "All formats", listOf("TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
                                         { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
                                     )
                                     AdvancedFilterDropdown(
-                                        "Status", state.status, listOf("All statuses", "FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
+                                        "Status", if (state.status == "All statuses") null else state.status, "All statuses", listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
                                         { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
                                     )
                                 }
@@ -426,16 +440,20 @@ fun WatchlistScreen(
 @Composable
 fun AdvancedFilterDropdown(
     label: String,
-    value: String,
+    value: String?,
+    hint: String,
     options: List<String>,
     onOptionSelected: (String) -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    multiSelect: Boolean = false,
+    onClear: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     var triggerWidthPx by remember { mutableStateOf(0) }
     val density = LocalDensity.current
     val triggerWidthDp = with(density) { triggerWidthPx.toDp() }
+    val selectedItems = value?.split(", ")?.filter { it.isNotBlank() } ?: emptyList()
 
     Box(
         modifier = modifier
@@ -453,7 +471,22 @@ fun AdvancedFilterDropdown(
         ) {
             Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
-            Text(value, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
+            Text(
+                text = value ?: hint, 
+                color = if (value == null) Color.Gray else Color.White, 
+                fontSize = 13.sp, 
+                maxLines = 1, 
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (value != null && onClear != null) {
+                Icon(
+                    Icons.Default.Close, "Clear",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(14.dp).clickable { onClear() }
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
         }
 
@@ -471,7 +504,7 @@ fun AdvancedFilterDropdown(
             tonalElevation = 0.dp,
         ) {
             options.forEach { option ->
-                val isSelected = option == value
+                val isSelected = if (multiSelect) selectedItems.contains(option) else option == value
                 DropdownMenuItem(
                     text = { 
                         Text(
@@ -483,11 +516,33 @@ fun AdvancedFilterDropdown(
                     },
                     onClick = {
                         onOptionSelected(option)
-                        expanded = false
+                        if (!multiSelect) expanded = false
                     },
                     modifier = Modifier.background(
                         if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
-                    )
+                    ),
+                    trailingIcon = if (multiSelect) {
+                        {
+                            Box(
+                                Modifier
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (isSelected) Color.White
+                                        else Color.White.copy(alpha = 0.12f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check, null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else null
                 )
             }
         }

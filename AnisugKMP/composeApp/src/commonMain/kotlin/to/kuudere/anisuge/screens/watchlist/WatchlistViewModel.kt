@@ -14,7 +14,7 @@ data class WatchlistState(
     val selectedFolder: String = "All lists",
     val searchQuery: String = "",
     val sort: String = "Recently Updated",
-    val genre: String = "All genres",
+    val selectedGenres: List<String> = emptyList(),
     val format: String = "All formats",
     val status: String = "All statuses",
     val items: List<AnimeItem> = emptyList(),
@@ -53,11 +53,27 @@ class WatchlistViewModel : ViewModel() {
         }
     }
 
-    fun updateFilters(newSort: String? = null, newGenre: String? = null, newFormat: String? = null, newStatus: String? = null) {
+    fun onGenreToggle(genre: String) {
+        _uiState.update { state ->
+            val newList = if (state.selectedGenres.contains(genre)) {
+                state.selectedGenres - genre
+            } else {
+                state.selectedGenres + genre
+            }
+            state.copy(selectedGenres = newList, items = emptyList(), currentPage = 1, totalPages = 1)
+        }
+        fetchWatchlist(1)
+    }
+
+    fun clearGenres() {
+        _uiState.update { it.copy(selectedGenres = emptyList(), items = emptyList(), currentPage = 1, totalPages = 1) }
+        fetchWatchlist(1)
+    }
+
+    fun updateFilters(newSort: String? = null, newFormat: String? = null, newStatus: String? = null) {
         _uiState.update {
             it.copy(
                 sort = newSort ?: it.sort,
-                genre = newGenre ?: it.genre,
                 format = newFormat ?: it.format,
                 status = newStatus ?: it.status,
                 items = emptyList(),
@@ -85,7 +101,7 @@ class WatchlistViewModel : ViewModel() {
                 val state = _uiState.value
                 val folderParam = if (state.selectedFolder == "All" || state.selectedFolder == "All lists") null else state.selectedFolder
                 val sortParam = if (state.sort == "Recently Updated") null else state.sort
-                val genreParam = if (state.genre == "All genres") null else state.genre
+                val genreParam = if (state.selectedGenres.isEmpty()) null else state.selectedGenres.joinToString(",")
                 val formatParam = if (state.format == "All formats") null else state.format
                 val statusParam = if (state.status == "All statuses") null else state.status
 
