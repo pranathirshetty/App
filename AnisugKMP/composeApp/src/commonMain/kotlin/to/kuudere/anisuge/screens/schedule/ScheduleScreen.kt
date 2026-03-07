@@ -287,7 +287,13 @@ fun ScheduleScreen(
                         modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
                     ) {
                         ScrollToTopButton {
-                            coroutineScope.launch { listState.animateScrollToItem(0) }
+                            coroutineScope.launch {
+                                // Jump close first so the animated portion is short (visible range only)
+                                if (listState.firstVisibleItemIndex > 4) {
+                                    listState.scrollToItem(4)
+                                }
+                                listState.animateScrollToItem(0)
+                            }
                         }
                     }
                 }
