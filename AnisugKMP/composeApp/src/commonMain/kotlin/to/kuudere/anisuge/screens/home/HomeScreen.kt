@@ -123,6 +123,7 @@ import to.kuudere.anisuge.platform.DraggableWindowArea
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
 import to.kuudere.anisuge.screens.watchlist.WatchlistScreen
+import to.kuudere.anisuge.screens.watchlist.WatchlistViewModel
 
 enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 
@@ -130,6 +131,7 @@ enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 fun HomeScreen(
     homeViewModel: HomeViewModel,
     searchViewModel: SearchViewModel,
+    watchlistViewModel: WatchlistViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
     onExit: () -> Unit = {},
@@ -214,7 +216,7 @@ fun HomeScreen(
                                 onRefresh = { homeViewModel.refresh() }
                             )
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
-                            AnisugTab.Bookmarks -> WatchlistScreen(onAnimeClick)
+                            AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
                             }

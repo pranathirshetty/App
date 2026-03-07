@@ -1,0 +1,61 @@
+package to.kuudere.anisuge.data.services
+
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import to.kuudere.anisuge.data.models.SessionInfo
+import to.kuudere.anisuge.data.models.WatchlistResponse
+import kotlinx.serialization.Serializable
+
+class WatchlistService(
+    private val sessionStore: SessionStore,
+    private val httpClient: HttpClient,
+) {
+    companion object {
+        const val BASE_URL = "https://kuudere.to"
+    }
+
+    private fun sessionToCookie(s: SessionInfo): String =
+        "session_id=${s.sessionId}; session_secret=${s.session}; user_id=${s.userId}"
+
+    suspend fun getWatchlist(page: Int = 1, folder: String? = null): WatchlistResponse? {
+        return try {
+            val stored = sessionStore.get()
+            val response = httpClient.get("$BASE_URL/api/anime/watchlist") {
+                parameter("page", page.toString())
+                parameter("perPage", "18")
+                folder?.let { parameter("folder", it) }
+                if (stored != null) header("Cookie", sessionToCookie(stored))
+            }
+            response.body<WatchlistResponse>()
+        } catch (e: Exception) {
+            println("[WatchlistService] getWatchlist error: ${e.message}")
+            e.printStackTrace()
+            null
+        }
+    }
+
+    @Serializable
+    private data class UpdateStatusRequest(val animeId: String, val folder: String)
+
+    suspend fun updateStatus(animeId: String, folder: String): Boolean {
+        return try {
+            val stored = sessionStore.get() ?: return false
+            val response = httpClient.post("$BASE_URL/api/anime/watchlist") {
+                contentType(ContentType.Application.Json)
+                header("Cookie", sessionToCookie(stored))
+                setBody(UpdateStatusRequest(animeId, folder))
+            }
+            response.status.value in 200..299
+        } catch (e: Exception) {
+            println("[WatchlistService] updateStatus error: ${e.message}")
+            false
+        }
+    }
+}

@@ -22,10 +22,14 @@ data class AnimeItem(
     val subbedCount:  Int? = 0,
     val dubbedCount:  Int? = 0,
     val duration:     Int? = 24,
+    val folder:       String? = null,
+    val status:       String? = null,
+    val mainId:       String? = null,
 ) {
     val title: String get() = english?.ifBlank { romaji } ?: romaji ?: ""
     val imageUrl: String get() = cover ?: ""
     val bannerUrl: String? get() = carouselBanner ?: banner
+    val activeId: String get() = mainId?.ifBlank { id } ?: id
 }
 
 // ── Continue Watching ────────────────────────────────────────────────────────

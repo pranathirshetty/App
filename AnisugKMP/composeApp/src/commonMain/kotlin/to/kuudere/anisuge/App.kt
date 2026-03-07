@@ -27,6 +27,7 @@ import to.kuudere.anisuge.screens.info.AnimeInfoScreen
 import to.kuudere.anisuge.screens.info.AnimeInfoViewModel
 import to.kuudere.anisuge.screens.watch.WatchScreen
 import to.kuudere.anisuge.screens.watch.WatchViewModel
+import to.kuudere.anisuge.screens.watchlist.WatchlistViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
@@ -41,6 +42,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val searchVm = remember { SearchViewModel(AppComponent.searchService) }
         val infoVm   = remember { AnimeInfoViewModel(AppComponent.infoService) }
         val watchVm  = remember { WatchViewModel(AppComponent.infoService) }
+        val watchlistVm = remember { WatchlistViewModel() }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -82,6 +84,7 @@ fun App(onAppExit: () -> Unit = {}) {
                     HomeScreen(
                         homeViewModel = homeVm,
                         searchViewModel = searchVm,
+                        watchlistViewModel = watchlistVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
                         onExit       = onAppExit,
