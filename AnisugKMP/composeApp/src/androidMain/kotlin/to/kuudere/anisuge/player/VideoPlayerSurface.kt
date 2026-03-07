@@ -96,6 +96,7 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("osd-bar", showOsc)
         MPVLib.setOptionString("osd-level", if (state.config.showControls) "1" else "0")
         MPVLib.setOptionString("keep-open", "yes") // Prevent mpv from exiting or showing the drag-and-drop logo
+        MPVLib.setOptionString("demuxer-seekable-cache", "no") // Force network re-fetch on seek; in-cache seek silently fails on HLS
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
         
@@ -254,10 +255,15 @@ actual fun VideoPlayerSurface(
     }
 
     LaunchedEffect(state.seekTarget) {
-        state.seekTarget?.let {
+        state.seekTarget?.let { target ->
+            println("[VideoPlayerSurface] SEEK requested to: $target (current position: ${state.position})")
             withContext(Dispatchers.IO) {
-                MPVLib.command(arrayOf<String>("seek", it.toString(), "absolute"))
+                // "absolute+exact" does a two-pass seek (keyframe then hr-seek) which can
+                // fail on some HLS servers. "absolute+keyframes" does a single-pass keyframe
+                // seek that's reliable, with minor inaccuracy (lands on nearest keyframe).
+                MPVLib.command(arrayOf("seek", target.toString(), "absolute+keyframes"))
             }
+            println("[VideoPlayerSurface] SEEK command sent for: $target")
             state.seekTarget = null
         }
     }
