@@ -195,7 +195,13 @@ fun WatchlistScreen(
                                 label = "Genre", 
                                 value = state.selectedGenres.joinToString(", ").ifBlank { null }, 
                                 hint = "Any genre",
-                                options = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                options = listOf(
+                                    "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
+                                    "Mystery", "Romance", "Sci-Fi", "Slice of Life", "Sports",
+                                    "Supernatural", "Thriller", "Ecchi", "Harem", "Isekai", "Mecha",
+                                    "Music", "Psychological", "School", "Military", "Historical",
+                                    "Demons", "Magic", "Vampire", "Hentai"
+                                ),
                                 onOptionSelected = { viewModel.onGenreToggle(it) }, 
                                 icon = Icons.Default.Style, 
                                 modifier = Modifier.weight(1f),
@@ -354,7 +360,13 @@ fun WatchlistScreen(
                                         label = "Genre", 
                                         value = state.selectedGenres.joinToString(", ").ifBlank { null }, 
                                         hint = "Any genre",
-                                        options = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                        options = listOf(
+                                            "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
+                                            "Mystery", "Romance", "Sci-Fi", "Slice of Life", "Sports",
+                                            "Supernatural", "Thriller", "Ecchi", "Harem", "Isekai", "Mecha",
+                                            "Music", "Psychological", "School", "Military", "Historical",
+                                            "Demons", "Magic", "Vampire", "Hentai"
+                                        ),
                                         onOptionSelected = { viewModel.onGenreToggle(it) }, 
                                         icon = Icons.Default.Style, 
                                         modifier = Modifier.weight(1f),
