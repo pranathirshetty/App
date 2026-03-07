@@ -576,30 +576,184 @@ private fun DesktopLayout(
                     Text("No episodes available.", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
                 }
             } else {
+                var isAscending by remember { mutableStateOf(true) }
                 val pageGroups = (1..totalEpisodes step episodesPerPage).toList()
+                val displayGroups = if (isAscending) pageGroups else pageGroups.reversed()
                 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    pageGroups.forEach { start ->
-                        val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
-                        val isSelected = start == currentPageStart
-                        val text = if (pageGroups.size > 1) "Eps $start-$end" else "Season 1"
+                    // Episode Chunks Dropdown
+                    Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
+                        var chunkExpanded by remember { mutableStateOf(false) }
+                        val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                        val currentText = if (pageGroups.size > 1) "Eps $currentPageStart-$end" else "Season 1"
                         
                         Box(
                             Modifier
                                 .clip(RoundedCornerShape(32.dp))
-                                .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.1f))
-                                .clickable { currentPageStart = start }
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .clickable { chunkExpanded = true }
                                 .padding(horizontal = 20.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = text,
-                                color = if (isSelected) Color.Black else Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = currentText,
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Icon(
+                                    imageVector = if (chunkExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Expand",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        if (chunkExpanded) {
+                            androidx.compose.ui.window.Popup(
+                                alignment = Alignment.TopStart,
+                                onDismissRequest = { chunkExpanded = false },
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(top = 48.dp) // Offset below the button
+                                        .width(200.dp)
+                                        .heightIn(max = 300.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF1E1E1E))
+                                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    displayGroups.forEachIndexed { index, start ->
+                                        val itemEnd = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                                        val isSelected = start == currentPageStart
+                                        val text = if (pageGroups.size > 1) "Eps $start-$itemEnd" else "Season 1"
+                                        
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { 
+                                                    currentPageStart = start 
+                                                    chunkExpanded = false 
+                                                }
+                                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(text, color = Color.White, fontSize = 14.sp)
+                                                if (isSelected) {
+                                                    Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (index < displayGroups.size - 1) {
+                                            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Sort Button Dropdown
+                    Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
+                        var expanded by remember { mutableStateOf(false) }
+                        
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .clickable { expanded = true }
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = if (isAscending) "Oldest" else "Newest",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Icon(
+                                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Expand",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        if (expanded) {
+                            androidx.compose.ui.window.Popup(
+                                alignment = Alignment.TopEnd,
+                                onDismissRequest = { expanded = false },
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(top = 48.dp) // Offset below the button
+                                        .width(180.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF1E1E1E))
+                                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    // Oldest Option
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { 
+                                                isAscending = true 
+                                                expanded = false 
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Oldest First", color = Color.White, fontSize = 14.sp)
+                                            if (isAscending) {
+                                                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Divider
+                                    Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.05f)))
+
+                                    // Newest Option
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { 
+                                                isAscending = false 
+                                                expanded = false 
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Newest First", color = Color.White, fontSize = 14.sp)
+                                            if (!isAscending) {
+                                                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -607,7 +761,9 @@ private fun DesktopLayout(
                 // Episode List
                 val filteredEpisodes = state.episodes.filter { 
                     it.number in currentPageStart until (currentPageStart + episodesPerPage)
-                }.sortedBy { it.number }
+                }.let { list ->
+                    if (isAscending) list.sortedBy { it.number } else list.sortedByDescending { it.number }
+                }
                 
                 val listState = rememberLazyListState()
                 val coroutineScope = rememberCoroutineScope()
@@ -627,10 +783,11 @@ private fun DesktopLayout(
                                 }
                             }
                     ) {
-                        items(filteredEpisodes) { episode ->
+                        items(filteredEpisodes, key = { it.number }) { episode ->
                             DesktopEpisodeCard(
                                 episode = episode,
                                 thumbnail = state.thumbnails[episode.number.toString()] ?: anime.cover,
+                                modifier = Modifier.animateItem(),
                                 onClick = { onWatchEpisode(episode.number) }
                             )
                         }
@@ -667,9 +824,9 @@ private fun DesktopLayout(
 }
 
 @Composable
-private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, onClick: () -> Unit) {
+private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .width(300.dp)
             .aspectRatio(16f / 9.5f)
             .clip(RoundedCornerShape(12.dp))
