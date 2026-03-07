@@ -421,14 +421,18 @@ private fun DesktopLayout(
             )
 
             // Constrained inner content
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.fillMaxHeight().widthIn(max = 1400.dp).fillMaxWidth()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = 1400.dp)
+                        .fillMaxWidth()
+                        .padding(start = 48.dp, bottom = 48.dp, end = 48.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
                     // Left aligned content matching Nuvio TV HeroSection
                     Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth(0.6f)
-                            .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
+                        modifier = Modifier.fillMaxWidth(0.6f)
                     ) {
                 Text(
                     text = anime.title,
@@ -480,23 +484,24 @@ private fun DesktopLayout(
                     
                     // Rating
                     if (anime.malScore != null && anime.malScore > 0) {
-                        Box(Modifier.background(Color(0xFFE6B91E), RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
-                            Text("MAL", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.background(Color(0xFFE6B91E), RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                                Text("MAL", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(anime.malScore.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Text(anime.malScore.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
                         Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
                     }
 
                     // Language/Format
                     if (anime.status != null) {
                         Text(anime.status.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
                     }
                     if (anime.type != null) {
-                        Spacer(Modifier.width(8.dp))
                         Text(anime.type.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
                     }
-                    Spacer(Modifier.width(8.dp))
                     Text("jpn", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
                 }
 
@@ -554,7 +559,7 @@ private fun DesktopLayout(
                         }
                     }
                 }
-            }
+            } // End Column
             
             // Cover Image on the right side
             AsyncImage(
@@ -562,14 +567,12 @@ private fun DesktopLayout(
                 contentDescription = "Cover Image",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 48.dp, bottom = 48.dp)
                     .width(180.dp) // Adjusted slightly for optimal fit
                     .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(16.dp))
                     .border(2.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
             )
-                } // End inner max width Box
+                } // End inner Row
             } // End inner content alignment Box
         } // End of Hero Box
 
