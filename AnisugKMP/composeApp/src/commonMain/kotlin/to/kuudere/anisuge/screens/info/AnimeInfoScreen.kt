@@ -7,7 +7,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +30,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +84,7 @@ fun AnimeInfoScreen(
                         state = state,
                         onWatchlistUpdate = { viewModel.updateWatchlist(it) },
                         onWatchNow = { onWatchEpisode(anime.id, "sub", 1) },
+                        onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
                         onGenreClick = onGenreClick
                     )
                     // Top Bar Back Button overlay
@@ -357,143 +364,393 @@ private fun DesktopLayout(
     state: AnimeInfoUiState,
     onWatchlistUpdate: (String) -> Unit,
     onWatchNow: () -> Unit,
+    onWatchEpisode: (Int) -> Unit,
     onGenreClick: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
-    Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+    Column(Modifier.fillMaxSize().background(Color.Black).verticalScroll(scrollState)) {
+        // Hero Section Box
         Box(Modifier.fillMaxWidth().height(500.dp)) {
             val bannerUrl = anime.banner?.takeIf { 
                 it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
             }
             val bgImage = bannerUrl ?: anime.cover
+            val hasBanner = bannerUrl != null
+
             AsyncImage(
                 model = bgImage,
                 contentDescription = "Banner",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(if (hasBanner) 16.dp else 48.dp)
+                    .alpha(if (hasBanner) 0.6f else 0.75f),
+                alignment = Alignment.TopCenter
+            )
+            
+            // Replicate Nuvio gradient layers exactly
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.horizontalGradient(
+                        0.0f to Color.Black,
+                        0.22f to Color.Black.copy(alpha = 0.84f),
+                        0.52f to Color.Black.copy(alpha = 0.34f),
+                        0.78f to Color.Black.copy(alpha = 0.07f),
+                        1.0f to Color.Transparent
+                    )
+                )
             )
             Box(
                 Modifier.fillMaxSize().background(
                     Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.8f to Color.Black.copy(alpha = 0.9f)
+                        0.38f to Color.Transparent,
+                        0.60f to Color.Black.copy(alpha = 0.38f),
+                        0.91f to Color.Black.copy(alpha = 0.91f),
+                        1.0f to Color.Black
                     )
                 )
             )
 
-            Box(
-                Modifier
+            // Left aligned content matching Nuvio TV HeroSection
+            Column(
+                modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .offset(y = 100.dp)
-                    .padding(horizontal = 40.dp)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
-                    .padding(start = 24.dp, top = 48.dp, end = 24.dp, bottom = 24.dp)
+                    .fillMaxWidth(0.6f)
+                    .padding(start = 48.dp, bottom = 48.dp, end = 48.dp)
             ) {
-                Row(verticalAlignment = Alignment.Top) {
-                    AsyncImage(
-                        model = anime.cover,
-                        contentDescription = "Cover",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.width(200.dp).height(280.dp).clip(RoundedCornerShape(8.dp))
-                    )
-                    Spacer(Modifier.width(24.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            anime.title,
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.RemoveRedEye, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(anime.views ?: "0", color = Color.Gray, fontSize = 14.sp)
-                            Spacer(Modifier.width(16.dp))
-                            Icon(Icons.Default.Favorite, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(anime.likes ?: "0", color = Color.Gray, fontSize = 14.sp)
-                            Spacer(Modifier.width(16.dp))
-                            Box(
-                                Modifier
-                                    .background(Color.Green.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(anime.status ?: "Unknown", color = Color.Green, fontSize = 12.sp)
+                Text(
+                    text = anime.title,
+                    color = Color.White,
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 52.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(Modifier.height(24.dp))
+
+                // "For a chance..." Text
+                Text(
+                    text = stripHtmlTags(anime.description ?: ""),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 17.sp,
+                    lineHeight = 26.sp,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Meta Info Row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Genres
+                    val genresText = anime.genres?.take(3)?.joinToString(" • ")
+                    if (!genresText.isNullOrEmpty()) {
+                        Text(genresText, color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
+                    }
+                    
+                    // Duration
+                    if (anime.duration != null && anime.duration > 0) {
+                        Text("${anime.duration}m", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
+                    }
+                    
+                    // Year
+                    if (anime.year != null && anime.year > 0) {
+                        Text("${anime.year}", color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
+                    }
+                    
+                    // Rating
+                    if (anime.malScore != null && anime.malScore > 0) {
+                        Box(Modifier.background(Color(0xFFE6B91E), RoundedCornerShape(2.dp)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                            Text("MAL", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        Text(anime.malScore.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp)
+                        Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
+                    }
+
+                    // Language/Format
+                    if (anime.status != null) {
+                        Text(anime.status.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                    }
+                    if (anime.type != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(anime.type.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("jpn", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                // Buttons (Watch Now, Watchlist)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = onWatchNow,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                        shape = RoundedCornerShape(32.dp),
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
+                            Text("WATCH NOW", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Box {
+                        var showSheet by remember { mutableStateOf(false) }
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(if (state.inWatchlist) Color.White else Color(0xFF1E1E1E))
+                                .border(2.dp, if (state.inWatchlist) Color.Transparent else Color.Transparent, CircleShape)
+                                .clickable { showSheet = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (state.isUpdatingWatchlist) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = if (state.inWatchlist) Color.Black else Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(
+                                    if (state.inWatchlist) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = "Watchlist",
+                                    tint = if (state.inWatchlist) Color.Black else Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
                         }
-                        Spacer(Modifier.height(24.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Button(
-                                onClick = onWatchNow,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Watch Now")
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            WatchlistDropdownButton(
-                                state = state,
-                                onUpdate = onWatchlistUpdate,
-                                modifier = Modifier.width(180.dp).height(48.dp)
+
+                        if (showSheet) {
+                            WatchlistBottomSheet(
+                                currentFolder = state.folder,
+                                onSelect = { option ->
+                                    showSheet = false
+                                    onWatchlistUpdate(option)
+                                },
+                                onDismiss = { showSheet = false }
                             )
                         }
-                        Spacer(Modifier.height(24.dp))
-                        Text(
-                            text = stripHtmlTags(anime.description ?: ""),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp,
-                            lineHeight = 21.sp
-                        )
-                        Spacer(Modifier.height(24.dp))
-                        Row {
-                            Column(Modifier.weight(1f)) {
-                                Text("Genres", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
-                                @OptIn(ExperimentalLayoutApi::class)
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    anime.genres?.forEach { genre ->
-                                        Box(
-                                            Modifier
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(Color(0xFF1E1E1E))
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                                .clickable { onGenreClick(genre) }
-                                        ) {
-                                            Text(genre, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                                        }
+                    }
+                }
+            }
+            
+            // Cover Image on the right side
+            AsyncImage(
+                model = anime.cover,
+                contentDescription = "Cover Image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 48.dp, bottom = 48.dp)
+                    .width(180.dp) // Adjusted slightly for optimal fit
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(2.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+            )
+        } // End of Hero Box
+
+        // Season Chunks and Episodes section below Hero Box
+        Column(Modifier.padding(start = 48.dp, bottom = 48.dp, end = 48.dp)) {
+            var currentPageStart by remember { mutableStateOf(1) }
+            val episodesPerPage = 100
+            val totalEpisodes = state.episodes.size
+            
+            if (state.isLoadingEpisodes) {
+                Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
+                }
+            } else if (totalEpisodes == 0) {
+                Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    Text("No episodes available.", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                }
+            } else {
+                val pageGroups = (1..totalEpisodes step episodesPerPage).toList()
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(bottom = 24.dp)
+                ) {
+                    pageGroups.forEach { start ->
+                        val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                        val isSelected = start == currentPageStart
+                        val text = if (pageGroups.size > 1) "Eps $start-$end" else "Season 1"
+                        
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.1f))
+                                .clickable { currentPageStart = start }
+                                .padding(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = text,
+                                color = if (isSelected) Color.Black else Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Episode List
+                val filteredEpisodes = state.episodes.filter { 
+                    it.number in currentPageStart until (currentPageStart + episodesPerPage)
+                }.sortedBy { it.number }
+                
+                val listState = rememberLazyListState()
+                val coroutineScope = rememberCoroutineScope()
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    LazyRow(
+                        state = listState,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    coroutineScope.launch {
+                                        listState.scrollBy(-dragAmount)
                                     }
                                 }
                             }
-                            Spacer(Modifier.width(24.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("Studios", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(8.dp))
-                                @OptIn(ExperimentalLayoutApi::class)
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    anime.studios?.forEach { studio ->
-                                        Box(
-                                            Modifier
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(Color(0xFF1E1E1E))
-                                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                                        ) {
-                                            Text(studio, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-                                        }
-                                    }
-                                }
-                            }
+                    ) {
+                        items(filteredEpisodes) { episode ->
+                            DesktopEpisodeCard(
+                                episode = episode,
+                                thumbnail = state.thumbnails[episode.number.toString()] ?: anime.cover,
+                                onClick = { onWatchEpisode(episode.number) }
+                            )
+                        }
+                    }
+
+                    // Navigation Arrows
+                    if (listState.canScrollBackward) {
+                        IconButton(
+                            onClick = { coroutineScope.launch { listState.animateScrollToItem(maxOf(0, listState.firstVisibleItemIndex - 3)) } },
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .offset(x = (-24).dp)
+                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.ChevronLeft, "Previous", tint = Color.White)
+                        }
+                    }
+
+                    if (listState.canScrollForward) {
+                        IconButton(
+                            onClick = { coroutineScope.launch { listState.animateScrollToItem(minOf(filteredEpisodes.size - 1, listState.firstVisibleItemIndex + 3)) } },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .offset(x = (-24).dp)
+                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.ChevronRight, "Next", tint = Color.White)
                         }
                     }
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .width(300.dp)
+            .aspectRatio(16f / 9.5f)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+    ) {
+        // Thumbnail
+        AsyncImage(
+            model = thumbnail,
+            contentDescription = "Episode ${episode.number}",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Gradient overlay for bottom section text readability
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0.0f to Color.Transparent,
+                    0.2f to Color.Transparent,
+                    0.6f to Color.Black.copy(alpha = 0.7f),
+                    1.0f to Color.Black.copy(alpha = 0.95f)
+                )
+            )
+        )
+
+        // Rating Badge (from screenshot)
+        Box(
+            Modifier
+                .align(Alignment.TopStart)
+                .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(bottomEnd = 12.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text("8.0", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // Bottom Info Match to Screenshot exactly
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Box(
+                Modifier
+                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text("EPISODE ${episode.number}", color = Color.LightGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(Modifier.height(4.dp))
+            
+            val title = episode.titles?.filterNotNull()?.firstOrNull() ?: "Episode ${episode.number}"
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(Modifier.height(4.dp))
+            
+            // Description equivalent text (or skip if empty)
+            Text(
+                text = "Watch episode ${episode.number} right now.",
+                color = Color.LightGray,
+                fontSize = 11.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 14.sp
+            )
+            
+            Spacer(Modifier.height(4.dp))
+            
+            // Date (ago) at bottom right logically
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text(episode.ago ?: "", color = Color.Gray, fontSize = 10.sp)
+            }
+        }
     }
 }
 
@@ -528,50 +785,7 @@ private fun WatchlistDropdownIcon(
     }
 }
 
-@Composable
-private fun WatchlistDropdownButton(
-    state: AnimeInfoUiState,
-    onUpdate: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showSheet by remember { mutableStateOf(false) }
-    val buttonText = when {
-        state.isUpdatingWatchlist -> "Updating..."
-        state.inWatchlist -> (state.folder ?: "In Watchlist")
-        else -> "Add to Watchlist"
-    }
 
-    Button(
-        onClick = { showSheet = true },
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E), contentColor = Color.White),
-        shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp)
-    ) {
-        if (state.isUpdatingWatchlist) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-        } else {
-            Icon(
-                if (state.inWatchlist) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Text(buttonText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-
-    if (showSheet) {
-        WatchlistBottomSheet(
-            currentFolder = state.folder,
-            onSelect = { option ->
-                showSheet = false
-                onUpdate(option)
-            },
-            onDismiss = { showSheet = false }
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
