@@ -265,8 +265,11 @@ actual fun VideoPlayerSurface(
 
         withContext(Dispatchers.IO) {
             if (target <= 0.0) {
-                MPVLib.setPropertyString("force-seekable", "yes")
-                MPVLib.command(arrayOf("seek", "1.0", "absolute", "keyframes"))
+                // HLS streams can't seek to 0 — reload the file from the start
+                MPVLib.setOptionString("start", "0")
+                MPVLib.command(arrayOf("loadfile", resolvedUrl, "replace"))
+                // Reset start so it doesn't pollute the next loadfile (e.g. continue-watching)
+                MPVLib.setOptionString("start", "none")
             } else {
                 MPVLib.command(arrayOf("seek", target.toString(), "absolute", "keyframes"))
             }
