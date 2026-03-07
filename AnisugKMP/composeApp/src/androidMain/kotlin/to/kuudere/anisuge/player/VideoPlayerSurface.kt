@@ -256,22 +256,16 @@ actual fun VideoPlayerSurface(
 
     LaunchedEffect(state.seekTarget) {
         state.seekTarget?.let { target ->
+            state.seekTarget = null  // ← clear first
             println("[VideoPlayerSurface] SEEK requested to: $target (current position: ${state.position})")
             withContext(Dispatchers.IO) {
-                // "absolute+exact" does a two-pass seek (keyframe then hr-seek) which can
-                // fail on some HLS servers. "absolute+keyframes" does a single-pass keyframe
-                // seek that's reliable, with minor inaccuracy (lands on nearest keyframe).
-                if (target <= 0.1) {
-                    // MPV fails to seek to 0.0 on HLS if the first keyframe is > 0.0 (e.g. 1.4).
-                    // Sending a massive relative backwards seek forces MPV to safely clamp 
-                    // to the exact first valid keyframe without triggering an EPERM failure.
-                    MPVLib.command(arrayOf("seek", "-999999", "relative+keyframes"))
+                if (target <= 0.0) {
+                    MPVLib.setPropertyString("percent-pos", "0")
                 } else {
-                    MPVLib.command(arrayOf("seek", target.toString(), "absolute+keyframes"))
+                    MPVLib.command(arrayOf("seek", target.toString(), "absolute"))
                 }
             }
             println("[VideoPlayerSurface] SEEK command sent for: $target")
-            state.seekTarget = null
         }
     }
     
