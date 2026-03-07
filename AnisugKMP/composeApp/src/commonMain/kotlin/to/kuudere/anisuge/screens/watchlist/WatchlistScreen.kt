@@ -58,113 +58,238 @@ fun WatchlistScreen(
     val planningList = sampleWatchlist.filter { it.listType == "Planning" }
     val completedList = sampleWatchlist.filter { it.listType == "Completed" }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0B0B)),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val isDesktop = maxWidth >= 800.dp
 
-        // Lists content
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.fillMaxSize()
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B0B0B)),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                // Search options section
+            val searchOptionsBlock = @Composable { modifier: Modifier ->
+                var expandedFilters by remember { mutableStateOf(false) }
+
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    modifier = modifier
                 ) {
-            // First row: list selector, search bar, trash icon
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Dropdown for list selector (fake layout)
-                Box(
-                    modifier = Modifier
-                        .height(44.dp)
-                        .weight(0.3f)
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .clickable { selectedList = if (selectedList == "All lists") "Current" else "All lists" }
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(selectedList, color = Color.White, fontSize = 14.sp)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
-                    }
-                }
-
-                // Search field
-                Box(
-                    modifier = Modifier
-                        .height(44.dp)
-                        .weight(0.6f)
-                        .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(12.dp))
-                        androidx.compose.foundation.text.BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
-                            singleLine = true,
-                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
-                            modifier = Modifier.weight(1f),
-                            decorationBox = { innerTextField ->
-                                if (searchQuery.isEmpty()) {
-                                    Text("Search list", color = Color.Gray, fontSize = 14.sp)
+                    if (isDesktop) {
+                        // Desktop layout: list selector, search bar, trash icon
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Dropdown for list selector
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .weight(0.3f)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .clickable { selectedList = if (selectedList == "All lists") "Current" else "All lists" }
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(selectedList, color = Color.White, fontSize = 14.sp)
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
                                 }
-                                innerTextField()
                             }
-                        )
+
+                            // Search field
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .weight(0.6f)
+                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(12.dp))
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = { searchQuery = it },
+                                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                                        singleLine = true,
+                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                                        modifier = Modifier.weight(1f),
+                                        decorationBox = { innerTextField ->
+                                            if (searchQuery.isEmpty()) {
+                                                Text("Search list", color = Color.Gray, fontSize = 14.sp)
+                                            }
+                                            innerTextField()
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Trash icon
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .background(Color.Transparent)
+                                    .clickable { searchQuery = "" }
+                                    .padding(10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // Second row: Advanced filters grid
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            AdvancedFilterSelect("Genre", "All genres", Icons.Default.Style, Modifier.weight(1f))
+                            AdvancedFilterSelect("Sorting", "SCORE_DESC", Icons.Default.Sort, Modifier.weight(1f))
+                            AdvancedFilterSelect("Format", "All formats", Icons.Default.Tv, Modifier.weight(1f))
+                            AdvancedFilterSelect("Status", "All statuses", Icons.Default.SignalCellularAlt, Modifier.weight(1f))
+                        }
+                    } else {
+                        // Mobile Layout
+                        // First row: search, clear, expand button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Search field
+                            Box(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .weight(1f)
+                                    .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(12.dp))
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = searchQuery,
+                                        onValueChange = { searchQuery = it },
+                                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 14.sp),
+                                        singleLine = true,
+                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                                        modifier = Modifier.weight(1f),
+                                        decorationBox = { innerTextField ->
+                                            if (searchQuery.isEmpty()) {
+                                                Text("Search list", color = Color.Gray, fontSize = 14.sp)
+                                            }
+                                            innerTextField()
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Trash icon
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .background(Color.Transparent)
+                                    .clickable { searchQuery = "" }
+                                    .padding(10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                            }
+                            
+                            // Expand Icon
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                    .background(Color.Transparent)
+                                    .clickable { expandedFilters = !expandedFilters }
+                                    .padding(10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(if (expandedFilters) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = "Expand", tint = Color.Gray)
+                            }
+                        }
+
+                        AnimatedVisibility(expandedFilters) {
+                            Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                // Next row: list selector
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp)
+                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                        .clickable { selectedList = if (selectedList == "All lists") "Current" else "All lists" }
+                                        .padding(horizontal = 16.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(selectedList, color = Color.White, fontSize = 14.sp)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+                                    }
+                                }
+                                
+                                Spacer(Modifier.height(8.dp))
+
+                                // Next 2 rows: 2 advanced filters per row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    AdvancedFilterSelect("Genre", "All genres", Icons.Default.Style, Modifier.weight(1f))
+                                    AdvancedFilterSelect("Sorting", "SCORE_DESC", Icons.Default.Sort, Modifier.weight(1f))
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    AdvancedFilterSelect("Format", "All formats", Icons.Default.Tv, Modifier.weight(1f))
+                                    AdvancedFilterSelect("Status", "All statuses", Icons.Default.SignalCellularAlt, Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
                 }
-
-                // Trash icon
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .background(Color.Transparent)
-                        .clickable { searchQuery = "" }
-                        .padding(10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
-                }
             }
 
-            Spacer(Modifier.height(16.dp))
+            if (isDesktop) {
+                searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
+            }
 
-            // Second row: Advanced filters grid (fake outline selects)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            // Lists content
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 160.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = if (isDesktop) 8.dp else 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                AdvancedFilterSelect("Genre", "All genres", Icons.Default.Style, Modifier.weight(1f))
-                AdvancedFilterSelect("Sorting", "SCORE_DESC", Icons.Default.Sort, Modifier.weight(1f))
-                AdvancedFilterSelect("Format", "All formats", Icons.Default.Tv, Modifier.weight(1f))
-                AdvancedFilterSelect("Status", "All statuses", Icons.Default.SignalCellularAlt, Modifier.weight(1f))
-            }
-        }
-            }
+                if (!isDesktop) {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        searchOptionsBlock(Modifier.fillMaxWidth().padding(bottom = 8.dp))
+                    }
+                }
 
             val showAll = selectedList == "All lists"
 
@@ -190,6 +315,7 @@ fun WatchlistScreen(
             }
         }
     }
+}
 }
 
 @Composable
