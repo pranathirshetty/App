@@ -586,6 +586,27 @@ private fun HeroCarousel(
                         currentIndex = (currentIndex + 1) % items.size
                     }
                 }
+
+                // Dot Indicators
+                Row(
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = paddingAmount + 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEachIndexed { index, _ ->
+                        val isSelected = index == currentIndex
+                        val width = animateDpAsState(if (isSelected) 24.dp else 8.dp).value
+                        val color = animateColorAsState(if (isSelected) Color.White else Color.White.copy(alpha = 0.3f)).value
+                        Box(
+                            Modifier
+                                .height(8.dp)
+                                .width(width)
+                                .clip(CircleShape)
+                                .background(color)
+                                .clickable { currentIndex = index }
+                        )
+                    }
+                }
             }
         }
     }
