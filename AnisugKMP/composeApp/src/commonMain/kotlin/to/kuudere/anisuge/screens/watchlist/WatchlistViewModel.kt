@@ -12,6 +12,11 @@ import to.kuudere.anisuge.data.models.AnimeItem
 
 data class WatchlistState(
     val selectedFolder: String = "All lists",
+    val searchQuery: String = "",
+    val sort: String = "Recently Updated",
+    val genre: String = "All genres",
+    val format: String = "All formats",
+    val status: String = "All statuses",
     val items: List<AnimeItem> = emptyList(),
     val isLoading: Boolean = false,
     val isUpdating: Boolean = false,
@@ -27,12 +32,39 @@ class WatchlistViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(WatchlistState())
     val uiState: StateFlow<WatchlistState> = _uiState.asStateFlow()
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     init {
         fetchWatchlist()
     }
 
     fun onFolderChange(folder: String) {
         _uiState.update { it.copy(selectedFolder = folder, items = emptyList(), currentPage = 1, totalPages = 1) }
+        fetchWatchlist(1)
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(500)
+            _uiState.update { it.copy(items = emptyList(), currentPage = 1, totalPages = 1) }
+            fetchWatchlist(1)
+        }
+    }
+
+    fun updateFilters(newSort: String? = null, newGenre: String? = null, newFormat: String? = null, newStatus: String? = null) {
+        _uiState.update {
+            it.copy(
+                sort = newSort ?: it.sort,
+                genre = newGenre ?: it.genre,
+                format = newFormat ?: it.format,
+                status = newStatus ?: it.status,
+                items = emptyList(),
+                currentPage = 1,
+                totalPages = 1
+            )
+        }
         fetchWatchlist(1)
     }
 
@@ -50,8 +82,22 @@ class WatchlistViewModel : ViewModel() {
                 _uiState.update { it.copy(isPaginating = true, error = null) }
             }
             try {
-                val folderParam = if (_uiState.value.selectedFolder == "All" || _uiState.value.selectedFolder == "All lists") null else _uiState.value.selectedFolder
-                val response = watchlistService.getWatchlist(page = page, folder = folderParam)
+                val state = _uiState.value
+                val folderParam = if (state.selectedFolder == "All" || state.selectedFolder == "All lists") null else state.selectedFolder
+                val sortParam = if (state.sort == "Recently Updated") null else state.sort
+                val genreParam = if (state.genre == "All genres") null else state.genre
+                val formatParam = if (state.format == "All formats") null else state.format
+                val statusParam = if (state.status == "All statuses") null else state.status
+
+                val response = watchlistService.getWatchlist(
+                    page = page, 
+                    folder = folderParam,
+                    keyword = state.searchQuery,
+                    sort = sortParam,
+                    genres = genreParam,
+                    type = formatParam,
+                    status = statusParam
+                )
                 if (response != null) {
                     _uiState.update { it.copy(
                         items = if (page == 1) response.items else it.items + response.items,

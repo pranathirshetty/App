@@ -24,13 +24,18 @@ class WatchlistService(
     private fun sessionToCookie(s: SessionInfo): String =
         "session_id=${s.sessionId}; session_secret=${s.session}; user_id=${s.userId}"
 
-    suspend fun getWatchlist(page: Int = 1, folder: String? = null): WatchlistResponse? {
+    suspend fun getWatchlist(page: Int = 1, folder: String? = null, keyword: String? = null, sort: String? = null, genres: String? = null, type: String? = null, status: String? = null): WatchlistResponse? {
         return try {
             val stored = sessionStore.get()
             val response = httpClient.get("$BASE_URL/api/anime/watchlist") {
                 parameter("page", page.toString())
                 parameter("perPage", "18")
                 folder?.let { parameter("folder", it) }
+                keyword?.takeIf { it.isNotBlank() }?.let { parameter("keyword", it) }
+                sort?.let { parameter("sort", it) }
+                genres?.let { parameter("genres", it) }
+                type?.let { parameter("type", it) }
+                status?.let { parameter("status", it) }
                 if (stored != null) header("Cookie", sessionToCookie(stored))
             }
             response.body<WatchlistResponse>()

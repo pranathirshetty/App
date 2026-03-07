@@ -21,6 +21,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +41,13 @@ fun WatchlistScreen(
     val state by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf("Anime") }
     var selectedList by remember { mutableStateOf("All lists") }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf(state.searchQuery) }
+
+    LaunchedEffect(searchQuery) {
+        if (state.searchQuery != searchQuery) {
+            viewModel.onSearchQueryChange(searchQuery)
+        }
+    }
 
     val currentList = state.items.filter { it.folder == "Watching" || it.folder == "Current" }
     val onHoldList = state.items.filter { it.folder == "On Hold" }
@@ -152,10 +160,22 @@ fun WatchlistScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            AdvancedFilterSelect("Genre", "All genres", Icons.Default.Style, Modifier.weight(1f))
-                            AdvancedFilterSelect("Sorting", "SCORE_DESC", Icons.Default.Sort, Modifier.weight(1f))
-                            AdvancedFilterSelect("Format", "All formats", Icons.Default.Tv, Modifier.weight(1f))
-                            AdvancedFilterSelect("Status", "All statuses", Icons.Default.SignalCellularAlt, Modifier.weight(1f))
+                            AdvancedFilterDropdown(
+                                "Genre", state.genre, listOf("All genres", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                { viewModel.updateFilters(newGenre = it) }, Icons.Default.Style, Modifier.weight(1f)
+                            )
+                            AdvancedFilterDropdown(
+                                "Sorting", state.sort, listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
+                                { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
+                            )
+                            AdvancedFilterDropdown(
+                                "Format", state.format, listOf("All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
+                                { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
+                            )
+                            AdvancedFilterDropdown(
+                                "Status", state.status, listOf("All statuses", "FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
+                                { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
+                            )
                         }
                     } else {
                         // Mobile Layout
@@ -259,16 +279,28 @@ fun WatchlistScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    AdvancedFilterSelect("Genre", "All genres", Icons.Default.Style, Modifier.weight(1f))
-                                    AdvancedFilterSelect("Sorting", "SCORE_DESC", Icons.Default.Sort, Modifier.weight(1f))
+                                    AdvancedFilterDropdown(
+                                        "Genre", state.genre, listOf("All genres", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"),
+                                        { viewModel.updateFilters(newGenre = it) }, Icons.Default.Style, Modifier.weight(1f)
+                                    )
+                                    AdvancedFilterDropdown(
+                                        "Sorting", state.sort, listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
+                                        { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
+                                    )
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    AdvancedFilterSelect("Format", "All formats", Icons.Default.Tv, Modifier.weight(1f))
-                                    AdvancedFilterSelect("Status", "All statuses", Icons.Default.SignalCellularAlt, Modifier.weight(1f))
+                                    AdvancedFilterDropdown(
+                                        "Format", state.format, listOf("All formats", "TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
+                                        { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
+                                    )
+                                    AdvancedFilterDropdown(
+                                        "Status", state.status, listOf("All statuses", "FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
+                                        { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
@@ -386,18 +418,33 @@ fun WatchlistScreen(
                         }
                     }
                 }
+            }
         }
     }
 }
-}
 
 @Composable
-fun AdvancedFilterSelect(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+fun AdvancedFilterDropdown(
+    label: String,
+    value: String,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var triggerWidthPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    val triggerWidthDp = with(density) { triggerWidthPx.toDp() }
+
     Box(
         modifier = modifier
             .height(40.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-            .clickable { },
+            .onSizeChanged { triggerWidthPx = it.width }
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF1C1C1E))
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+            .clickable { expanded = true },
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -407,7 +454,42 @@ fun AdvancedFilterSelect(label: String, value: String, icon: androidx.compose.ui
             Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(value, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+            Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(triggerWidthDp.coerceAtLeast(160.dp))
+                .heightIn(max = 280.dp),
+            offset = androidx.compose.ui.unit.DpOffset(0.dp, 6.dp),
+            containerColor = Color(0xFF1C1C1E),
+            shape = RoundedCornerShape(10.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+            shadowElevation = 8.dp,
+            tonalElevation = 0.dp,
+        ) {
+            options.forEach { option ->
+                val isSelected = option == value
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            text = option, 
+                            color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                        ) 
+                    },
+                    onClick = {
+                        onOptionSelected(option)
+                        expanded = false
+                    },
+                    modifier = Modifier.background(
+                        if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
+                    )
+                )
+            }
         }
     }
 }
