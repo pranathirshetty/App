@@ -142,7 +142,11 @@ actual fun VideoPlayerSurface(
             
             override fun eventProperty(property: String, value: Double) {
                 if (property == "time-pos") {
-                    state.position = value
+                    // Suppress stale time-pos updates while mpv is actively seeking;
+                    // the slider would snap back to the pre-seek position otherwise.
+                    if (!isSeeking) {
+                        state.position = value
+                    }
                 } else if (property == "duration") {
                     state.duration = value
                 }

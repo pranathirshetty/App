@@ -201,7 +201,8 @@ fun HomeScreen(
                                 state = homeState,
                                 onAnimeClick = onAnimeClick,
                                 onWatchClick = onWatchClick,
-                                onWatchlistClick = { showWatchlistFor = it }
+                                onWatchlistClick = { showWatchlistFor = it },
+                                onRefresh = { homeViewModel.refresh() }
                             )
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -237,15 +238,22 @@ fun HomeScreen(
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
     state: HomeUiState,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
-    onWatchlistClick: (AnimeItem) -> Unit
+    onWatchlistClick: (AnimeItem) -> Unit,
+    onRefresh: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
-    Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        isRefreshing = state.isLoading,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         // ── Hero Carousel ──────────────────────────────────────────────
         if (state.topAiring.isNotEmpty()) {
             HeroCarousel(
@@ -297,6 +305,7 @@ private fun HomeContent(
         }
 
         Spacer(Modifier.height(48.dp))
+    }
     }
 }
 
