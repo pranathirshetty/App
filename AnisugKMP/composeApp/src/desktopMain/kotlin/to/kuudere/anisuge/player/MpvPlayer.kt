@@ -64,9 +64,6 @@ internal class MpvPlayer(
         mpv.mpv_set_option_string(handle, "terminal", "yes")
         mpv.mpv_set_option_string(handle, "msg-level", "all=error,ffmpeg=fatal,osc=warn")
 
-        // Exact seeking — prevents keyframe-snapping on HLS streams
-        mpv.mpv_set_option_string(handle, "hr-seek", "yes")
-
         // Subtitle options
         mpv.mpv_set_option_string(handle, "sub-auto", "fuzzy")
         mpv.mpv_set_option_string(handle, "embeddedfonts", if (config.embeddedFonts) "yes" else "no")
@@ -133,12 +130,29 @@ internal class MpvPlayer(
         isSeeking = true
         val safeTarget = seconds.coerceAtLeast(0.1)
         println("[MpvPlayer] seekTo($seconds → $safeTarget) — isSeeking=true, current position=${state.position}")
-        val r = mpv.mpv_command(handle, arrayOf("seek", safeTarget.toString(), "absolute", "exact", null))
+        // Snap UI to target immediately so slider doesn't jump
+        scope.launch(Dispatchers.Main) { state.position = safeTarget }
+        val r = mpv.mpv_command(handle, arrayOf("seek", safeTarget.toString(), "absolute", null))
         println("[MpvPlayer] seek command result=$r")
+        // Wait for mpv's position to stabilize (two consecutive reads within 1s of each other)
         scope.launch {
-            kotlinx.coroutines.delay(500)
+            var lastPos = -1.0
+            var waited = 0
+            while (waited < 3000) {
+                kotlinx.coroutines.delay(100)
+                waited += 100
+                val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
+                val pos = posPtr?.let { it.getString(0).toDoubleOrNull() } ?: continue
+                mpv.mpv_free(posPtr)
+                if (lastPos >= 0 && kotlin.math.abs(pos - lastPos) < 1.0) {
+                    // Position stabilized — update UI to where mpv actually landed
+                    withContext(Dispatchers.Main) { state.position = pos }
+                    break
+                }
+                lastPos = pos
+            }
             isSeeking = false
-            println("[MpvPlayer] isSeeking=false, position now=${state.position}")
+            println("[MpvPlayer] isSeeking=false after ${waited}ms, position now=${state.position}")
         }
     }
 
