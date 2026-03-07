@@ -111,11 +111,11 @@ internal class MpvPlayer(
             mpv.mpv_set_property_string(handle, "start", config.startPosition.toString())
         }
 
+        startEventLoop()
+
         // Load file
         r = mpv.mpv_command(handle, arrayOf("loadfile", url, null))
         println("[MpvPlayer] loadfile '$url' → $r")
-
-        startEventLoop()
     }
 
     fun pause()  { ctx?.let { lib?.mpv_set_property_string(it, "pause", "yes") } }

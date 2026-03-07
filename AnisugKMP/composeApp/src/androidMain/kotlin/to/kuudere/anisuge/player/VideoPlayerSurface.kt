@@ -196,9 +196,11 @@ actual fun VideoPlayerSurface(
                 MPVLib.setOptionString("force-window", "yes")
                 if (!urlLoaded) {
                     urlLoaded = true
-                    MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
-                    if (state.config.startPosition > 0.0) {
-                        MPVLib.command(arrayOf<String>("seek", state.config.startPosition.toString(), "absolute"))
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        if (state.config.startPosition > 0.0) {
+                            MPVLib.setOptionString("start", state.config.startPosition.toString())
+                        }
+                        MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
                     }
                 } else {
                     MPVLib.setPropertyString("vo", "gpu")
@@ -219,18 +221,24 @@ actual fun VideoPlayerSurface(
         onDispose {
             MPVLib.removeObserver(observer)
             surfaceView.holder.removeCallback(callback)
-            MPVLib.command(arrayOf<String>("stop"))
-            MPVLib.destroy()
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                MPVLib.command(arrayOf<String>("stop"))
+                MPVLib.destroy()
+            }
         }
     }
 
     LaunchedEffect(state.pauseRequested) {
-        MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
+        withContext(Dispatchers.IO) {
+            MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
+        }
     }
 
     LaunchedEffect(state.seekTarget) {
         state.seekTarget?.let {
-            MPVLib.command(arrayOf<String>("seek", it.toString(), "absolute"))
+            withContext(Dispatchers.IO) {
+                MPVLib.command(arrayOf<String>("seek", it.toString(), "absolute"))
+            }
             state.seekTarget = null
         }
     }
@@ -251,20 +259,37 @@ actual fun VideoPlayerSurface(
             state.subFileUrl = null
         }
     }
-    
-    // LaunchedEffect removed because allSubUrls is parsed natively during FILE_LOADED
-    
+    // Runtime all-subs load (on new episode/server change after file read)
+    LaunchedEffect(state.allSubUrls) {
+        state.allSubUrls?.let { subs ->
+            if (state.isPlaying) {
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    subs.forEach { (url, isDefault) ->
+                        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                        if (localPath != null) {
+                            val flag = if (isDefault) "select" else "auto"
+                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                        }
+                    }
+                }
+            }
+        }
+    }
     // Cycle audio tracks
     LaunchedEffect(state.cycleAudio) {
         if (state.cycleAudio) {
-            MPVLib.command(arrayOf<String>("cycle", "audio"))
+            withContext(Dispatchers.IO) {
+                MPVLib.command(arrayOf<String>("cycle", "audio"))
+            }
             state.cycleAudio = false
         }
     }
 
     LaunchedEffect(state.selectedAudioTrack) {
         state.selectedAudioTrack?.let { aid ->
-            MPVLib.setPropertyInt("aid", aid)
+            withContext(Dispatchers.IO) {
+                MPVLib.setPropertyInt("aid", aid)
+            }
         }
     }
 
