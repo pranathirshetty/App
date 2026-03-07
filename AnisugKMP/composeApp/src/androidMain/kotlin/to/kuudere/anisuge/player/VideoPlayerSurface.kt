@@ -117,14 +117,26 @@ actual fun VideoPlayerSurface(
         
         MPVLib.init()
 
+        var isSeeking = false
+        var isPausedForCache = false
         val observer = object : MPVLib.EventObserver {
             override fun eventProperty(property: String) {}
             override fun eventProperty(property: String, value: Long) {}
             override fun eventProperty(property: String, value: String) {}
             
             override fun eventProperty(property: String, value: Boolean) {
-                if (property == "paused-for-cache") {
-                    state.isBuffering = value
+                when (property) {
+                    "paused-for-cache" -> {
+                        isPausedForCache = value
+                        state.isBuffering = isPausedForCache || isSeeking
+                    }
+                    "seeking" -> {
+                        isSeeking = value
+                        state.isBuffering = isPausedForCache || isSeeking
+                    }
+                    "pause" -> {
+                        state.isPaused = value
+                    }
                 }
             }
             
@@ -188,6 +200,8 @@ actual fun VideoPlayerSurface(
         MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
         MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
         MPVLib.observeProperty("paused-for-cache", MPVLib.MPV_FORMAT_FLAG)
+        MPVLib.observeProperty("seeking", MPVLib.MPV_FORMAT_FLAG)
+        MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
 
         var urlLoaded = false
         val callback = object : SurfaceHolder.Callback {
@@ -229,6 +243,7 @@ actual fun VideoPlayerSurface(
     }
 
     LaunchedEffect(state.pauseRequested) {
+        state.isPaused = state.pauseRequested // Instant UI snap
         withContext(Dispatchers.IO) {
             MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
         }

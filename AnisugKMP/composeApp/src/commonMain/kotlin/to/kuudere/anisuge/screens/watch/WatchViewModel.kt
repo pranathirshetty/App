@@ -49,7 +49,23 @@ class WatchViewModel(
 
     fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null) {
         currentAnimeId = animeId
-        _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, isLoading = true) }
+        _uiState.update { 
+            it.copy(
+                currentEpisodeNumber = episodeNumber, 
+                isLoading = true,
+                // Clear old video state so the previous anime's stream doesn't keep playing
+                isLoadingVideo = false,
+                streamingData = null,
+                availableQualities = emptyList(),
+                availableSubtitles = emptyList(),
+                currentSubtitleUrl = null,
+                currentFontsDir = null,
+                savedWatchPosition = 0.0,
+                targetLang = null,
+                targetSubtitleLang = null,
+                targetSubtitleLangCode = null
+            ) 
+        }
         fetchEpisodeData(episodeNumber, server, lang)
     }
 
