@@ -19,6 +19,7 @@ import to.kuudere.anisuge.data.services.InfoService
 
 data class HomeUiState(
     val isLoading:        Boolean              = true,
+    val isLoggingOut:     Boolean              = false,
     val userProfile:      UserProfile?         = null,
     val topAiring:        List<AnimeItem>       = emptyList(),
     val latestEpisodes:   List<AnimeItem>       = emptyList(),
@@ -74,6 +75,18 @@ class HomeViewModel(
                 infoService.updateWatchlistStatus(animeId, folder)
             } finally {
                 _uiState.update { it.copy(isUpdatingWatchlist = false) }
+            }
+        }
+    }
+
+    fun logout(onComplete: () -> Unit) {
+        scope.launch {
+            _uiState.update { it.copy(isLoggingOut = true) }
+            try {
+                authService.logout()
+            } finally {
+                _uiState.update { it.copy(isLoggingOut = false) }
+                onComplete()
             }
         }
     }

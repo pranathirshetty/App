@@ -137,6 +137,7 @@ fun HomeScreen(
     scheduleViewModel: ScheduleViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
+    onLogout: () -> Unit = {},
     onExit: () -> Unit = {},
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
@@ -173,11 +174,14 @@ fun HomeScreen(
                 AnisugSidebar(
                     avatarUrl = homeState.userProfile?.avatar,
                     selectedTab = currentTab,
+                    isLoggingOut = homeState.isLoggingOut,
                     onTabSelect = { newTab ->
                         prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                         currentTab = newTab
                     },
-                    onExit = onExit
+                    onLogout = {
+                        homeViewModel.logout(onComplete = onLogout)
+                    },
                 )
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
@@ -1093,8 +1097,9 @@ private fun SmallBadge(text: String, color: Color = Color.White) {
 private fun AnisugSidebar(
     avatarUrl: String?,
     selectedTab: AnisugTab,
+    isLoggingOut: Boolean,
     onTabSelect: (AnisugTab) -> Unit,
-    onExit: () -> Unit
+    onLogout: () -> Unit,
 ) {
     val fullAvatarUrl = when {
         avatarUrl == null -> null
@@ -1177,12 +1182,7 @@ private fun AnisugSidebar(
             }
             
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                SidebarIcon(
-                    Icons.AutoMirrored.Filled.ExitToApp, 
-                    isSelected = false, 
-                    defaultTint = Color(0xFFE53935),
-                    onClick = onExit
-                )
+                LogoutButton(isLoggingOut = isLoggingOut, onLogout = onLogout)
                 Spacer(Modifier.height(32.dp))
             }
         }
@@ -1229,7 +1229,50 @@ private fun SidebarIcon(
     }
 }
 
-// ── Bottom Nav Bar (Small Screens) ──────────────────────────────────────────
+@Composable
+private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
+    val inter = remember { MutableInteractionSource() }
+    val hovered by inter.collectIsHoveredAsState()
+
+    val bgColor by animateColorAsState(
+        if (hovered && !isLoggingOut) Color.White.copy(alpha = 0.07f) else Color.Transparent,
+        tween(200)
+    )
+    val iconAlpha by animateFloatAsState(if (isLoggingOut) 0f else 1f, tween(200))
+    val spinnerAlpha by animateFloatAsState(if (isLoggingOut) 1f else 0f, tween(200))
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(bgColor)
+                .hoverable(inter)
+                .clickable(enabled = !isLoggingOut, onClick = onLogout),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Icon fades out when logging out
+            Icon(
+                Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = "Logout",
+                tint = Color(0xFFE53935).copy(alpha = iconAlpha),
+                modifier = Modifier.size(22.dp),
+            )
+            // Spinner fades in when logging out
+            if (spinnerAlpha > 0f) {
+                CircularProgressIndicator(
+                    color = Color(0xFFE53935).copy(alpha = spinnerAlpha),
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Box(Modifier.size(4.dp).clip(CircleShape).background(Color.Transparent))
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+
 
 @Composable
 private fun MobileTopBar(avatarUrl: String?) {

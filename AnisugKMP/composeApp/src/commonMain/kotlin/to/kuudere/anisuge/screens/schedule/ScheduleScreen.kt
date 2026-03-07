@@ -1,9 +1,12 @@
 package to.kuudere.anisuge.screens.schedule
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +39,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,6 +48,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateSetOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -269,9 +275,59 @@ fun ScheduleScreen(
 
                         item { Spacer(Modifier.height(80.dp)) }
                     }
+                    // ── Scroll to top FAB ─────────────────────────────────
+                    val showScrollTop by remember {
+                        derivedStateOf { listState.firstVisibleItemIndex > 0 }
+                    }
+                    val coroutineScope = rememberCoroutineScope()
+                    AnimatedVisibility(
+                        visible = showScrollTop,
+                        enter = fadeIn(tween(250)),
+                        exit  = fadeOut(tween(250)),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+                    ) {
+                        ScrollToTopButton {
+                            coroutineScope.launch { listState.animateScrollToItem(0) }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+// ── Scroll to top button ──────────────────────────────────────────────────────
+
+@Composable
+private fun ScrollToTopButton(onClick: () -> Unit) {
+    val inter = remember { MutableInteractionSource() }
+    val hovered by inter.collectIsHoveredAsState()
+
+    val bg by animateColorAsState(
+        if (hovered) Color.White else Color.White.copy(alpha = 0.85f),
+        tween(200)
+    )
+    val iconColor by animateColorAsState(
+        if (hovered) Color.Black else Color.Black.copy(alpha = 0.9f),
+        tween(200)
+    )
+
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+            .hoverable(inter)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Outlined.KeyboardArrowUp,
+            contentDescription = "Scroll to top",
+            tint = iconColor,
+            modifier = Modifier.size(22.dp),
+        )
     }
 }
 

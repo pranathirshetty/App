@@ -90,7 +90,12 @@ fun App(onAppExit: () -> Unit = {}) {
                         scheduleViewModel = scheduleVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
-                        onExit       = onAppExit,
+                        onLogout = {
+                            navController.navigate(Screen.Auth.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        onExit = onAppExit,
                     )
                 }
 

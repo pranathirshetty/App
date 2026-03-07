@@ -78,7 +78,22 @@ class AuthService(
     }
 
     suspend fun logout() {
-        sessionStore.clear()
+        try {
+            val stored = sessionStore.get()
+            if (stored != null) {
+                httpClient.post("$BASE_URL/api/auth/logout") {
+                    contentType(ContentType.Application.Json)
+                    setBody(mapOf(
+                        "sessionId"     to stored.sessionId,
+                        "sessionSecret" to stored.session,
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            println("[AuthService] logout API call failed (proceeding with local clear): ${e.message}")
+        } finally {
+            sessionStore.clear()
+        }
     }
 }
 
