@@ -24,6 +24,7 @@ internal class MpvPlayer(
 ) {
     private val lib: LibMpv? = LibMpv.load()
     private var ctx: Pointer? = null
+    private var currentUrl: String? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val isAvailable: Boolean get() = lib != null
@@ -114,6 +115,7 @@ internal class MpvPlayer(
         startEventLoop()
 
         // Load file
+        currentUrl = url
         r = mpv.mpv_command(handle, arrayOf("loadfile", url, null))
         println("[MpvPlayer] loadfile '$url' → $r")
     }
@@ -122,8 +124,17 @@ internal class MpvPlayer(
     fun resume() { ctx?.let { lib?.mpv_set_property_string(it, "pause", "no")  } }
 
     fun seekTo(seconds: Double) {
-        ctx ?: return
-        lib?.mpv_command(ctx!!, arrayOf("seek", seconds.toString(), "absolute", null))
+        val handle = ctx ?: return
+        val mpv = lib ?: return
+        if (seconds <= 0.0 && currentUrl != null) {
+            // HLS streams can't seek to 0 — reload from the start
+            mpv.mpv_set_option_string(handle, "start", "0")
+            mpv.mpv_command(handle, arrayOf("loadfile", currentUrl, "replace", null))
+            // Reset start so it doesn't pollute the next loadfile (e.g. continue-watching)
+            mpv.mpv_set_option_string(handle, "start", "none")
+        } else {
+            mpv.mpv_command(handle, arrayOf("seek", seconds.toString(), "absolute", null))
+        }
     }
 
     fun setSubFile(url: String) {
