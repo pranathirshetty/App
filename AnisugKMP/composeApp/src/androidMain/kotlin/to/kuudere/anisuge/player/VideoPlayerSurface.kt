@@ -262,14 +262,29 @@ actual fun VideoPlayerSurface(
         if (isSeeking.value) return@LaunchedEffect
         state.seekTarget = null
         isSeeking.value = true
+        val safeTarget = target.coerceAtLeast(0.1)
+        // Snap UI to target immediately so slider doesn't jump
+        state.position = safeTarget
 
         withContext(Dispatchers.IO) {
-            // HLS streams can't seek to absolute 0 — clamp to 0.1s
-            val safeTarget = target.coerceAtLeast(0.1)
-            MPVLib.command(arrayOf("seek", safeTarget.toString(), "absolute", "keyframes"))
+            MPVLib.command(arrayOf("seek", safeTarget.toString(), "absolute"))
         }
 
-        delay(500)
+        // Wait for mpv's position to stabilize (two consecutive reads within 1s)
+        var lastPos = -1.0
+        var waited = 0
+        while (waited < 3000) {
+            delay(100)
+            waited += 100
+            val pos = withContext(Dispatchers.IO) {
+                try { MPVLib.getPropertyDouble("time-pos") } catch (_: Exception) { null }
+            } ?: continue
+            if (lastPos >= 0 && kotlin.math.abs(pos - lastPos) < 1.0) {
+                state.position = pos
+                break
+            }
+            lastPos = pos
+        }
         isSeeking.value = false
     }
     
