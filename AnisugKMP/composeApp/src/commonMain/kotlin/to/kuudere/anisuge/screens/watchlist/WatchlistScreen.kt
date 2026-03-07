@@ -70,6 +70,7 @@ fun WatchlistScreen(
                 var showDesktopDropdown by remember { mutableStateOf(false) }
                 var showMobileDropdown by remember { mutableStateOf(false) }
                 val folderOptions = listOf("All lists", "Watching", "On Hold", "Plan To Watch", "Dropped", "Completed")
+                val density = LocalDensity.current
 
                 Column(
                     modifier = modifier
@@ -82,27 +83,57 @@ fun WatchlistScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Dropdown for list selector
+                            var showFolderDropdown by remember { mutableStateOf(false) }
+                            var folderTriggerWidthPx by remember { mutableStateOf(0) }
+                            val folderTriggerWidthDp = with(density) { folderTriggerWidthPx.toDp() }
                             Box(
                                 modifier = Modifier
                                     .height(44.dp)
                                     .weight(0.3f)
+                                    .onSizeChanged { folderTriggerWidthPx = it.width }
                                     .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .clickable { 
-                                        val nextIndex = (folderOptions.indexOf(selectedList).coerceAtLeast(0) + 1) % folderOptions.size
-                                        val newFolder = folderOptions[nextIndex]
-                                        selectedList = newFolder
-                                        viewModel.onFolderChange(if (newFolder == "All lists") "All" else newFolder)
-                                    }
-                                    .padding(horizontal = 16.dp),
+                                    .clickable { showFolderDropdown = true },
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(selectedList, color = Color.White, fontSize = 14.sp)
                                     Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+                                }
+
+                                DropdownMenu(
+                                    expanded = showFolderDropdown,
+                                    onDismissRequest = { showFolderDropdown = false },
+                                    modifier = Modifier
+                                        .width(folderTriggerWidthDp)
+                                        .background(Color(0xFF1C1C1E))
+                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                    offset = androidx.compose.ui.unit.DpOffset(0.dp, 6.dp)
+                                ) {
+                                    folderOptions.forEach { folder ->
+                                        val isSelected = selectedList == folder
+                                        DropdownMenuItem(
+                                            text = { 
+                                                Text(
+                                                    text = folder, 
+                                                    color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                ) 
+                                            },
+                                            onClick = {
+                                                selectedList = folder
+                                                viewModel.onFolderChange(if (folder == "All lists") "All" else folder)
+                                                showFolderDropdown = false
+                                            },
+                                            modifier = Modifier.background(
+                                                if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
+                                            )
+                                        )
+                                    }
                                 }
                             }
 
@@ -144,12 +175,12 @@ fun WatchlistScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .background(Color.Transparent)
-                                    .clickable { searchQuery = "" }
-                                    .padding(10.dp),
+                                    .background(Color.Transparent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                                }
                             }
                         }
 
@@ -173,15 +204,18 @@ fun WatchlistScreen(
                             )
                             AdvancedFilterDropdown(
                                 "Sorting", if (state.sort == "Recently Updated") null else state.sort, "Recently Updated", listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
-                                { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
+                                { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f),
+                                onClear = { viewModel.updateFilters(newSort = "Recently Updated") }
                             )
                             AdvancedFilterDropdown(
                                 "Format", if (state.format == "All formats") null else state.format, "All formats", listOf("TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
-                                { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
+                                { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f),
+                                onClear = { viewModel.updateFilters(newFormat = "All formats") }
                             )
                             AdvancedFilterDropdown(
                                 "Status", if (state.status == "All statuses") null else state.status, "All statuses", listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
-                                { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
+                                { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f),
+                                onClear = { viewModel.updateFilters(newStatus = "All statuses") }
                             )
                         }
                     } else {
@@ -230,12 +264,12 @@ fun WatchlistScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                    .background(Color.Transparent)
-                                    .clickable { searchQuery = "" }
-                                    .padding(10.dp),
+                                    .background(Color.Transparent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
+                                }
                             }
                             
                             // Expand Icon
@@ -255,27 +289,57 @@ fun WatchlistScreen(
                         AnimatedVisibility(expandedFilters) {
                             Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                                 // Next row: list selector
+                                var showFolderDropdownMobile by remember { mutableStateOf(false) }
+                                var folderTriggerWidthPxMobile by remember { mutableStateOf(0) }
+                                val folderTriggerWidthDpMobile = with(density) { folderTriggerWidthPxMobile.toDp() }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(44.dp)
+                                        .onSizeChanged { folderTriggerWidthPxMobile = it.width }
                                         .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                        .clickable { 
-                                            val nextIndex = (folderOptions.indexOf(selectedList).coerceAtLeast(0) + 1) % folderOptions.size
-                                            val newFolder = folderOptions[nextIndex]
-                                            selectedList = newFolder
-                                            viewModel.onFolderChange(if (newFolder == "All lists") "All" else newFolder)
-                                        }
-                                        .padding(horizontal = 16.dp),
+                                        .clickable { showFolderDropdownMobile = true },
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(selectedList, color = Color.White, fontSize = 14.sp)
                                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showFolderDropdownMobile,
+                                        onDismissRequest = { showFolderDropdownMobile = false },
+                                        modifier = Modifier
+                                            .width(folderTriggerWidthDpMobile)
+                                            .background(Color(0xFF1C1C1E))
+                                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                        offset = androidx.compose.ui.unit.DpOffset(0.dp, 6.dp)
+                                    ) {
+                                        folderOptions.forEach { folder ->
+                                            val isSelected = selectedList == folder
+                                            DropdownMenuItem(
+                                                text = { 
+                                                    Text(
+                                                        text = folder, 
+                                                        color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                    ) 
+                                                },
+                                                onClick = {
+                                                    selectedList = folder
+                                                    viewModel.onFolderChange(if (folder == "All lists") "All" else folder)
+                                                    showFolderDropdownMobile = false
+                                                },
+                                                modifier = Modifier.background(
+                                                    if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                                 
@@ -299,7 +363,8 @@ fun WatchlistScreen(
                                     )
                                     AdvancedFilterDropdown(
                                         "Sorting", if (state.sort == "Recently Updated") null else state.sort, "Recently Updated", listOf("Recently Updated", "Score", "Popularity", "Year", "Episodes"),
-                                        { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f)
+                                        { viewModel.updateFilters(newSort = it) }, Icons.Default.Sort, Modifier.weight(1f),
+                                        onClear = { viewModel.updateFilters(newSort = "Recently Updated") }
                                     )
                                 }
                                 Spacer(Modifier.height(8.dp))
@@ -309,11 +374,13 @@ fun WatchlistScreen(
                                 ) {
                                     AdvancedFilterDropdown(
                                         "Format", if (state.format == "All formats") null else state.format, "All formats", listOf("TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"),
-                                        { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f)
+                                        { viewModel.updateFilters(newFormat = it) }, Icons.Default.Tv, Modifier.weight(1f),
+                                        onClear = { viewModel.updateFilters(newFormat = "All formats") }
                                     )
                                     AdvancedFilterDropdown(
                                         "Status", if (state.status == "All statuses") null else state.status, "All statuses", listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS"),
-                                        { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f)
+                                        { viewModel.updateFilters(newStatus = it) }, Icons.Default.SignalCellularAlt, Modifier.weight(1f),
+                                        onClear = { viewModel.updateFilters(newStatus = "All statuses") }
                                     )
                                 }
                             }
@@ -462,7 +529,7 @@ fun AdvancedFilterDropdown(
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF1C1C1E))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
-            .clickable { expanded = true },
+            .clickable { expanded = !expanded },
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -480,12 +547,20 @@ fun AdvancedFilterDropdown(
                 modifier = Modifier.weight(1f)
             )
             if (value != null && onClear != null) {
-                Icon(
-                    Icons.Default.Close, "Clear",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(14.dp).clickable { onClear() }
-                )
-                Spacer(Modifier.width(6.dp))
+                IconButton(
+                    onClick = { 
+                        onClear()
+                        expanded = false // Close if open
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close, "Clear",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
             }
             Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
         }
