@@ -502,7 +502,10 @@ private fun DesktopLayout(
                         Text(anime.type.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
                         Text("•", color = Color.White.copy(alpha = 0.5f), fontSize = 15.sp)
                     }
-                    Text("jpn", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("🇯🇵", fontSize = 14.sp)
+                        Text("JP", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
