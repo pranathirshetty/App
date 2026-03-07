@@ -11,11 +11,14 @@ import to.kuudere.anisuge.AppComponent
 import to.kuudere.anisuge.data.models.AnimeItem
 
 data class WatchlistState(
-    val selectedFolder: String = "All",
+    val selectedFolder: String = "All lists",
     val items: List<AnimeItem> = emptyList(),
     val isLoading: Boolean = false,
     val isUpdating: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val currentPage: Int = 1,
+    val totalPages: Int = 1,
+    val isPaginating: Boolean = false
 )
 
 class WatchlistViewModel : ViewModel() {
@@ -29,26 +32,39 @@ class WatchlistViewModel : ViewModel() {
     }
 
     fun onFolderChange(folder: String) {
-        _uiState.update { it.copy(selectedFolder = folder, items = emptyList()) }
-        fetchWatchlist()
+        _uiState.update { it.copy(selectedFolder = folder, items = emptyList(), currentPage = 1, totalPages = 1) }
+        fetchWatchlist(1)
+    }
+
+    fun loadNextPage() {
+        val state = _uiState.value
+        if (state.isLoading || state.isPaginating || state.currentPage >= state.totalPages) return
+        fetchWatchlist(state.currentPage + 1)
     }
 
     private fun fetchWatchlist(page: Int = 1) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            if (page == 1) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            } else {
+                _uiState.update { it.copy(isPaginating = true, error = null) }
+            }
             try {
-                val folderParam = if (_uiState.value.selectedFolder == "All") null else _uiState.value.selectedFolder
+                val folderParam = if (_uiState.value.selectedFolder == "All" || _uiState.value.selectedFolder == "All lists") null else _uiState.value.selectedFolder
                 val response = watchlistService.getWatchlist(page = page, folder = folderParam)
                 if (response != null) {
                     _uiState.update { it.copy(
                         items = if (page == 1) response.items else it.items + response.items,
-                        isLoading = false
+                        isLoading = false,
+                        isPaginating = false,
+                        currentPage = response.page,
+                        totalPages = response.total
                     ) }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, error = "Failed to load watchlist") }
+                    _uiState.update { it.copy(isLoading = false, isPaginating = false, error = "Failed to load watchlist") }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, isPaginating = false, error = e.message) }
             }
         }
     }
@@ -60,7 +76,7 @@ class WatchlistViewModel : ViewModel() {
             if (success) {
                 // Remove from list if current folder doesn't match new status
                 val currentFolder = _uiState.value.selectedFolder
-                if (currentFolder != "All" && currentFolder != newFolder) {
+                if (currentFolder != "All" && currentFolder != "All lists" && currentFolder != newFolder) {
                     _uiState.update { state -> 
                         state.copy(items = state.items.filter { it.activeId != animeId && it.id != animeId }) 
                     }

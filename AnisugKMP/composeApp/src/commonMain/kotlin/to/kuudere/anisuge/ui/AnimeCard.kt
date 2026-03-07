@@ -51,6 +51,7 @@ import to.kuudere.anisuge.data.models.AnimeItem
 fun AnimeCard(
     item: AnimeItem,
     modifier: Modifier = Modifier,
+    badgeText: String? = null,
     onClick: () -> Unit,
 ) {
     val inter   = remember { MutableInteractionSource() }
@@ -89,9 +90,27 @@ fun AnimeCard(
 
             // ── .rating-badge-top ────────────────────────────────────────────
             // top:8px; left:8px; padding:2px 4px; border-radius:3px;
-            // font-size:10px; font-weight:600; bg:rgba(0,0,0,0.8);
-            // border:1px solid rgba(255,255,255,0.1);
-            if ((item.malScore ?: 0.0) > 0.0) {
+            // bg:rgba(0,0,0,0.8); border:1px solid rgba(255,255,255,0.1);
+            if (!badgeText.isNullOrBlank()) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = badgeText,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else if ((item.malScore ?: 0.0) > 0.0) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopStart)

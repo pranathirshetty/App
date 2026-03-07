@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -281,9 +282,24 @@ fun WatchlistScreen(
 
             // Lists content
             val gridColumns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
+            val listState = rememberLazyGridState()
+
+            val endReached by remember {
+                derivedStateOf {
+                    val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                    lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
+                }
+            }
+
+            LaunchedEffect(endReached) {
+                if (endReached) {
+                    viewModel.loadNextPage()
+                }
+            }
 
             LazyVerticalGrid(
                 columns = gridColumns,
+                state = listState,
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = if (isDesktop) 8.dp else 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -306,7 +322,7 @@ fun WatchlistScreen(
                     var hasAnyItems = false
 
                     if (showAll) {
-                        items(state.items) { AnimeCard(item = it, onClick = { onAnimeClick(it.activeId) }) }
+                        items(state.items) { AnimeCard(item = it, badgeText = it.folder, onClick = { onAnimeClick(it.activeId) }) }
                         if (state.items.isNotEmpty()) hasAnyItems = true
                     } else {
                         if (selectedList == "Watching" && currentList.isNotEmpty()) {
@@ -350,7 +366,13 @@ fun WatchlistScreen(
                         }
                     }
 
-                    if (!hasAnyItems) {
+                    if (state.isPaginating || (state.isLoading && state.items.isNotEmpty())) {
+                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
+                                CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                            }
+                        }
+                    } else if (!hasAnyItems && !state.isLoading) {
                         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                             Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
