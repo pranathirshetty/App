@@ -58,6 +58,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import to.kuudere.anisuge.utils.Uri
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -453,7 +454,7 @@ private fun HeroCarousel(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val genresText = animItem.genres?.take(4)?.joinToString("   ")
+                            val genresText = animItem.genres?.take(4)?.joinToString(" • ")
                             if (!genresText.isNullOrEmpty()) {
                                 Text(genresText, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             }
@@ -526,25 +527,34 @@ private fun HeroCarousel(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
-                        // Gradient Overlay for Text Visibility
+                        // Gradient Overlay for Text Visibility and Darker overall tint
                         Box(Modifier.fillMaxSize().background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
-                                startY = 100f
+                                colors = listOf(Color.Black.copy(alpha = 0.2f), Color.Black.copy(alpha = 0.95f)),
+                                startY = 0f
                             )
                         ))
+                        
+                        // Centered Play Button
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow, 
+                                contentDescription = "Play", 
+                                tint = Color.White, 
+                                modifier = Modifier.size(32.dp).offset(x = 2.dp) // Offset slightly so triangle appears centered
+                            )
+                        }
                         Column(
                             Modifier.align(Alignment.BottomStart).padding(20.dp)
                         ) {
-                            Text(
-                                animItem.title,
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(4.dp))
+
                             Text(
                                 "Episode 1" + if (animItem.epCount != null && animItem.epCount > 0) " / ${animItem.epCount}" else "",
                                 color = Color.White.copy(alpha = 0.7f),
