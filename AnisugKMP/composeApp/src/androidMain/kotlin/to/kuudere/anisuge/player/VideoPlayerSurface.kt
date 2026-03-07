@@ -264,15 +264,9 @@ actual fun VideoPlayerSurface(
         isSeeking.value = true
 
         withContext(Dispatchers.IO) {
-            if (target <= 0.0) {
-                // HLS streams can't seek to 0 — reload the file from the start
-                MPVLib.setOptionString("start", "0")
-                MPVLib.command(arrayOf("loadfile", resolvedUrl, "replace"))
-                // Reset start so it doesn't pollute the next loadfile (e.g. continue-watching)
-                MPVLib.setOptionString("start", "none")
-            } else {
-                MPVLib.command(arrayOf("seek", target.toString(), "absolute", "keyframes"))
-            }
+            // HLS streams can't seek to absolute 0 — clamp to 0.1s
+            val safeTarget = target.coerceAtLeast(0.1)
+            MPVLib.command(arrayOf("seek", safeTarget.toString(), "absolute", "keyframes"))
         }
 
         delay(500)

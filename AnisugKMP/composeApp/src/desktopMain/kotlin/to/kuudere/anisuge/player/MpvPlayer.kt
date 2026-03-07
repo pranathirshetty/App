@@ -25,6 +25,7 @@ internal class MpvPlayer(
     private val lib: LibMpv? = LibMpv.load()
     private var ctx: Pointer? = null
     private var currentUrl: String? = null
+    @Volatile private var isSeeking = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val isAvailable: Boolean get() = lib != null
@@ -126,14 +127,13 @@ internal class MpvPlayer(
     fun seekTo(seconds: Double) {
         val handle = ctx ?: return
         val mpv = lib ?: return
-        if (seconds <= 0.0 && currentUrl != null) {
-            // HLS streams can't seek to 0 — reload from the start
-            mpv.mpv_set_option_string(handle, "start", "0")
-            mpv.mpv_command(handle, arrayOf("loadfile", currentUrl, "replace", null))
-            // Reset start so it doesn't pollute the next loadfile (e.g. continue-watching)
-            mpv.mpv_set_option_string(handle, "start", "none")
-        } else {
-            mpv.mpv_command(handle, arrayOf("seek", seconds.toString(), "absolute", null))
+        isSeeking = true
+        // HLS streams can't seek to absolute 0 — clamp to 0.1s
+        val safeTarget = seconds.coerceAtLeast(0.1)
+        mpv.mpv_command(handle, arrayOf("seek", safeTarget.toString(), "absolute", null))
+        scope.launch {
+            kotlinx.coroutines.delay(500)
+            isSeeking = false
         }
     }
 
@@ -160,8 +160,9 @@ internal class MpvPlayer(
                     if (posPtr != null) {
                         val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
                         mpv.mpv_free(posPtr)
-                        // Ignore small bounce-backs if we are actively seeking or buffering?
-                        withContext(Dispatchers.Main) { state.position = pos }
+                        if (!isSeeking) {
+                            withContext(Dispatchers.Main) { state.position = pos }
+                        }
                     }
 
                     val bufPtr = mpv.mpv_get_property_string(handle, "paused-for-cache")
@@ -201,6 +202,7 @@ internal class MpvPlayer(
                             if (!config.loop) onFinished?.invoke()
                         }
                         LibMpv.MPV_EVENT_FILE_LOADED -> {
+                            isSeeking = false
                             withContext(Dispatchers.Main) {
                                 state.isPlaying = true
                                 state.isBuffering = false
@@ -279,11 +281,13 @@ internal class MpvPlayer(
                             }
                         }
                         LibMpv.MPV_EVENT_TICK -> {
-                            val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
-                            if (posPtr != null) {
-                                val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
-                                mpv.mpv_free(posPtr)
-                                withContext(Dispatchers.Main) { state.position = pos }
+                            if (!isSeeking) {
+                                val posPtr = mpv.mpv_get_property_string(handle, "time-pos")
+                                if (posPtr != null) {
+                                    val pos = posPtr.getString(0).toDoubleOrNull() ?: 0.0
+                                    mpv.mpv_free(posPtr)
+                                    withContext(Dispatchers.Main) { state.position = pos }
+                                }
                             }
                         }
                         LibMpv.MPV_EVENT_SHUTDOWN -> break

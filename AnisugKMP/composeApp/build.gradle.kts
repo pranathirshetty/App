@@ -54,7 +54,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             
             // Native libmpv for Android (has ASS support via libass)
-            implementation("dev.jdtech.mpv:libmpv:0.4.1")
+            implementation("dev.jdtech.mpv:libmpv:0.5.1")
             implementation("net.java.dev.jna:jna:5.14.0@aar")
         }
 
