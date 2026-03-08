@@ -8,6 +8,8 @@ data class Comment(
     val author: String? = null,
     val authorId: String? = null,
     val authorPfp: String? = null,
+    val authorVerified: Boolean = false,
+    val authorLabels: List<String> = emptyList(),
     val content: String,
     val isSpoiller: Boolean = false,
     val created_at: String? = null,

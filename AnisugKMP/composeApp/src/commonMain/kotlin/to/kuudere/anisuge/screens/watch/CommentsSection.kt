@@ -629,12 +629,14 @@ fun CommentsSection(
 @Composable
 private fun ThreadConnectionLayout(
     isLast: Boolean,
+    curveOffsetY: androidx.compose.ui.unit.Dp = 20.dp,
+    contentPadding: PaddingValues = PaddingValues(start = 24.dp, top = 8.dp, bottom = 8.dp),
     content: @Composable () -> Unit
 ) {
     Box(
         Modifier.drawBehind {
             val strokeWidth = 1.dp.toPx()
-            val curveY = 20.dp.toPx() // center of child avatar (paddingTop 8dp + avatar radius 12dp)
+            val curveY = curveOffsetY.toPx()
             val r = 12.dp.toPx()
             val endY = if (isLast) curveY else size.height
             
@@ -648,7 +650,7 @@ private fun ThreadConnectionLayout(
             drawPath(path, color = BorderLine.copy(alpha = 0.8f), style = Stroke(strokeWidth))
         }
     ) {
-        Box(Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)) {
+        Box(Modifier.padding(contentPadding)) {
             content()
         }
     }
@@ -696,6 +698,16 @@ private fun CommentItem(
             Column(Modifier.weight(1f).padding(end = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(c.author ?: "Anonymous", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = if (depth == 0) 13.sp else 12.sp, modifier = Modifier.clickable { })
+                    
+                    if (c.authorVerified) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = TextPrimary, modifier = Modifier.size(12.dp))
+                    }
+                    if (c.authorLabels.contains("admin")) {
+                        Icon(Icons.Filled.Star, "Admin", tint = Color(0xFFFFD700), modifier = Modifier.size(13.dp))
+                    } else if (c.authorLabels.contains("mod")) {
+                        Icon(Icons.Filled.Shield, "Moderator", tint = Color(0xFF4CAF50), modifier = Modifier.size(13.dp))
+                    }
+
                     if (c.created_at != null) Text(formatRelTime(c.created_at), color = TextMuted, fontSize = if (depth == 0) 11.sp else 10.sp)
                 }
 
@@ -758,12 +770,16 @@ private fun CommentItem(
                 
                 if (depth == 0 && c.reply_count > 0 && !model.showReplies) {
                     connectionItems.add { isLast ->
-                        ThreadConnectionLayout(isLast = isLast) {
-                            Row(Modifier.clickable { onToggleReplies() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ThreadConnectionLayout(
+                            isLast = isLast,
+                            curveOffsetY = 14.dp,
+                            contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
+                        ) {
+                            Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
                                 if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
                                 else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
-                                Text("View ${c.reply_count} ${if (c.reply_count == 1) "reply" else "replies"}", color = TextSec, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("View ${if (c.reply_count == 1) "1 reply" else "${c.reply_count} replies"}", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -779,16 +795,20 @@ private fun CommentItem(
                     }
                     if (c.reply_count > 0) {
                         connectionItems.add { isLast ->
-                            ThreadConnectionLayout(isLast = isLast) {
-                                Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ThreadConnectionLayout(
+                                isLast = isLast,
+                                curveOffsetY = 14.dp,
+                                contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.5f)))
                                     if (model.hasMoreReplies) {
-                                        Text(if (model.isLoadingReplies) "Loading..." else "Show ${c.reply_count - model.replies.size} more replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() })
+                                        Text(if (model.isLoadingReplies) "Loading..." else "Show ${c.reply_count - model.replies.size} more", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() })
                                         Text("·", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
                                     }
                                     Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                         Icon(Icons.Default.KeyboardArrowUp, null, tint = TextSec, modifier = Modifier.size(13.dp))
-                                        Text("Hide replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Hide replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
