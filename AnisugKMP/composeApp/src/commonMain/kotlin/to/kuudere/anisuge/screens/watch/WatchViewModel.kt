@@ -325,10 +325,8 @@ class WatchViewModel(
                     _uiState.update { state ->
                         state.copy(
                             episodeData = state.episodeData?.copy(
-                                animeInfo = state.episodeData.animeInfo?.copy(
-                                    inWatchlist = folder != "Remove",
-                                    folder = if (folder == "Remove") null else folder
-                                )
+                                inWatchlist = folder != "Remove",
+                                folder = if (folder == "Remove") null else folder
                             )
                         )
                     }

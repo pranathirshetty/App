@@ -399,8 +399,8 @@ fun WatchVideoPlayer(
                     onEpisodesClick = { viewModel.toggleSidePanel("episodes") },
                     onCommentsClick = { viewModel.toggleSidePanel("comments") },
                     onWatchlistClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.WATCHLIST) },
-                    isInWatchlist = uiState.episodeData?.animeInfo?.inWatchlist ?: false,
-                    currentFolder = uiState.episodeData?.animeInfo?.folder,
+                    isInWatchlist = uiState.episodeData?.inWatchlist ?: false,
+                    currentFolder = uiState.episodeData?.folder,
                     modifier = Modifier.fillMaxSize()
                 )
             }

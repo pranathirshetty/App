@@ -85,7 +85,9 @@ data class EpisodeDataResponse(
     @SerialName("total_comments") val totalComments: Int? = 0,
     @SerialName("all_episodes") val allEpisodes: List<EpisodeItem>? = emptyList(),
     @SerialName("anime_info") val animeInfo: AnimeInfoMeta? = null,
-    @SerialName("episode_links") val episodeLinks: List<EpisodeLink>? = emptyList()
+    @SerialName("episode_links") val episodeLinks: List<EpisodeLink>? = emptyList(),
+    val inWatchlist: Boolean = false,
+    val folder: String? = null
 )
 
 @Serializable

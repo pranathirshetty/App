@@ -147,17 +147,17 @@ fun SettingsOverlay(
                             }
                             
                             // Watchlist
-                            uiState.episodeData?.animeInfo?.let { info ->
+                            uiState.episodeData?.let { data ->
                                 SettingsMenuItem(
                                     icon = { 
                                         if (uiState.isUpdatingWatchlist) {
                                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                                         } else {
-                                            Icon(getBookmarkIcon(), contentDescription = null, tint = if (info.inWatchlist == true) Color.Red else Color.White) 
+                                            Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
                                         }
                                     },
                                     title = "Watchlist",
-                                    subtitle = info.folder ?: "Not in list",
+                                    subtitle = data.folder ?: "Not in list",
                                     onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
                                 )
                             }
@@ -248,14 +248,14 @@ fun SettingsOverlay(
                     }
                     SettingsMenuPage.WATCHLIST -> {
                         val folders = listOf("Watching", "On Hold", "Plan To Watch", "Dropped", "Completed", "Remove")
-                        val currentFolder = uiState.episodeData?.animeInfo?.folder
+                        val currentFolder = uiState.episodeData?.folder
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Watchlist") { currentPage = SettingsMenuPage.MAIN }
                             LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
                                 items(folders) { folder ->
                                     SubMenuItem(
                                         title = folder,
-                                        isSelected = if (folder == "Remove") uiState.episodeData?.animeInfo?.inWatchlist == false else folder == currentFolder,
+                                        isSelected = if (folder == "Remove") uiState.episodeData?.inWatchlist == false else folder == currentFolder,
                                         onClick = { onWatchlistStatusSelected(folder); onDismiss() }
                                     )
                                 }
