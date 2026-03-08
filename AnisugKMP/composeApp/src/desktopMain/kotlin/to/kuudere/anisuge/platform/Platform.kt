@@ -1,6 +1,14 @@
 package to.kuudere.anisuge.platform
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
+
+/** Desktop-only: provides the WindowState so composables can drive window placement. */
+val LocalWindowState = staticCompositionLocalOf<WindowState> {
+    error("LocalWindowState not provided — did you forget to provide it in main.kt?")
+}
 
 actual val isDesktopPlatform: Boolean = true
 
@@ -16,16 +24,8 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 
 @Composable
 actual fun SyncFullscreen(isFullscreen: Boolean) {
-    val window = LocalWindowScope.current.window
+    val windowState = LocalWindowState.current
     androidx.compose.runtime.LaunchedEffect(isFullscreen) {
-        val frame = window as? javax.swing.JFrame
-        if (frame != null) {
-            if (isFullscreen) {
-                frame.extendedState = javax.swing.JFrame.MAXIMIZED_BOTH
-            } else {
-                frame.extendedState = javax.swing.JFrame.NORMAL
-            }
-        }
+        windowState.placement = if (isFullscreen) WindowPlacement.Fullscreen else WindowPlacement.Floating
     }
 }
-

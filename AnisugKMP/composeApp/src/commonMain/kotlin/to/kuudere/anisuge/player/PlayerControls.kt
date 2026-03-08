@@ -441,14 +441,36 @@ fun PlayerControls(
                                     contentAlignment = Alignment.CenterStart
                                 ) {
                                     Canvas(Modifier.fillMaxWidth().height(3.dp)) {
+                                        val w = size.width
+                                        val h = size.height
+
+                                        // Background track
                                         drawRoundRect(Color.White.copy(alpha = 0.25f), size = size, cornerRadius = CornerRadius(4.dp.toPx()))
-                                        drawRoundRect(Color.White, size = Size(size.width * progress, size.height), cornerRadius = CornerRadius(4.dp.toPx()))
-                                        
-                                        // Colored highlights for chapters
+                                        // White progress fill
+                                        drawRoundRect(Color.White, size = Size(w * progress, h), cornerRadius = CornerRadius(4.dp.toPx()))
+
+                                        // Intro highlight — yellow ON TOP of fill so always visible
+                                        val intro = streamingData?.intro
+                                        if (intro?.start != null && intro.end != null && duration > 0) {
+                                            val x0 = ((intro.start / duration).toFloat() * w).coerceIn(0f, w)
+                                            val x1 = ((intro.end / duration).toFloat() * w).coerceIn(0f, w)
+                                            if (x1 > x0) drawRect(Color.Yellow, Offset(x0, 0f), Size(x1 - x0, h))
+                                        }
+
+                                        // Outro highlight — also yellow
+                                        val outro = streamingData?.outro
+                                        if (outro?.start != null && outro.end != null && duration > 0) {
+                                            val x0 = ((outro.start / duration).toFloat() * w).coerceIn(0f, w)
+                                            val x1 = ((outro.end / duration).toFloat() * w).coerceIn(0f, w)
+                                            if (x1 > x0) drawRect(Color.Yellow, Offset(x0, 0f), Size(x1 - x0, h))
+                                        }
+
+                                        // Chapter dividers
                                         streamingData?.chapters?.forEach { ch ->
-                                            if (ch.start_time != null && duration > 0) {
-                                                val x = (ch.start_time / duration).toFloat() * size.width
-                                                drawRect(Color.Black.copy(alpha=0.5f), Offset(x, 0f), Size(2.dp.toPx(), size.height))
+                                            if (ch.start_time != null && ch.start_time > 0 && duration > 0) {
+                                                val x = (ch.start_time / duration).toFloat() * w
+                                                if (x > 1f && x < w - 1f)
+                                                    drawRect(Color.Black.copy(alpha = 0.8f), Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), h))
                                             }
                                         }
                                     }

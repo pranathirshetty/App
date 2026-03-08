@@ -85,7 +85,7 @@ fun WatchScreen(
                 .padding(paddingValues)
         ) {
             if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.Red)
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val isPanelActive = uiState.activeSidePanel != null && !uiState.isFullscreen
@@ -299,7 +299,7 @@ fun WatchVideoPlayer(
 
     if (uiState.isLoadingVideo) {
         Box(modifier = modifier.background(Color.Black)) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.Red)
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
         }
     } else {
         val currentUrl = uiState.availableQualities.find { it.first == uiState.currentQuality }?.second
