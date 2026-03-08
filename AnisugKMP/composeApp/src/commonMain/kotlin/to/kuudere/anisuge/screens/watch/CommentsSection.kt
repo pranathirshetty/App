@@ -756,54 +756,68 @@ private fun CommentItem(
 
         if (hasThread) {
             Column(Modifier.fillMaxWidth().padding(start = threadOffset).animateContentSize(animationSpec = tween(300))) {
-                val connectionItems = mutableListOf<@Composable (isLast: Boolean) -> Unit>()
                 
-                if (model.isReplying && depth == 0) {
-                    connectionItems.add { isLast ->
-                        ThreadConnectionLayout(isLast = isLast) {
-                            ReplyEditor(
-                                userPfp = userPfp,
-                                text = model.replyText,
-                                isSubmitting = model.isSubmitting,
-                                isSpoiler = model.replyIsSpoiler,
-                                onTextChange = onReplyTextChange,
-                                onSpoilerChange = onReplySpoilerChange,
-                                onSubmit = onSubmitReply,
-                                onCancel = onReplyToggle
-                            )
-                        }
+                val hasViewRepliesBtn = depth == 0 && c.reply_count > 0 && !model.showReplies
+                val hasExpandedReplies = depth == 0 && model.showReplies && model.replies.isNotEmpty()
+                
+                // 1. Reply Editor
+                AnimatedVisibility(
+                    visible = model.isReplying && depth == 0,
+                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(tween(300)),
+                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(tween(300))
+                ) {
+                    val isLastForEditor = !hasViewRepliesBtn && !hasExpandedReplies
+                    ThreadConnectionLayout(isLast = isLastForEditor) {
+                        ReplyEditor(
+                            userPfp = userPfp,
+                            text = model.replyText,
+                            isSubmitting = model.isSubmitting,
+                            isSpoiler = model.replyIsSpoiler,
+                            onTextChange = onReplyTextChange,
+                            onSpoilerChange = onReplySpoilerChange,
+                            onSubmit = onSubmitReply,
+                            onCancel = onReplyToggle
+                        )
                     }
                 }
-                
-                if (depth == 0 && c.reply_count > 0 && !model.showReplies) {
-                    connectionItems.add { isLast ->
-                        ThreadConnectionLayout(
-                            isLast = isLast,
-                            curveOffsetY = 14.dp,
-                            contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
-                        ) {
-                            Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
-                                if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
-                                else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
-                                Text("View ${if (c.reply_count == 1) "1 reply" else "${c.reply_count} replies"}", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
+
+                // 2. Collapsed "View Replies" Block
+                AnimatedVisibility(
+                    visible = hasViewRepliesBtn,
+                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(tween(300)),
+                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(tween(300))
+                ) {
+                    ThreadConnectionLayout(
+                        isLast = true,
+                        curveOffsetY = 14.dp,
+                        contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
+                    ) {
+                        Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
+                            if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
+                            else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
+                            Text("View ${if (c.reply_count == 1) "1 reply" else "${c.reply_count} replies"}", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
 
-                if (depth == 0 && model.showReplies && model.replies.isNotEmpty()) {
-                    model.replies.forEach { reply ->
-                        connectionItems.add { isLast ->
-                            ThreadConnectionLayout(isLast = isLast) {
+                // 3. Expanded Replies Block
+                AnimatedVisibility(
+                    visible = hasExpandedReplies,
+                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(tween(300)),
+                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(tween(300))
+                ) {
+                    Column(Modifier.fillMaxWidth()) {
+                        model.replies.forEach { reply ->
+                            ThreadConnectionLayout(isLast = false) {
                                 CommentItem(reply, userId, userPfp, depth + 1, { type -> onVoteReply(reply, type) }, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
                             }
                         }
-                    }
-                    if (c.reply_count > 0) {
-                        connectionItems.add { isLast ->
+                        
+                        // Hide replies / Load more area
+                        if (c.reply_count > 0) {
                             ThreadConnectionLayout(
-                                isLast = isLast,
+                                isLast = true,
                                 curveOffsetY = 14.dp,
                                 contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
                             ) {
@@ -821,10 +835,6 @@ private fun CommentItem(
                             }
                         }
                     }
-                }
-
-                connectionItems.forEachIndexed { i, render ->
-                    render(i == connectionItems.lastIndex)
                 }
             }
         }
