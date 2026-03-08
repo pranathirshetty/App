@@ -473,26 +473,6 @@ private fun getServerIcon(): ImageVector {
     }.build()
 }
 
-private fun getBookmarkIcon(): ImageVector {
-    return ImageVector.Builder(
-        name = "Bookmark",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).apply {
-        path(
-            stroke = SolidColor(Color.White),
-            strokeLineWidth = 2f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round
-        ) {
-            moveTo(19f, 21f); lineToRelative(-7f, -5f); lineToRelative(-7f, 5f)
-            verticalLineTo(5f)
-            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, -2f)
-            horizontalLineToRelative(10f)
-            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, 2f)
-            close()
-        }
-    }.build()
+private fun getBookmarkIcon(isFilled: Boolean): ImageVector {
+    return if (isFilled) Icons.Default.Bookmark else Icons.Default.BookmarkBorder
 }
