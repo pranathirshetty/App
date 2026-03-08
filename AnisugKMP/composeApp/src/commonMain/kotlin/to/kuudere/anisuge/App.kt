@@ -13,6 +13,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import to.kuudere.anisuge.navigation.Screen
 import to.kuudere.anisuge.screens.auth.AuthScreen
 import to.kuudere.anisuge.screens.auth.AuthViewModel
@@ -125,6 +127,10 @@ fun App(onAppExit: () -> Unit = {}) {
 
                 composable(
                     route = Screen.Watch.route,
+                    enterTransition = { slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) },
+                    exitTransition = { fadeOut(animationSpec = tween(400)) },
+                    popEnterTransition = { fadeIn(animationSpec = tween(400)) },
+                    popExitTransition = { fadeOut(animationSpec = tween(200)) },
                     arguments = listOf(
                         navArgument("animeId") { type = androidx.navigation.NavType.StringType },
                         navArgument("episodeNumber") { type = androidx.navigation.NavType.StringType },

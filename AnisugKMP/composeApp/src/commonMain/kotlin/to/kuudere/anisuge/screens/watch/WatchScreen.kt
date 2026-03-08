@@ -55,20 +55,13 @@ fun WatchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    var isClosing by remember { mutableStateOf(false) }
+    var isLandscape by remember { mutableStateOf(true) }
 
-    // Force portrait briefly before disposing so Android has time to re-measure before the next screen pops in
-    LockScreenOrientation(!isClosing)
+    LockScreenOrientation(isLandscape)
 
     val handleBack = {
-        if (!isClosing) {
-            isClosing = true
-            scope.launch {
-                kotlinx.coroutines.delay(350)
-                onBack()
-            }
-        }
+        isLandscape = false
+        onBack()
     }
 
     to.kuudere.anisuge.platform.PlatformBackHandler {
