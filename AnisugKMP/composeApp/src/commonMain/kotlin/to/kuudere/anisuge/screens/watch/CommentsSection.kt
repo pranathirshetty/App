@@ -70,6 +70,7 @@ data class CommentUiModel(
     val showReplies: Boolean = false,
     val isReplying: Boolean = false,
     val replyText: String = "",
+    val replyIsSpoiler: Boolean = false,
     val isSubmitting: Boolean = false,
     val isLoadingReplies: Boolean = false,
     val replies: List<CommentUiModel> = emptyList(),
@@ -230,7 +231,7 @@ fun CommentsSection(
         if (!isAuthenticated || parent.replyText.isBlank()) return
         updateRoot(parent.data.id) { it.copy(isSubmitting = true) }
         scope.launch {
-            val res = commentService.postComment(animeId, episodeNumber, parent.replyText, false, parent.data.id)
+            val res = commentService.postComment(animeId, episodeNumber, parent.replyText, parent.replyIsSpoiler, parent.data.id)
             println("[CommentsSection] postReply response: $res")
             if (res?.success == true) {
                 val id = res.data?.commentId ?: res.data?.id ?: System.currentTimeMillis().toString()
@@ -243,7 +244,7 @@ fun CommentsSection(
                                 content = parent.replyText, likes = 0, dislikes = 0
                             )
                         ),
-                        replyText = "", isReplying = false, showReplies = true, isSubmitting = false
+                        replyText = "", replyIsSpoiler = false, isReplying = false, showReplies = true, isSubmitting = false
                     )
                 }
             } else {
@@ -498,24 +499,23 @@ fun CommentsSection(
 
                                     // Cancel
                                     Text(
-                                        "Cancel", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        "Cancel", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                                         modifier = Modifier.clickable {
                                             rootFocused = false; rootText = ""; rootIsSpoiler = false; rootShowPreview = false
                                         }.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    // SEND
                                     Box(
                                         Modifier.clip(RoundedCornerShape(6.dp))
                                             .background(if (rootText.isBlank() || isPostingRoot) AccentRed.copy(alpha = 0.4f) else AccentRed)
                                             .clickable(enabled = rootText.isNotBlank() && !isPostingRoot) { postRoot() }
-                                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         if (isPostingRoot) {
-                                            CircularProgressIndicator(Modifier.size(11.dp), color = Color.White, strokeWidth = 1.5.dp)
+                                            CircularProgressIndicator(Modifier.size(14.dp), color = Color.White, strokeWidth = 1.5.dp)
                                         } else {
-                                            Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(14.dp))
                                         }
                                     }
                                 }
@@ -561,8 +561,9 @@ fun CommentsSection(
                             userPfp = userPfp,
                             depth = 0,
                             onVote = { type -> vote(model, type) },
-                            onReplyToggle = { updateRoot(model.data.id) { it.copy(isReplying = !it.isReplying, replyText = "") } },
+                            onReplyToggle = { updateRoot(model.data.id) { it.copy(isReplying = !it.isReplying, replyText = "", replyIsSpoiler = false) } },
                             onReplyTextChange = { text -> updateRoot(model.data.id) { it.copy(replyText = text) } },
+                            onReplySpoilerChange = { isS -> updateRoot(model.data.id) { it.copy(replyIsSpoiler = isS) } },
                             onSubmitReply = { postReply(model) },
                             onToggleReplies = {
                                 val m = comments.first { it.data.id == model.data.id }
@@ -665,6 +666,7 @@ private fun CommentItem(
     onVote: (String) -> Unit,
     onReplyToggle: () -> Unit,
     onReplyTextChange: (String) -> Unit,
+    onReplySpoilerChange: (Boolean) -> Unit,
     onSubmitReply: () -> Unit,
     onToggleReplies: () -> Unit,
     onLoadMoreReplies: () -> Unit,
@@ -703,9 +705,9 @@ private fun CommentItem(
                         Icon(Icons.Filled.CheckCircle, null, tint = TextPrimary, modifier = Modifier.size(12.dp))
                     }
                     if (c.authorLabels.contains("admin")) {
-                        Icon(Icons.Filled.Star, "Admin", tint = Color(0xFFFFD700), modifier = Modifier.size(13.dp))
+                        Icon(AdminCrownIcon, "Admin", tint = Color(0xFFFFD700), modifier = Modifier.size(13.dp))
                     } else if (c.authorLabels.contains("mod")) {
-                        Icon(Icons.Filled.Shield, "Moderator", tint = Color(0xFF4CAF50), modifier = Modifier.size(13.dp))
+                        Icon(ModShieldIcon, "Moderator", tint = Color(0xFF4CAF50), modifier = Modifier.size(13.dp))
                     }
 
                     if (c.created_at != null) Text(formatRelTime(c.created_at), color = TextMuted, fontSize = if (depth == 0) 11.sp else 10.sp)
@@ -762,7 +764,16 @@ private fun CommentItem(
                     connectionItems.add { isLast ->
                         AnimatedVisibility(visible = true, enter = expandVertically(animationSpec = tween(300)) + fadeIn(), exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()) {
                             ThreadConnectionLayout(isLast = isLast) {
-                                ReplyEditor(userPfp, model.replyText, model.isSubmitting, onReplyTextChange, onSubmitReply, onReplyToggle)
+                                ReplyEditor(
+                                    userPfp = userPfp,
+                                    text = model.replyText,
+                                    isSubmitting = model.isSubmitting,
+                                    isSpoiler = model.replyIsSpoiler,
+                                    onTextChange = onReplyTextChange,
+                                    onSpoilerChange = onReplySpoilerChange,
+                                    onSubmit = onSubmitReply,
+                                    onCancel = onReplyToggle
+                                )
                             }
                         }
                     }
@@ -789,7 +800,7 @@ private fun CommentItem(
                     model.replies.forEach { reply ->
                         connectionItems.add { isLast ->
                             ThreadConnectionLayout(isLast = isLast) {
-                                CommentItem(reply, userId, userPfp, depth + 1, { type -> onVoteReply(reply, type) }, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+                                CommentItem(reply, userId, userPfp, depth + 1, { type -> onVoteReply(reply, type) }, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
                             }
                         }
                     }
@@ -947,7 +958,9 @@ private fun ReplyEditor(
     userPfp: String?,
     text: String,
     isSubmitting: Boolean,
+    isSpoiler: Boolean,
     onTextChange: (String) -> Unit,
+    onSpoilerChange: (Boolean) -> Unit,
     onSubmit: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -961,6 +974,55 @@ private fun ReplyEditor(
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             var showPreview by remember { mutableStateOf(false) }
+            var imageDialog by remember { mutableStateOf(false) }
+            var imageUrlInput by remember { mutableStateOf("") }
+            
+            if (imageDialog) {
+                AlertDialog(
+                    onDismissRequest = { imageDialog = false; imageUrlInput = "" },
+                    title = { Text("Insert Image", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Paste the URL of the image you want to include in your comment.", color = TextSec, fontSize = 13.sp)
+                            BasicTextField(
+                                value = imageUrlInput,
+                                onValueChange = { imageUrlInput = it },
+                                textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                                cursorBrush = SolidColor(AccentRed),
+                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .background(BgInput.copy(alpha = 0.5f))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    .defaultMinSize(minHeight = 44.dp),
+                                decorationBox = { inner ->
+                                    if (imageUrlInput.isEmpty()) Text("https://example.com/image.png", color = TextMuted, fontSize = 13.sp)
+                                    inner()
+                                }
+                            )
+                            Text("Supports PNG, JPG, GIF, WebP", color = TextMuted, fontSize = 10.sp, letterSpacing = 0.8.sp)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { imageDialog = false; imageUrlInput = "" }) {
+                            Text("Cancel", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        }
+                    },
+                    confirmButton = {
+                        Box(
+                            Modifier.clip(RoundedCornerShape(6.dp))
+                                .background(AccentRed)
+                                .clickable {
+                                    if (imageUrlInput.isNotBlank()) onTextChange(text + "![image](${imageUrlInput.trim()})")
+                                    imageDialog = false; imageUrlInput = ""
+                                }.padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text("Insert Image", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    containerColor = BgDark,
+                    tonalElevation = 0.dp
+                )
+            }
 
             Box(
                 Modifier.fillMaxWidth()
@@ -998,6 +1060,15 @@ private fun ReplyEditor(
                 FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
                     onTextChange(applyMarkdown(text, "||"))
                 }
+                // Insert Image
+                FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
+                    imageDialog = true
+                }
+                // Whole-comment spoiler (Lock toggle)
+                FormatIconButton(
+                    icon = if (isSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
+                    active = isSpoiler, activeColor = AccentRed
+                ) { onSpoilerChange(!isSpoiler) }
                 // Preview toggle (Eye)
                 FormatIconButton(
                     icon = Icons.Default.Visibility,
@@ -1006,20 +1077,20 @@ private fun ReplyEditor(
 
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "Cancel", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    "Cancel", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                     modifier = Modifier.clickable { onCancel() }.padding(horizontal = 6.dp, vertical = 4.dp)
                 )
                 Box(
                     Modifier.clip(RoundedCornerShape(6.dp))
                         .background(if (text.isBlank() || isSubmitting) AccentRed.copy(alpha = 0.4f) else AccentRed)
                         .clickable(enabled = text.isNotBlank() && !isSubmitting) { onSubmit() }
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isSubmitting) {
-                        CircularProgressIndicator(Modifier.size(10.dp), color = Color.White, strokeWidth = 1.5.dp)
+                        CircularProgressIndicator(Modifier.size(13.dp), color = Color.White, strokeWidth = 1.5.dp)
                     } else {
-                        Text("REPLY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Send, contentDescription = "Reply", tint = Color.White, modifier = Modifier.size(13.dp))
                     }
                 }
             }
@@ -1099,3 +1170,33 @@ fun formatRelTime(isoDate: String): String = try {
         else        -> "${s / 2592000}mo ago"
     }
 } catch (e: Exception) { "" }
+
+// ── Custom SVG Badges ────────────────────────────────────────────────────────
+
+val AdminCrownIcon: androidx.compose.ui.graphics.vector.ImageVector
+    get() = androidx.compose.ui.graphics.vector.ImageVector.Builder(
+        name = "AdminCrown",
+        defaultWidth = 20.dp,
+        defaultHeight = 20.dp,
+        viewportWidth = 960f,
+        viewportHeight = 960f
+    ).apply {
+        addPath(
+            pathData = androidx.compose.ui.graphics.vector.addPathNodes("M 200 800.0v-80h560v80H 200Zm0-140-51-321q-2 0-4.5.5t-4.5.5q-25 0-42.5-17.5T 80 280.0q0-25 17.5-42.5T 140 220.0q25 0 42.5 17.5T 200 280.0q0 7-1.5 13t-3.5 11l125 56 125-171q-11-8-18-21t-7-28q0-25 17.5-42.5T 480 80.0q25 0 42.5 17.5T 540 140.0q0 15-7 28t-18 21l125 171 125-56q-2-5-3.5-11t-1.5-13q0-25 17.5 42.5T 820 220.0q25 0 42.5 17.5T 880 280.0q0 25-17.5 42.5T 820 340.0q-2 0-4.5-.5t-4.5-.5l-51 321H 200Zm68-80h424l26-167-105 46-133-183-133 183-105-46 26 167Zm212 0Z"),
+            fill = androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.White)
+        )
+    }.build()
+
+val ModShieldIcon: androidx.compose.ui.graphics.vector.ImageVector
+    get() = androidx.compose.ui.graphics.vector.ImageVector.Builder(
+        name = "ModShield",
+        defaultWidth = 20.dp,
+        defaultHeight = 20.dp,
+        viewportWidth = 960f,
+        viewportHeight = 960f
+    ).apply {
+        addPath(
+            pathData = androidx.compose.ui.graphics.vector.addPathNodes("M 480 880.0q-139-35-229.5-159.5T 160 444.0v-244l320-120 320 120v244q0 152-90.5 276.5T 480 880.0Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-212q-57 0-97.5-40.5T 342 446.0q0-57 40.5-97.5T 480 308.0q57 0 97.5 40.5T 618 446.0q0 57-40.5 97.5T 480 584.0Z"),
+            fill = androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.White)
+        )
+    }.build()
