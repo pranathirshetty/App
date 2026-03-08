@@ -25,11 +25,11 @@ actual fun LockScreenOrientation(landscape: Boolean) {
             ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
         } else {
             insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
         }
         onDispose {
-            // Restore to the original orientation when composed out
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            // Force return to portrait when composable is destroyed (like pressing back)
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
             insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
@@ -42,4 +42,9 @@ internal fun Context.findActivity(): Activity? {
         context = context.baseContext
     }
     return null
+}
+
+@Composable
+actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
+    androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
 }

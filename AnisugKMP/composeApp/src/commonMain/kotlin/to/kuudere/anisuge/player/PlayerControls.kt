@@ -86,7 +86,9 @@ fun PlayerControls(
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(3500)
-            if (!isSeeking && !isLoading && isPlayingActively) {
+            val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+            val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
+            if (!isSeeking && !currentIsLoading && currentIsPlayingActively) {
                 controlsVisible = false
             }
         }

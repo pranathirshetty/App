@@ -30,6 +30,19 @@ import to.kuudere.anisuge.player.PlayerControls
 import to.kuudere.anisuge.player.VideoPlayerState
 import to.kuudere.anisuge.player.VideoPlayerSurface
 import to.kuudere.anisuge.player.rememberVideoPlayerState
+import coil3.compose.AsyncImage
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.launch
 
 @Composable
 fun WatchScreen(
@@ -42,8 +55,25 @@ fun WatchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    var isClosing by remember { mutableStateOf(false) }
 
-    LockScreenOrientation(uiState.isFullscreen)
+    // Force portrait briefly before disposing so Android has time to re-measure before the next screen pops in
+    LockScreenOrientation(!isClosing)
+
+    val handleBack = {
+        if (!isClosing) {
+            isClosing = true
+            scope.launch {
+                kotlinx.coroutines.delay(350)
+                onBack()
+            }
+        }
+    }
+
+    to.kuudere.anisuge.platform.PlatformBackHandler {
+        handleBack()
+    }
 
     LaunchedEffect(animeId, episodeNumber) {
         viewModel.initialize(animeId, episodeNumber, server, lang)
@@ -61,138 +91,34 @@ fun WatchScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.Red)
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (!uiState.isFullscreen) {
-                        Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                            // Spacer for sticky player height
-                            Spacer(Modifier.fillMaxWidth().aspectRatio(16f/9f))
-
-                            // Anime details
-                            val animeInfo = uiState.episodeData?.animeInfo
-                            val currentEpData = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
-                            if (animeInfo != null) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = animeInfo.english ?: "Unknown",
-                                        color = Color.White,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    if (currentEpData != null) {
-                                        val title = currentEpData.titles?.firstOrNull() ?: ""
-                                        Text(
-                                            text = "Episode ${uiState.currentEpisodeNumber} - $title",
-                                            color = Color.White.copy(alpha = 0.7f),
-                                            fontSize = 16.sp
-                                        )
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
-                                    // Action buttons row
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        // Likes/Dislikes
-                                        Row(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(20.dp))
-                                                .background(Color(0xFF333333).copy(alpha = 0.5f))
-                                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.ThumbUp, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(animeInfo.likes?.toString() ?: "0", color = Color.White, fontWeight = FontWeight.Medium)
-                                            Spacer(Modifier.width(16.dp))
-                                            Icon(Icons.Default.ThumbDown, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(animeInfo.dislikes?.toString() ?: "0", color = Color.White, fontWeight = FontWeight.Medium)
-                                        }
-
-                                        ActionButton(icon = Icons.Default.Share, label = "Share") { /* Share */ }
-                                        ActionButton(icon = Icons.Outlined.BookmarkBorder, label = "Save") { /* Save */ }
-                                        ActionButton(icon = Icons.Default.Flag, label = "Report") { /* Report */ }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(24.dp))
-
-                                    // Comments Button
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF1A1A1A))
-                                            .clickable { viewModel.toggleSidePanel("comments") }
-                                            .padding(16.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Comment, null, tint = Color.White)
-                                            Spacer(Modifier.width(12.dp))
-                                            Text("Comments", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                            Spacer(Modifier.width(8.dp))
-                                            Box(
-                                                Modifier
-                                                    .background(Color(0xFF2A2A2A), RoundedCornerShape(12.dp))
-                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(uiState.episodeData?.totalComments?.toString() ?: "0", color = Color.White, fontSize = 12.sp)
-                                            }
-                                            Spacer(Modifier.weight(1f))
-                                            Icon(Icons.Default.ChevronRight, null, tint = Color.White)
-                                        }
-                                    }
-
-                                    Spacer(Modifier.height(24.dp))
-
-                                    // Episode List Selection
-                                    Text("Episodes", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.height(16.dp))
-
-                                    // For simplicity, just list all without pagination for initial implementation
-                                    val episodes = uiState.episodeData?.allEpisodes ?: emptyList()
-                                    episodes.sortedBy { it.number }.forEach { episode ->
-                                        val isSelected = episode.number == uiState.currentEpisodeNumber
-                                        Row(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSelected) Color.Red.copy(alpha = 0.1f) else Color(0xFF1A1A1A))
-                                                .border(1.dp, if (isSelected) Color.Red else Color.Transparent, RoundedCornerShape(8.dp))
-                                                .clickable { viewModel.onEpisodeSelected(episode.number) }
-                                                .padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Episode ${episode.number}",
-                                                color = if (isSelected) Color.Red else Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            if (isSelected) {
-                                                Icon(Icons.Default.PlayArrow, null, tint = Color.Red, modifier = Modifier.size(20.dp))
-                                            }
-                                        }
-                                    }
-                                }
+                    val isPanelActive = uiState.activeSidePanel != null && !uiState.isFullscreen
+                    val sidePanelWidth = 350.dp // Twitch standard width
+                    
+                    Row(Modifier.fillMaxSize()) {
+                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                            key("video_player") {
+                                WatchVideoPlayer(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    modifier = Modifier.fillMaxSize(),
+                                    onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
+                                    onBack = handleBack
+                                )
+                            }
+                            if (!uiState.isFullscreen) {
+                                PlayerOverlayButtons(viewModel, uiState)
                             }
                         }
-                    }
-
-                    // Video Player dynamically snaps without unmounting
-                    key("video_player") {
-                        WatchVideoPlayer(
-                            uiState = uiState,
-                            viewModel = viewModel,
-                            modifier = if (uiState.isFullscreen) Modifier.fillMaxSize() 
-                                       else Modifier.fillMaxWidth().aspectRatio(16f/9f).align(Alignment.TopCenter),
-                            onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
-                            onBack = onBack
-                        )
+                        
+                        AnimatedVisibility(
+                            visible = isPanelActive,
+                            enter = slideInHorizontally(animationSpec = tween(300)) { it } + expandHorizontally(animationSpec = tween(300), expandFrom = Alignment.Start) + fadeIn(animationSpec = tween(300)),
+                            exit = slideOutHorizontally(animationSpec = tween(300)) { it } + shrinkHorizontally(animationSpec = tween(300), shrinkTowards = Alignment.Start) + fadeOut(animationSpec = tween(300))
+                        ) {
+                            Box(Modifier.width(sidePanelWidth).fillMaxHeight()) {
+                                SidePanelContent(uiState, viewModel)
+                            }
+                        }
                     }
                 }
             }
@@ -211,6 +137,196 @@ fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: S
         Icon(icon, null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, fontWeight = FontWeight.Medium)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .border(1.dp, Color(0xFF222222))
+    ) {
+        // Top header
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0A0A))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val title = when (uiState.activeSidePanel) {
+                "info" -> "Anime Info"
+                "episodes" -> "Episodes"
+                "comments" -> "Comments"
+                else -> ""
+            }
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = { viewModel.toggleSidePanel(null) }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, null, tint = Color.LightGray)
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF222222)))
+        
+        // Content
+        Box(Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = uiState.activeSidePanel,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                },
+                label = "SidePanelAnimation"
+            ) { activePanel ->
+                when (activePanel) {
+                    "info" -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+                            val animeInfo = uiState.episodeData?.animeInfo
+                            Text(
+                                text = animeInfo?.english ?: "Unknown",
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                // Likes / Dislikes
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ThumbUp, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(animeInfo?.likes?.toString() ?: "0", color = Color.White)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ThumbDown, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(animeInfo?.dislikes?.toString() ?: "0", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                    "episodes" -> {
+                        val episodes = uiState.episodeData?.allEpisodes ?: emptyList()
+                        LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
+                            items(episodes.sortedBy { it.number }) { episode ->
+                                val isSelected = episode.number == uiState.currentEpisodeNumber
+                                val thumbnail = uiState.thumbnails[episode.number.toString()]
+                                
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) Color.White else Color(0xFF111111))
+                                        .clickable { viewModel.onEpisodeSelected(episode.number) }
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (thumbnail != null) {
+                                        AsyncImage(
+                                            model = thumbnail,
+                                            contentDescription = "Episode ${episode.number} Thumbnail",
+                                            modifier = Modifier
+                                                .width(100.dp)
+                                                .aspectRatio(16f/9f)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color.DarkGray),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(Modifier.width(12.dp))
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(100.dp)
+                                                .aspectRatio(16f/9f)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color.DarkGray),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                    }
+                                    
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            "Episode ${episode.number}",
+                                            color = if (isSelected) Color.Black else Color.White,
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                        val title = episode.titles?.firstOrNull()
+                                        if (!title.isNullOrBlank()) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                title,
+                                                color = if (isSelected) Color.DarkGray else Color.LightGray,
+                                                fontSize = 12.sp,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    
+                                    if (isSelected) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    "comments" -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Comments integration here", color = Color.LightGray)
+                        }
+                    }
+                    else -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Select an option", color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlayerOverlayButtons(viewModel: WatchViewModel, uiState: WatchUiState) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OverlayIconButton(Icons.Default.Info, "Info", uiState.activeSidePanel == "info") { 
+                viewModel.toggleSidePanel("info") 
+            }
+            OverlayIconButton(Icons.Default.List, "Episodes", uiState.activeSidePanel == "episodes") { 
+                viewModel.toggleSidePanel("episodes") 
+            }
+            OverlayIconButton(Icons.Default.Comment, "Comments", uiState.activeSidePanel == "comments") { 
+                viewModel.toggleSidePanel("comments") 
+            }
+        }
+    }
+}
+
+@Composable
+fun OverlayIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, isActive: Boolean, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isActive) Color.White.copy(alpha = 0.2f) else Color.Transparent)
+    ) {
+        Icon(icon, contentDescription, tint = if (isActive) Color.White else Color.LightGray)
     }
 }
 

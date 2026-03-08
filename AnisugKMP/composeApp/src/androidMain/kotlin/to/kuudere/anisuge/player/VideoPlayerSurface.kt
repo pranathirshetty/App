@@ -1,8 +1,9 @@
 package to.kuudere.anisuge.player
 
 import android.net.Uri
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.graphics.SurfaceTexture
+import android.view.Surface
+import android.view.TextureView
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -55,8 +56,8 @@ actual fun VideoPlayerSurface(
         return
     }
 
-    val surfaceView = remember { 
-        SurfaceView(context).apply {
+    val textureView = remember { 
+        TextureView(context).apply {
             setOnTouchListener { _, event ->
                 val x = event.x.toInt().toString()
                 val y = event.y.toInt().toString()
@@ -212,9 +213,13 @@ actual fun VideoPlayerSurface(
         MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
 
         var urlLoaded = false
-        val callback = object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                MPVLib.attachSurface(holder.surface)
+        val listener = object : TextureView.SurfaceTextureListener {
+            private var currentSurface: Surface? = null
+
+            override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
+                val surface = Surface(texture)
+                currentSurface = surface
+                MPVLib.attachSurface(surface)
                 MPVLib.setOptionString("force-window", "yes")
                 if (!urlLoaded) {
                     urlLoaded = true
@@ -227,22 +232,33 @@ actual fun VideoPlayerSurface(
                 } else {
                     MPVLib.setPropertyString("vo", "gpu")
                 }
+                MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
             }
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {
-                MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
+
+            override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
+                MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
+                MPVLib.command(arrayOf("video-redraw"))
             }
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
+
+            override fun onSurfaceTextureUpdated(texture: SurfaceTexture) {
+                // Not needed for MPV explicitly
+            }
+
+            override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
                 MPVLib.setPropertyString("vo", "null")
                 MPVLib.setPropertyString("force-window", "no")
                 MPVLib.detachSurface()
+                currentSurface?.release()
+                currentSurface = null
+                return true
             }
         }
         
-        surfaceView.holder.addCallback(callback)
+        textureView.surfaceTextureListener = listener
 
         onDispose {
             MPVLib.removeObserver(observer)
-            surfaceView.holder.removeCallback(callback)
+            textureView.surfaceTextureListener = null
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 MPVLib.command(arrayOf<String>("stop"))
                 MPVLib.destroy()
@@ -340,7 +356,7 @@ actual fun VideoPlayerSurface(
 
     AndroidView(
         factory = {
-            surfaceView.apply {
+            textureView.apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
