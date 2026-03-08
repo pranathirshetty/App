@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -705,15 +706,15 @@ private fun CommentItem(
                 Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     // Like
                     val likeScale by animateFloatAsState(if (model.isLiked) 1.15f else 1f, label = "likeScale")
-                    Box(Modifier.scale(likeScale).clip(CircleShape).background(if (model.isLiked) AccentRed.copy(alpha = 0.1f) else Color.Transparent).clickable { onVote("like") }.padding(5.dp)) {
-                        Icon(Icons.Default.ThumbUp, null, tint = if (model.isLiked) AccentRed else TextMuted, modifier = Modifier.size(13.dp))
+                    Box(Modifier.scale(likeScale).clip(CircleShape).clickable { onVote("like") }.padding(5.dp)) {
+                        Icon(Icons.Outlined.ThumbUp, null, tint = if (model.isLiked) AccentRed else TextMuted, modifier = Modifier.size(13.dp))
                     }
                     if (model.likes > 0) Text(model.likes.toString(), color = if (model.isLiked) AccentRed else TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
                     // Dislike
                     val dislikeScale by animateFloatAsState(if (model.isUnliked) 1.15f else 1f, label = "dislikeScale")
-                    Box(Modifier.scale(dislikeScale).clip(CircleShape).background(if (model.isUnliked) AccentBlue.copy(alpha = 0.1f) else Color.Transparent).clickable { onVote("dislike") }.padding(5.dp)) {
-                        Icon(Icons.Default.ThumbDown, null, tint = if (model.isUnliked) AccentBlue else TextMuted, modifier = Modifier.size(13.dp))
+                    Box(Modifier.scale(dislikeScale).clip(CircleShape).clickable { onVote("dislike") }.padding(5.dp)) {
+                        Icon(Icons.Outlined.ThumbDown, null, tint = if (model.isUnliked) AccentBlue else TextMuted, modifier = Modifier.size(13.dp))
                     }
                     if (model.dislikes > 0) Text(model.dislikes.toString(), color = if (model.isUnliked) AccentBlue else TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
