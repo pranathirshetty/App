@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -123,6 +124,8 @@ fun PlayerControls(
         }
     }
 
+    val deviceControls = to.kuudere.anisuge.platform.rememberDeviceControls()
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -174,7 +177,83 @@ fun PlayerControls(
                     }
                 )
             }
+            .pointerInput("drag") {
+                var startVolume = 100.0
+                var startBrightness = 0.0
+                var isVolumeDrag = false
+                
+                detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        if (to.kuudere.anisuge.platform.isDesktopPlatform) {
+                            startVolume = playerState.volume
+                            startBrightness = playerState.brightness
+                        } else {
+                            startVolume = deviceControls.currentVolume.toDouble()
+                            startBrightness = deviceControls.currentBrightness.toDouble()
+                        }
+                        isVolumeDrag = offset.x > size.width / 2f
+                    },
+                    onDragEnd = {
+                        playerState.indicatorText = null
+                    },
+                    onDragCancel = {
+                        playerState.indicatorText = null
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        val delta = -(dragAmount / size.height)
+                        if (isVolumeDrag) {
+                            if (to.kuudere.anisuge.platform.isDesktopPlatform) {
+                                val deltaVol = delta * 150.0
+                                val newVol = (startVolume + deltaVol).coerceIn(0.0, 130.0)
+                                startVolume = newVol
+                                playerState.volume = newVol
+                                playerState.indicatorText = "Volume: ${newVol.toInt()}%"
+                            } else {
+                                val deltaVol = delta * 1.5
+                                val newVol = (startVolume + deltaVol).coerceIn(0.0, 1.0)
+                                startVolume = newVol
+                                deviceControls.setVolume(newVol.toFloat())
+                                playerState.indicatorText = "Volume: ${(newVol * 100).toInt()}%"
+                            }
+                        } else {
+                            if (to.kuudere.anisuge.platform.isDesktopPlatform) {
+                                val deltaBri = delta * 150.0
+                                val newBri = (startBrightness + deltaBri).coerceIn(-100.0, 100.0)
+                                startBrightness = newBri
+                                playerState.brightness = newBri
+                                playerState.indicatorText = "Brightness: ${((newBri + 100) / 2).toInt()}%"
+                            } else {
+                                val deltaBri = delta * 1.5
+                                val newBri = (startBrightness + deltaBri).coerceIn(0.0, 1.0)
+                                startBrightness = newBri
+                                deviceControls.setBrightness(newBri.toFloat())
+                                playerState.indicatorText = "Brightness: ${(newBri * 100).toInt()}%"
+                            }
+                        }
+                    }
+                )
+            }
     ) {
+        AnimatedVisibility(
+            visible = playerState.indicatorText != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center).padding(bottom = 64.dp)
+        ) {
+            Box(
+                Modifier.background(Color.Black.copy(alpha=0.6f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = playerState.indicatorText ?: "",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            }
+        }
+        
         AnimatedVisibility(
             visible = controlsVisible,
             enter = fadeIn(),

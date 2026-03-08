@@ -31,6 +31,10 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     var cycleAudio      by mutableStateOf(false)
     var selectedAudioTrack by mutableStateOf<Int?>(null)
     
+    var volume          by mutableStateOf(100.0) // 0 to 130
+    var brightness      by mutableStateOf(0.0)   // -100 to 100
+    var indicatorText   by mutableStateOf<String?>(null)
+    
     // Extracted tracks (populated by player)
     var audioTracks     by mutableStateOf<List<Pair<Int, String>>>(emptyList())
 

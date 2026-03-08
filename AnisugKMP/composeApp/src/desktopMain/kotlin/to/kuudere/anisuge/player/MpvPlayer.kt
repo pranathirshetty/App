@@ -216,6 +216,8 @@ internal class MpvPlayer(
             var pendingSub: String? = null
             var pendingAllSubs: List<Pair<String, Boolean>>? = null
             var lastSentAudioTrack: Int? = null
+            var lastSentVolume: Double? = null
+            var lastSentBrightness: Double? = null
             while (isActive && ctx != null) {
                 val event = mpv.mpv_wait_event(handle, 0.05)
                 if (event != null) {
@@ -362,6 +364,16 @@ internal class MpvPlayer(
                         mpv.mpv_set_option_string(handle, "aid", aid.toString())
                         lastSentAudioTrack = aid
                     }
+                }
+
+                if (state.volume != lastSentVolume) {
+                    mpv.mpv_set_property_string(handle, "volume", state.volume.toInt().toString())
+                    lastSentVolume = state.volume
+                }
+
+                if (state.brightness != lastSentBrightness) {
+                    mpv.mpv_set_property_string(handle, "brightness", state.brightness.toInt().toString())
+                    lastSentBrightness = state.brightness
                 }
 
                 // Handle all-subs load (on new episode/server change before file ready)
