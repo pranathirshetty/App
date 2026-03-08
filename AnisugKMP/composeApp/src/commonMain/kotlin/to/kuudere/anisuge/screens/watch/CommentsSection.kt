@@ -794,9 +794,9 @@ private fun CommentItem(
                     ThreadConnectionLayout(
                         isLast = true,
                         curveOffsetY = 14.dp,
-                        contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
+                        contentPadding = PaddingValues(start = 24.dp, top = 4.dp, bottom = 4.dp)
                     ) {
-                        Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.height(20.dp).clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
                             if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
                             else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
@@ -823,9 +823,9 @@ private fun CommentItem(
                             ThreadConnectionLayout(
                                 isLast = true,
                                 curveOffsetY = 14.dp,
-                                contentPadding = PaddingValues(start = 24.dp, top = 6.dp, bottom = 6.dp)
+                                contentPadding = PaddingValues(start = 24.dp, top = 4.dp, bottom = 4.dp)
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(Modifier.height(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.5f)))
                                     if (model.hasMoreReplies) {
                                         Text(if (model.isLoadingReplies) "Loading..." else "Show ${c.reply_count - model.replies.size} more", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() })
