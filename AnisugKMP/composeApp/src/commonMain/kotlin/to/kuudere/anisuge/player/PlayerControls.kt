@@ -132,7 +132,8 @@ fun PlayerControls(
                     while (true) {
                         val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
                         if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Move) {
-                            if (!controlsVisible && !isLoading) {
+                            val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+                            if (!controlsVisible && !currentIsLoading) {
                                 controlsVisible = true
                             }
                             scheduleHide()
@@ -143,7 +144,9 @@ fun PlayerControls(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
-                        if (isLoading || !isPlayingActively) {
+                        val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+                        val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
+                        if (currentIsLoading || !currentIsPlayingActively) {
                             controlsVisible = true
                         } else {
                             controlsVisible = !controlsVisible
