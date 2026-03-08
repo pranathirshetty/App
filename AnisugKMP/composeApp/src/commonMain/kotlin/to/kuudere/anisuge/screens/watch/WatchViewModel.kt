@@ -313,4 +313,25 @@ class WatchViewModel(
             )
         }
     }
+
+    fun updateWatchlistStatus(folder: String) {
+        val currAnimeId = currentAnimeId
+        if (currAnimeId.isEmpty()) return
+        
+        viewModelScope.launch {
+            val success = infoService.updateWatchlistStatus(currAnimeId, folder)
+            if (success) {
+                // Update local state to reflect change immediately
+                _uiState.update { state ->
+                    val newData = state.episodeData?.copy(
+                        animeInfo = state.episodeData.animeInfo?.copy(
+                            inWatchlist = folder != "Remove",
+                            folder = if (folder == "Remove") null else folder
+                        )
+                    )
+                    state.copy(episodeData = newData, showSettingsOverlay = false)
+                }
+            }
+        }
+    }
 }

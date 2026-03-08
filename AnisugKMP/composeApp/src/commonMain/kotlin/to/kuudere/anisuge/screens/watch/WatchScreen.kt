@@ -44,6 +44,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.layout.ContentScale
+import to.kuudere.anisuge.ui.WatchlistBottomSheet
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,8 +59,10 @@ fun WatchScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     var isLandscape by remember { mutableStateOf(true) }
+    var showWatchlistSheet by remember { mutableStateOf(false) }
 
     LockScreenOrientation(isLandscape)
+    to.kuudere.anisuge.platform.SyncFullscreen(uiState.isFullscreen)
 
     val handleBack = {
         isLandscape = false
@@ -99,9 +102,6 @@ fun WatchScreen(
                                     onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
                                     onBack = handleBack
                                 )
-                            }
-                            if (!uiState.isFullscreen) {
-                                PlayerOverlayButtons(viewModel, uiState)
                             }
                         }
                         
@@ -289,43 +289,6 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel) {
 }
 
 @Composable
-fun PlayerOverlayButtons(viewModel: WatchViewModel, uiState: WatchUiState) {
-    Box(Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(16.dp)
-                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
-                .padding(vertical = 12.dp, horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OverlayIconButton(Icons.Default.Info, "Info", uiState.activeSidePanel == "info") { 
-                viewModel.toggleSidePanel("info") 
-            }
-            OverlayIconButton(Icons.AutoMirrored.Filled.List, "Episodes", uiState.activeSidePanel == "episodes") { 
-                viewModel.toggleSidePanel("episodes") 
-            }
-            OverlayIconButton(Icons.AutoMirrored.Filled.Comment, "Comments", uiState.activeSidePanel == "comments") { 
-                viewModel.toggleSidePanel("comments") 
-            }
-        }
-    }
-}
-
-@Composable
-fun OverlayIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, isActive: Boolean, onClick: () -> Unit) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isActive) Color.White.copy(alpha = 0.2f) else Color.Transparent)
-    ) {
-        Icon(icon, contentDescription, tint = if (isActive) Color.White else Color.LightGray)
-    }
-}
-
-@Composable
 fun WatchVideoPlayer(
     uiState: WatchUiState,
     viewModel: WatchViewModel,
@@ -333,6 +296,8 @@ fun WatchVideoPlayer(
     onFullscreenToggle: () -> Unit,
     onBack: () -> Unit
 ) {
+    var showWatchlistSheet by remember { mutableStateOf(false) }
+
     if (uiState.isLoadingVideo) {
         Box(modifier = modifier.background(Color.Black)) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.Red)
@@ -387,6 +352,13 @@ fun WatchVideoPlayer(
                 }
             }
 
+            LaunchedEffect(uiState.episodeData, uiState.currentEpisodeNumber) {
+                val allEps = uiState.episodeData?.allEpisodes ?: emptyList()
+                val current = uiState.currentEpisodeNumber
+                playerState.hasPrevEpisode = allEps.any { it.number < current }
+                playerState.hasNextEpisode = allEps.any { it.number > current }
+            }
+
             val animeInfo = uiState.episodeData?.animeInfo
             val currentEp = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
             val title = buildString {
@@ -414,9 +386,34 @@ fun WatchVideoPlayer(
                     isFullscreen = uiState.isFullscreen,
                     onFullscreenToggle = onFullscreenToggle,
                     onBack = onBack,
+                    onNextEpisode = {
+                        val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                        if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                    },
+                    onPrevEpisode = {
+                        val prevEp = uiState.episodeData?.allEpisodes?.filter { it.number < uiState.currentEpisodeNumber }?.maxByOrNull { it.number }
+                        if (prevEp != null) viewModel.onEpisodeSelected(prevEp.number)
+                    },
                     onCaptionsClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.SUBTITLES) },
                     onSettingsClick = { viewModel.toggleSettingsOverlay() },
+                    onInfoClick = { viewModel.toggleSidePanel("info") },
+                    onEpisodesClick = { viewModel.toggleSidePanel("episodes") },
+                    onCommentsClick = { viewModel.toggleSidePanel("comments") },
+                    onWatchlistClick = { showWatchlistSheet = true },
+                    isInWatchlist = uiState.episodeData?.animeInfo?.inWatchlist ?: false,
+                    currentFolder = uiState.episodeData?.animeInfo?.folder,
                     modifier = Modifier.fillMaxSize()
+                )
+            }
+            
+            if (showWatchlistSheet) {
+                WatchlistBottomSheet(
+                    currentFolder = uiState.episodeData?.animeInfo?.folder,
+                    onSelect = { folder ->
+                        viewModel.updateWatchlistStatus(folder)
+                        showWatchlistSheet = false
+                    },
+                    onDismiss = { showWatchlistSheet = false }
                 )
             }
             

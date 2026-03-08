@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,7 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -52,8 +53,16 @@ fun PlayerControls(
     isFullscreen: Boolean = false,
     onFullscreenToggle: () -> Unit = {},
     onBack: () -> Unit = {},
+    onNextEpisode: () -> Unit = {},
+    onPrevEpisode: () -> Unit = {},
     onCaptionsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onInfoClick: () -> Unit = {},
+    onEpisodesClick: () -> Unit = {},
+    onCommentsClick: () -> Unit = {},
+    onWatchlistClick: () -> Unit = {},
+    isInWatchlist: Boolean = false,
+    currentFolder: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -84,6 +93,7 @@ fun PlayerControls(
 
     // Auto-hide controls after 3.5s of inactivity
     fun scheduleHide() {
+        if (playerState.isLocked) return // Don't auto-hide when locked? Or maybe DO hide.
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(3500)
@@ -111,8 +121,13 @@ fun PlayerControls(
     // Hook up desktop AWT Canvas clicks to toggle visibility
     LaunchedEffect(playerState.canvasClicked) {
         if (playerState.canvasClicked > 0) {
-            controlsVisible = !controlsVisible
-            if (controlsVisible) scheduleHide()
+            if (playerState.isLocked) {
+                controlsVisible = true
+                scheduleHide()
+            } else {
+                controlsVisible = !controlsVisible
+                if (controlsVisible) scheduleHide()
+            }
         }
     }
 
@@ -147,6 +162,11 @@ fun PlayerControls(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
+                        if (playerState.isLocked) {
+                            controlsVisible = !controlsVisible
+                            if (controlsVisible) scheduleHide()
+                            return@detectTapGestures
+                        }
                         val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
                         val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
                         if (currentIsLoading || !currentIsPlayingActively) {
@@ -157,6 +177,7 @@ fun PlayerControls(
                         }
                     },
                     onDoubleTap = { offset ->
+                        if (playerState.isLocked) return@detectTapGestures
                         val width = size.width
                         if (offset.x < width / 3) {
                             // Double tap left → rewind 10s
@@ -177,7 +198,8 @@ fun PlayerControls(
                     }
                 )
             }
-            .pointerInput("drag") {
+            .pointerInput(playerState.isLocked) {
+                if (playerState.isLocked) return@pointerInput
                 var startVolume = 100.0
                 var startBrightness = 0.0
                 var isVolumeDrag = false
@@ -261,335 +283,288 @@ fun PlayerControls(
             modifier = Modifier.fillMaxSize()
         ) {
             Box(Modifier.fillMaxSize()) {
-                // Top gradient + title bar
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
-                            )
-                        )
-                        .align(Alignment.TopCenter)
-                        .padding(bottom = 24.dp) // extra padding to make gradient smooth
-                ) {
-                    Row(
+                // Top gradient + title bar (Only show if not locked)
+                if (!playerState.isLocked) {
+                    Box(
                         Modifier
                             .fillMaxWidth()
-                            .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .wrapContentHeight()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
+                                )
+                            )
+                            .align(Alignment.TopCenter)
+                            .padding(bottom = 24.dp) 
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.Default.ArrowBack, // reverted
-                                contentDescription = "Back",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                        if (title.isNotEmpty()) {
-                            Text(
-                                text = title,
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
-                            )
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
-                        IconButton(onClick = onCaptionsClick) {
-                            Icon(
-                                getCCIcon(),
-                                contentDescription = "Captions",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Center playback controls (rewind, play, forward)
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.Red,
-                            strokeWidth = 4.dp,
-                            modifier = Modifier.size(56.dp)
-                        )
-                    } else {
                         Row(
-                            horizontalArrangement = Arrangement.Center,
+                            Modifier
+                                .fillMaxWidth()
+                                .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Rewind 10s
-                            IconButton(
-                                onClick = {
-                                    val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
-                                    playerState.seekTarget = newPos
-                                    expectedPosition = newPos
-                                    scheduleHide()
-                                },
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
-                            ) {
+                            IconButton(onClick = onBack) {
                                 Icon(
-                                    Icons.Default.Replay10,
-                                    contentDescription = "Rewind 10s",
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
                                     tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
-                            Spacer(Modifier.width(32.dp))
-                            // Play/Pause
-                            IconButton(
-                                onClick = {
-                                    playerState.pauseRequested = !playerState.isPaused
-                                    scheduleHide()
-                                },
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                            ) {
+                            if (title.isNotEmpty()) {
+                                Text(
+                                    text = title,
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+                                )
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
+                            IconButton(onClick = onCaptionsClick) {
                                 Icon(
-                                    if (playerState.isPaused || !playerState.isPlaying)
-                                        Icons.Default.PlayArrow
-                                    else
-                                        Icons.Default.Pause,
-                                    contentDescription = "Play/Pause",
+                                    getCCIcon(),
+                                    contentDescription = "Captions",
                                     tint = Color.White,
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
-                            Spacer(Modifier.width(32.dp))
-                            // Forward 10s
-                            IconButton(
-                                onClick = {
-                                    val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
-                                    playerState.seekTarget = newPos
-                                    expectedPosition = newPos
-                                    scheduleHide()
-                                },
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
-                            ) {
+                            IconButton(onClick = onSettingsClick) {
                                 Icon(
-                                    Icons.Default.Forward10,
-                                    contentDescription = "Forward 10s",
+                                    Icons.Default.Settings,
+                                    contentDescription = "Settings",
                                     tint = Color.White,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(26.dp)
                                 )
                             }
                         }
                     }
                 }
 
-                // Bottom gradient + unified seek bar row
+                // Center Loading Indicator
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 4.dp,
+                        modifier = Modifier.align(Alignment.Center).size(56.dp)
+                    )
+                }
+
+                // Bottom Controls Area
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
                             )
                         )
+                        .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
                 ) {
-                    val duration = playerState.duration
-                    
-                    val activePosition = if (isSeeking) {
-                        seekValue.toDouble()
-                    } else {
-                        expectedPosition ?: playerState.position
-                    }
-                    val progress = if (duration > 0) (activePosition / duration).toFloat().coerceIn(0f, 1f) else 0f
-
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier)
-                            .padding(top = 32.dp, bottom = 12.dp, start = 16.dp, end = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Current Position
-                        Text(
-                            text = formatDuration(activePosition),
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        
-                        Spacer(Modifier.width(12.dp))
-
-                        // Custom Premium Thin Slider
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(24.dp)
-                                .pointerInput(duration) {
-                                    detectTapGestures(
-                                        onTap = { offset ->
-                                            if (duration <= 0) return@detectTapGestures
-                                            val tapValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
-                                            playerState.seekTarget = tapValue.toDouble()
-                                            expectedPosition = tapValue.toDouble()
-                                            scheduleHide()
-                                        }
-                                    )
-                                }
-                                .pointerInput(duration) {
-                                    detectDragGestures(
-                                        onDragStart = { offset ->
-                                            if (duration <= 0) return@detectDragGestures
-                                            isSeeking = true
-                                            hideJob?.cancel()
-                                            seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
-                                        },
-                                        onDrag = { change, _ ->
-                                            if (duration <= 0) return@detectDragGestures
-                                            val dx = change.position.x
-                                            seekValue = ((dx / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
-                                        },
-                                        onDragEnd = {
-                                            if (duration > 0) {
-                                                playerState.seekTarget = seekValue.toDouble()
-                                                expectedPosition = seekValue.toDouble()
-                                                isSeeking = false
-                                                scheduleHide()
-                                            }
-                                        },
-                                        onDragCancel = {
-                                            isSeeking = false
-                                            scheduleHide()
-                                        }
-                                    )
-                                },
-                            contentAlignment = Alignment.CenterStart
+                    if (playerState.isLocked) {
+                        // Only show Lock button if locked
+                        Row(
+                            Modifier.fillMaxWidth().padding(32.dp),
+                            horizontalArrangement = Arrangement.Start
                         ) {
-                            // Canvas replacing individual track boxes
-                            Canvas(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(3.dp)
+                            IconButton(
+                                onClick = { playerState.isLocked = false; scheduleHide() },
+                                modifier = Modifier.size(56.dp).background(Color.Black.copy(alpha=0.5f), CircleShape)
                             ) {
-                                val canvasWidth = size.width
-                                val canvasHeight = size.height
-                                
-                                // Base Inactive Track
-                                drawRoundRect(
-                                    color = Color.White.copy(alpha = 0.3f),
-                                    size = size,
-                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                                Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                            }
+                        }
+                    } else {
+                        Column(Modifier.fillMaxWidth().padding(bottom = 0.dp)) {
+                            // 1. Progress Bar Row
+                            val duration = playerState.duration
+                            val activePosition = if (isSeeking) seekValue.toDouble() else expectedPosition ?: playerState.position
+                            val progress = if (duration > 0) (activePosition / duration).toFloat().coerceIn(0f, 1f) else 0f
+
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = formatDuration(activePosition),
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                                 
-                                // Active Progress Track (Red) underneath the highlights
-                                drawRoundRect(
-                                    color = Color.Red,
-                                    size = Size(canvasWidth * progress, canvasHeight),
-                                    cornerRadius = CornerRadius(1.5.dp.toPx(), 1.5.dp.toPx())
+                                Spacer(Modifier.width(12.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(28.dp)
+                                        .pointerInput(duration) {
+                                            detectTapGestures(
+                                                onTap = { offset ->
+                                                    if (duration <= 0) return@detectTapGestures
+                                                    val tapValue = ((offset.x / size.width) * duration).toDouble().coerceIn(0.0, duration)
+                                                    playerState.seekTarget = tapValue
+                                                    expectedPosition = tapValue
+                                                    scheduleHide()
+                                                }
+                                            )
+                                        }
+                                        .pointerInput(duration) {
+                                            detectDragGestures(
+                                                onDragStart = { offset ->
+                                                    if (duration <= 0) return@detectDragGestures
+                                                    isSeeking = true
+                                                    hideJob?.cancel()
+                                                    seekValue = ((offset.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                                },
+                                                onDrag = { change, _ ->
+                                                    if (duration <= 0) return@detectDragGestures
+                                                    seekValue = ((change.position.x / size.width) * duration).toFloat().coerceIn(0f, duration.toFloat())
+                                                },
+                                                onDragEnd = {
+                                                    if (duration > 0) {
+                                                        playerState.seekTarget = seekValue.toDouble()
+                                                        expectedPosition = seekValue.toDouble()
+                                                        isSeeking = false
+                                                        scheduleHide()
+                                                    }
+                                                },
+                                                onDragCancel = { isSeeking = false; scheduleHide() }
+                                            )
+                                        },
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Canvas(Modifier.fillMaxWidth().height(3.dp)) {
+                                        drawRoundRect(Color.White.copy(alpha = 0.25f), size = size, cornerRadius = CornerRadius(4.dp.toPx()))
+                                        drawRoundRect(Color.White, size = Size(size.width * progress, size.height), cornerRadius = CornerRadius(4.dp.toPx()))
+                                        
+                                        // Colored highlights for chapters
+                                        streamingData?.chapters?.forEach { ch ->
+                                            if (ch.start_time != null && duration > 0) {
+                                                val x = (ch.start_time / duration).toFloat() * size.width
+                                                drawRect(Color.Black.copy(alpha=0.5f), Offset(x, 0f), Size(2.dp.toPx(), size.height))
+                                            }
+                                        }
+                                    }
+                                    // Thumb
+                                    Box(Modifier.fillMaxWidth(progress).wrapContentWidth(Alignment.End)) {
+                                        Box(Modifier.size(10.dp).background(Color.White, CircleShape))
+                                    }
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Text(
+                                    text = formatDuration(duration),
+                                    color = Color.White.copy(alpha=0.8f),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-                                
-                                // Yellow Highlights for Intro and Outro
-                                val intro = streamingData?.intro
-                                if (intro?.start != null && intro.end != null && duration > 0) {
-                                    val startX = ((intro.start / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
-                                    val endX = ((intro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
-                                    if (endX > startX) {
-                                        drawRect(
-                                            color = Color.Yellow,
-                                            topLeft = Offset(startX, 0f),
-                                            size = Size(endX - startX, canvasHeight)
+                            }
+
+                            // 2. Control Row
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 0.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Left actions: Lock, Volume, Watchlist
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { playerState.isLocked = true; scheduleHide() }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Default.LockOpen, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
+                                    IconButton(onClick = { playerState.isMuted = !playerState.isMuted; scheduleHide() }, modifier = Modifier.size(38.dp)) {
+                                        Icon(if (playerState.isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                    }
+                                    IconButton(onClick = { onWatchlistClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
+                                        Icon(
+                                            if (isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, 
+                                            null, 
+                                            tint = if (isInWatchlist) Color.Red else Color.White, 
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
 
-                                val outro = streamingData?.outro
-                                if (outro?.start != null && outro.end != null && duration > 0) {
-                                    val startX = ((outro.start / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
-                                    val endX = ((outro.end / duration).toFloat() * canvasWidth).coerceIn(0f, canvasWidth)
-                                    if (endX > startX) {
-                                        drawRect(
-                                            color = Color.Yellow,
-                                            topLeft = Offset(startX, 0f),
-                                            size = Size(endX - startX, canvasHeight)
+                                Spacer(Modifier.weight(1f))
+
+                                // Main Playback controls
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { 
+                                        val nPos = (playerState.position - 10).coerceAtLeast(0.0)
+                                        playerState.seekTarget = nPos; expectedPosition = nPos; scheduleHide() 
+                                    }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.Default.Replay10, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                    }
+                                    IconButton(
+                                        onClick = { onPrevEpisode(); scheduleHide() }, 
+                                        enabled = playerState.hasPrevEpisode,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.SkipPrevious, null, tint = if (playerState.hasPrevEpisode) Color.White else Color.Gray, modifier = Modifier.size(26.dp))
+                                    }
+                                    
+                                    // BIG PLAY BUTTON
+                                    Box(
+                                        Modifier.size(54.dp).padding(4.dp).clip(CircleShape).background(Color.White).clickable { 
+                                            playerState.pauseRequested = !playerState.isPaused
+                                            scheduleHide()
+                                        },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            if (playerState.isPaused || !playerState.isPlaying) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                            null,
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(32.dp)
                                         )
                                     }
+
+                                    IconButton(
+                                        onClick = { onNextEpisode(); scheduleHide() }, 
+                                        enabled = playerState.hasNextEpisode,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.SkipNext, null, tint = if (playerState.hasNextEpisode) Color.White else Color.Gray, modifier = Modifier.size(26.dp))
+                                    }
+                                    IconButton(onClick = { 
+                                        val nPos = (playerState.position + 10).coerceAtMost(duration)
+                                        playerState.seekTarget = nPos; expectedPosition = nPos; scheduleHide() 
+                                    }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.Default.Forward10, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                    }
                                 }
-                                
-                                // Chapter Breaks (Gap Lines) drawn over the active progress
-                                streamingData?.chapters?.forEach { chapter ->
-                                    val start = chapter.start_time
-                                    if (start != null && start > 0 && duration > 0) {
-                                        val x = ((start / duration).toFloat() * canvasWidth)
-                                        if (x > 1f && x < canvasWidth - 1f) {
-                                            drawRect(
-                                                color = Color.Black.copy(alpha = 0.8f),
-                                                topLeft = Offset(x - 1.dp.toPx(), 0f),
-                                                size = Size(2.dp.toPx(), canvasHeight)
+
+                                Spacer(Modifier.weight(1f))
+
+                                // Right actions: Info, Episodes, Comments, [Fullscreen on Desktop]
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { onInfoClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
+                                        Icon(Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    }
+                                    IconButton(onClick = { onEpisodesClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
+                                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    }
+                                    IconButton(onClick = { onCommentsClick(); scheduleHide() }, modifier = Modifier.size(40.dp)) {
+                                        Icon(Icons.Default.ChatBubbleOutline, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    }
+                                    if (to.kuudere.anisuge.platform.isDesktopPlatform) {
+                                        IconButton(onClick = { onFullscreenToggle(); scheduleHide() }, modifier = Modifier.size(40.dp)) {
+                                            Icon(
+                                                if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen, 
+                                                null, 
+                                                tint = Color.White, 
+                                                modifier = Modifier.size(26.dp)
                                             )
                                         }
                                     }
                                 }
                             }
-                            // Thumb
-                            Box(
-                                Modifier
-                                    .fillMaxWidth(fraction = progress)
-                                    .wrapContentWidth(Alignment.End)
-                            ) {
-                                Box(
-                                    Modifier
-                                        .size(12.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Red)
-                                    )
-                            }
-                        }
-
-                        Spacer(Modifier.width(12.dp))
-
-                        // Duration
-                        Text(
-                            text = formatDuration(duration),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(Modifier.width(12.dp))
-
-                        // Fullscreen toggle
-                        IconButton(
-                            onClick = {
-                                onFullscreenToggle()
-                                scheduleHide()
-                            },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                contentDescription = "Fullscreen",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
                         }
                     }
                 }

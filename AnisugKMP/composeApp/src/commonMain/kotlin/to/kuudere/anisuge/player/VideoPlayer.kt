@@ -35,9 +35,18 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     var brightness      by mutableStateOf(0.0)   // -100 to 100
     var indicatorText   by mutableStateOf<String?>(null)
     
+    // New states for the revamped UI
+    var isLocked        by mutableStateOf(false)
+    var isMuted         by mutableStateOf(false)
+    var aspectRatio     by mutableStateOf("Fit") // Fit, Stretch, Zoom, 16:9, 4:3
+    
+    // Availability for next/prev buttons (controlled by screen logic)
+    var hasNextEpisode  by mutableStateOf(false)
+    var hasPrevEpisode  by mutableStateOf(false)
+    
     // Extracted tracks (populated by player)
     var audioTracks     by mutableStateOf<List<Pair<Int, String>>>(emptyList())
-
+    
     // Signal from AWT canvas → Compose UI
     var canvasClicked   by mutableStateOf(0)
     var canvasPointerMoved by mutableStateOf(0L)

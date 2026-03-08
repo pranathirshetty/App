@@ -48,3 +48,8 @@ internal fun Context.findActivity(): Activity? {
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
 }
+
+@Composable
+actual fun SyncFullscreen(isFullscreen: Boolean) {
+    // Android is mostly handled by LockScreenOrientation's insets controller
+}

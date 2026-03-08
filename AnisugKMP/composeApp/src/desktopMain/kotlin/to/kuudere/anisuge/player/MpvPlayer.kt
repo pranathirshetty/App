@@ -218,6 +218,8 @@ internal class MpvPlayer(
             var lastSentAudioTrack: Int? = null
             var lastSentVolume: Double? = null
             var lastSentBrightness: Double? = null
+            var lastSentMute: Boolean? = null
+            var lastSentAspectRatio: String? = null
             while (isActive && ctx != null) {
                 val event = mpv.mpv_wait_event(handle, 0.05)
                 if (event != null) {
@@ -374,6 +376,29 @@ internal class MpvPlayer(
                 if (state.brightness != lastSentBrightness) {
                     mpv.mpv_set_property_string(handle, "brightness", state.brightness.toInt().toString())
                     lastSentBrightness = state.brightness
+                }
+
+                if (state.isMuted != lastSentMute) {
+                    mpv.mpv_set_option_string(handle, "mute", if (state.isMuted) "yes" else "no")
+                    lastSentMute = state.isMuted
+                }
+
+                if (state.aspectRatio != lastSentAspectRatio) {
+                    when (state.aspectRatio) {
+                        "Fit" -> {
+                            mpv.mpv_set_option_string(handle, "video-aspect-override", "-1")
+                            mpv.mpv_set_option_string(handle, "panscan", "0")
+                        }
+                        "Stretch" -> {
+                            mpv.mpv_set_option_string(handle, "video-aspect-override", "16:9")
+                            mpv.mpv_set_option_string(handle, "panscan", "0")
+                        }
+                        "Zoom" -> {
+                            mpv.mpv_set_option_string(handle, "video-aspect-override", "-1")
+                            mpv.mpv_set_option_string(handle, "panscan", "1.0")
+                        }
+                    }
+                    lastSentAspectRatio = state.aspectRatio
                 }
 
                 // Handle all-subs load (on new episode/server change before file ready)

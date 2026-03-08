@@ -273,6 +273,32 @@ actual fun VideoPlayerSurface(
         }
     }
 
+    LaunchedEffect(state.isMuted) {
+        withContext(Dispatchers.IO) {
+            MPVLib.setOptionString("mute", if (state.isMuted) "yes" else "no")
+        }
+    }
+
+    LaunchedEffect(state.aspectRatio) {
+        withContext(Dispatchers.IO) {
+            when (state.aspectRatio) {
+                "Fit" -> {
+                    MPVLib.setOptionString("video-aspect-override", "-1")
+                    MPVLib.setOptionString("panscan", "0")
+                }
+                "Stretch" -> {
+                    // Try to force distortion filling current window aspect
+                    MPVLib.setOptionString("video-aspect-override", "16:9") // better default for modern phones
+                    MPVLib.setOptionString("panscan", "0")
+                }
+                "Zoom" -> {
+                    MPVLib.setOptionString("video-aspect-override", "-1")
+                    MPVLib.setOptionString("panscan", "1.0")
+                }
+            }
+        }
+    }
+
     LaunchedEffect(state.seekTarget) {
         val target = state.seekTarget ?: return@LaunchedEffect
         if (isSeeking.value) return@LaunchedEffect
