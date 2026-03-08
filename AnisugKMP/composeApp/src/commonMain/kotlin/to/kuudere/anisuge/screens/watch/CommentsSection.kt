@@ -5,6 +5,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -492,34 +494,34 @@ fun CommentsSection(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     // ── Left: formatting icons (B / I / || / Image / Lock / Eye) ──
-                                    // Bold
-                                    FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
-                                        rootText = applyMarkdown(rootText, "**")
+                                    Row(
+                                        Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
+                                            rootText = applyMarkdown(rootText, "**")
+                                        }
+                                        FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
+                                            rootText = applyMarkdown(rootText, "_")
+                                        }
+                                        FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
+                                            rootText = applyMarkdown(rootText, "||")
+                                        }
+                                        FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
+                                            rootImageDialog = true
+                                        }
+                                        FormatIconButton(
+                                            icon = if (rootIsSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
+                                            active = rootIsSpoiler, activeColor = AccentRed
+                                        ) { rootIsSpoiler = !rootIsSpoiler }
+                                        FormatIconButton(
+                                            icon = Icons.Default.Visibility,
+                                            active = rootShowPreview, activeColor = AccentBlue
+                                        ) { rootShowPreview = !rootShowPreview }
                                     }
-                                    // Italic
-                                    FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
-                                        rootText = applyMarkdown(rootText, "_")
-                                    }
-                                    // Inline spoiler (EyeOff → ||text||)
-                                    FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
-                                        rootText = applyMarkdown(rootText, "||")
-                                    }
-                                    // Insert Image
-                                    FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
-                                        rootImageDialog = true
-                                    }
-                                    // Whole-comment spoiler (Lock toggle) — red when active
-                                    FormatIconButton(
-                                        icon = if (rootIsSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
-                                        active = rootIsSpoiler, activeColor = AccentRed
-                                    ) { rootIsSpoiler = !rootIsSpoiler }
-                                    // Preview toggle (Eye) — blue when active
-                                    FormatIconButton(
-                                        icon = Icons.Default.Visibility,
-                                        active = rootShowPreview, activeColor = AccentBlue
-                                    ) { rootShowPreview = !rootShowPreview }
 
-                                    Spacer(Modifier.weight(1f))
+                                    Spacer(Modifier.width(8.dp))
 
                                     // Cancel
                                     Text(
@@ -598,7 +600,14 @@ fun CommentsSection(
                             onVoteReply = { reply, type -> vote(reply, type, parentId = model.data.id) },
                             onDelete = { id -> deleteComment(id) },
                             onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
-                            onNestedReplyToggle = { replyId -> updateReply(model.data.id, replyId) { it.copy(isReplying = !it.isReplying, replyText = "", replyIsSpoiler = false) } },
+                            onNestedReplyToggle = { replyId ->
+                                updateReply(model.data.id, replyId) { c ->
+                                    val isOpening = !c.isReplying
+                                    val targetReply = model.replies.find { it.data.id == replyId }
+                                    val targetAuthor = targetReply?.data?.author ?: "User"
+                                    c.copy(isReplying = isOpening, replyText = if (isOpening) "@$targetAuthor " else "", replyIsSpoiler = false)
+                                }
+                            },
                             onNestedReplyTextChange = { replyId, text -> updateReply(model.data.id, replyId) { it.copy(replyText = text) } },
                             onNestedReplySpoilerChange = { replyId, isS -> updateReply(model.data.id, replyId) { it.copy(replyIsSpoiler = isS) } },
                             onNestedSubmitReply = { replyModel -> postReplyNested(model, replyModel) },
@@ -1102,37 +1111,36 @@ private fun ReplyEditor(
             }
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Bold
-                FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
-                    onTextChange(applyMarkdown(text, "**"))
+                Row(
+                    Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
+                        onTextChange(applyMarkdown(text, "**"))
+                    }
+                    FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
+                        onTextChange(applyMarkdown(text, "_"))
+                    }
+                    FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
+                        onTextChange(applyMarkdown(text, "||"))
+                    }
+                    FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
+                        imageDialog = true
+                    }
+                    FormatIconButton(
+                        icon = if (isSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
+                        active = isSpoiler, activeColor = AccentRed
+                    ) { onSpoilerChange(!isSpoiler) }
+                    FormatIconButton(
+                        icon = Icons.Default.Visibility,
+                        active = showPreview, activeColor = AccentBlue
+                    ) { showPreview = !showPreview }
                 }
-                // Italic
-                FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
-                    onTextChange(applyMarkdown(text, "_"))
-                }
-                // Inline spoiler
-                FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
-                    onTextChange(applyMarkdown(text, "||"))
-                }
-                // Insert Image
-                FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
-                    imageDialog = true
-                }
-                // Whole-comment spoiler (Lock toggle)
-                FormatIconButton(
-                    icon = if (isSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
-                    active = isSpoiler, activeColor = AccentRed
-                ) { onSpoilerChange(!isSpoiler) }
-                // Preview toggle (Eye)
-                FormatIconButton(
-                    icon = Icons.Default.Visibility,
-                    active = showPreview, activeColor = AccentBlue
-                ) { showPreview = !showPreview }
 
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     "Cancel", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
                     modifier = Modifier.clickable { onCancel() }.padding(horizontal = 6.dp, vertical = 4.dp)
