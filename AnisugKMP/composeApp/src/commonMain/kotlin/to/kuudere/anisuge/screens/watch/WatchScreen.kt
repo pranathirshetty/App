@@ -88,7 +88,7 @@ fun WatchScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    val isPanelActive = uiState.activeSidePanel != null && !uiState.isFullscreen
+                    val isPanelActive = uiState.activeSidePanel != null
                     val sidePanelWidth = 350.dp // Twitch standard width
                     
                     Row(Modifier.fillMaxSize()) {
