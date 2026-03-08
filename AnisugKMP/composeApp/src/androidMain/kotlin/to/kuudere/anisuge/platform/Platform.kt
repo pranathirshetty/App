@@ -22,7 +22,7 @@ actual fun LockScreenOrientation(landscape: Boolean) {
         activity.requestedOrientation = if (landscape) {
             insetsController.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
             insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
