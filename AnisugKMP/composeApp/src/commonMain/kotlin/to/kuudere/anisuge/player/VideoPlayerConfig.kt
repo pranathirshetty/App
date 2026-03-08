@@ -26,4 +26,6 @@ data class VideoPlayerConfig(
     val startPosition: Double = 0.0,
     /** Directory for custom fonts */
     val fontsDir: String? = null,
+    /** Should video start playing automatically */
+    val autoPlay: Boolean = true
 )

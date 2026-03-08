@@ -63,6 +63,7 @@ fun rememberVideoPlayerState(
     hwdec:        String  = "auto",
     startPosition:Double  = 0.0,
     fontsDir:     String? = null,
+    autoPlay:     Boolean = true,
 ): VideoPlayerState = remember(url) {
     VideoPlayerState(
         VideoPlayerConfig(
@@ -75,8 +76,11 @@ fun rememberVideoPlayerState(
             hwdec         = hwdec,
             startPosition = startPosition,
             fontsDir      = fontsDir,
+            autoPlay      = autoPlay,
         )
-    )
+    ).apply {
+        pauseRequested = !autoPlay
+    }
 }
 
 /**

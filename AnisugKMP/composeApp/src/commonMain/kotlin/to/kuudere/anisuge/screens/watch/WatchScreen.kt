@@ -331,7 +331,8 @@ fun WatchVideoPlayer(
                 url = currentUrl,
                 startPosition = uiState.savedWatchPosition,
                 fontsDir = uiState.currentFontsDir,
-                showControls = useOsc
+                showControls = useOsc,
+                autoPlay = uiState.autoPlay
             )
             
             LaunchedEffect(uiState.availableSubtitles) {
@@ -390,10 +391,41 @@ fun WatchVideoPlayer(
                 }
             }
 
+            LaunchedEffect(playerState.position) {
+                if (playerState.duration <= 0) return@LaunchedEffect
+                val pos = playerState.position
+
+                // Auto skip intro
+                if (uiState.autoSkipIntro) {
+                    val intro = uiState.streamingData?.intro
+                    if (intro != null && intro.start != null && intro.end != null) {
+                        if (pos >= intro.start && pos < intro.end - 1.0) {
+                            playerState.seekTarget = intro.end.toDouble()
+                        }
+                    }
+                }
+
+                // Auto skip outro
+                if (uiState.autoSkipOutro) {
+                    val outro = uiState.streamingData?.outro
+                    if (outro != null && outro.start != null && outro.end != null) {
+                        if (pos >= outro.start && pos < outro.end - 1.0) {
+                            playerState.seekTarget = outro.end.toDouble()
+                        }
+                    }
+                }
+            }
+
             Box(modifier = modifier.background(Color.Black)) {
                 VideoPlayerSurface(
                     state = playerState,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    onFinished = {
+                        if (uiState.autoNext && playerState.hasNextEpisode) {
+                            val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                            if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                        }
+                    }
                 )
 
                 // Render out our cross-platform compose player controls overlay
@@ -488,7 +520,11 @@ fun WatchVideoPlayer(
                     audioTracks = playerState.audioTracks,
                     selectedAudioTrack = playerState.selectedAudioTrack,
                     onAudioTrackSelected = { playerState.selectedAudioTrack = it },
-                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) }
+                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) },
+                    onAutoPlayToggle = { viewModel.setAutoPlay(it) },
+                    onAutoNextToggle = { viewModel.setAutoNext(it) },
+                    onAutoSkipIntroToggle = { viewModel.setAutoSkipIntro(it) },
+                    onAutoSkipOutroToggle = { viewModel.setAutoSkipOutro(it) }
                 )
             }
         } else {
@@ -565,7 +601,11 @@ fun WatchVideoPlayer(
                     audioTracks = emptyList(),
                     selectedAudioTrack = -1,
                     onAudioTrackSelected = { },
-                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) }
+                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) },
+                    onAutoPlayToggle = { viewModel.setAutoPlay(it) },
+                    onAutoNextToggle = { viewModel.setAutoNext(it) },
+                    onAutoSkipIntroToggle = { viewModel.setAutoSkipIntro(it) },
+                    onAutoSkipOutroToggle = { viewModel.setAutoSkipOutro(it) }
                 )
             }
         }

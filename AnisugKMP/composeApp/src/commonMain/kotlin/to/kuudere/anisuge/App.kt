@@ -44,7 +44,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService, AppComponent.infoService) }
         val searchVm = remember { SearchViewModel(AppComponent.searchService) }
         val infoVm   = remember { AnimeInfoViewModel(AppComponent.infoService) }
-        val watchVm  = remember { WatchViewModel(AppComponent.infoService) }
+        val watchVm  = remember { WatchViewModel(AppComponent.infoService, AppComponent.settingsStore) }
         val watchlistVm = remember { WatchlistViewModel() }
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
 

@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 enum class SettingsMenuPage {
-    MAIN, SERVER, AUDIO, QUALITY, SUBTITLES, SPEED, WATCHLIST
+    MAIN, SERVER, AUDIO, QUALITY, SUBTITLES, SPEED, WATCHLIST, AUTOPLAY
 }
 
 @Composable
@@ -43,7 +43,11 @@ fun SettingsOverlay(
     audioTracks: List<Pair<Int, String>> = emptyList(),
     selectedAudioTrack: Int? = null,
     onAudioTrackSelected: (Int) -> Unit = {},
-    onWatchlistStatusSelected: (String) -> Unit = {}
+    onWatchlistStatusSelected: (String) -> Unit = {},
+    onAutoPlayToggle: (Boolean) -> Unit = {},
+    onAutoNextToggle: (Boolean) -> Unit = {},
+    onAutoSkipIntroToggle: (Boolean) -> Unit = {},
+    onAutoSkipOutroToggle: (Boolean) -> Unit = {}
 ) {
     var currentPage by remember { mutableStateOf(uiState.initialSettingsPage ?: SettingsMenuPage.MAIN) }
 
@@ -146,7 +150,6 @@ fun SettingsOverlay(
                                 )
                             }
                             
-                            // Watchlist
                             uiState.episodeData?.let { data ->
                                 SettingsMenuItem(
                                     icon = { 
@@ -161,6 +164,14 @@ fun SettingsOverlay(
                                     onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
                                 )
                             }
+                            // Autoplay Settings
+                            val isAutoplayOn = uiState.autoPlay || uiState.autoNext || uiState.autoSkipIntro || uiState.autoSkipOutro
+                            SettingsMenuItem(
+                                icon = { Icon(Icons.Default.PlayCircleFilled, contentDescription = null, tint = Color.White) },
+                                title = "Playback settings",
+                                subtitle = if (isAutoplayOn) "On" else "Off",
+                                onClick = { currentPage = SettingsMenuPage.AUTOPLAY }
+                            )
                             
                             Spacer(Modifier.height(8.dp))
                         }
@@ -262,6 +273,41 @@ fun SettingsOverlay(
                             }
                         }
                     }
+                    SettingsMenuPage.AUTOPLAY -> {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SubMenuHeader("Playback settings") { currentPage = SettingsMenuPage.MAIN }
+                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                                item {
+                                    ToggleMenuItem(
+                                        title = "Auto Play",
+                                        isChecked = uiState.autoPlay,
+                                        onToggle = { onAutoPlayToggle(it) }
+                                    )
+                                }
+                                item {
+                                    ToggleMenuItem(
+                                        title = "Auto next",
+                                        isChecked = uiState.autoNext,
+                                        onToggle = { onAutoNextToggle(it) }
+                                    )
+                                }
+                                item {
+                                    ToggleMenuItem(
+                                        title = "Skip intro",
+                                        isChecked = uiState.autoSkipIntro,
+                                        onToggle = { onAutoSkipIntroToggle(it) }
+                                    )
+                                }
+                                item {
+                                    ToggleMenuItem(
+                                        title = "Skip outro",
+                                        isChecked = uiState.autoSkipOutro,
+                                        onToggle = { onAutoSkipOutroToggle(it) }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -326,6 +372,34 @@ private fun SubMenuItem(
             Spacer(modifier = Modifier.width(40.dp))
         }
         Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ToggleMenuItem(
+    title: String,
+    isChecked: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggle(!isChecked) }
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
+        Switch(
+            checked = isChecked,
+            onCheckedChange = { onToggle(it) },
+            colors = SwitchDefaults.colors(
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color(0xFF333333),
+                uncheckedBorderColor = Color(0xFF555555),
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = Color.White
+            )
+        )
     }
 }
 

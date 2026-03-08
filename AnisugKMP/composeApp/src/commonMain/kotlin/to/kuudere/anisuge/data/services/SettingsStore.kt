@@ -1,0 +1,38 @@
+package to.kuudere.anisuge.data.services
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+class SettingsStore(private val dataStore: DataStore<Preferences>) {
+    companion object {
+        val AUTO_PLAY_KEY = booleanPreferencesKey("auto_play")
+        val AUTO_NEXT_KEY = booleanPreferencesKey("auto_next")
+        val AUTO_SKIP_INTRO_KEY = booleanPreferencesKey("auto_skip_intro")
+        val AUTO_SKIP_OUTRO_KEY = booleanPreferencesKey("auto_skip_outro")
+    }
+
+    val autoPlayFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_PLAY_KEY] ?: true }
+    val autoNextFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_NEXT_KEY] ?: true }
+    val autoSkipIntroFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_SKIP_INTRO_KEY] ?: false }
+    val autoSkipOutroFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_SKIP_OUTRO_KEY] ?: false }
+
+    suspend fun setAutoPlay(enabled: Boolean) {
+        dataStore.edit { it[AUTO_PLAY_KEY] = enabled }
+    }
+
+    suspend fun setAutoNext(enabled: Boolean) {
+        dataStore.edit { it[AUTO_NEXT_KEY] = enabled }
+    }
+
+    suspend fun setAutoSkipIntro(enabled: Boolean) {
+        dataStore.edit { it[AUTO_SKIP_INTRO_KEY] = enabled }
+    }
+
+    suspend fun setAutoSkipOutro(enabled: Boolean) {
+        dataStore.edit { it[AUTO_SKIP_OUTRO_KEY] = enabled }
+    }
+}

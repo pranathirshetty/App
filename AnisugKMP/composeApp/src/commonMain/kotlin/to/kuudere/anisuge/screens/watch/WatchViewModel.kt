@@ -37,16 +37,28 @@ data class WatchUiState(
     val targetLang: String? = null,
     val targetSubtitleLang: String? = null,
     val targetSubtitleLangCode: String? = null,
-    val isUpdatingWatchlist: Boolean = false
+    val isUpdatingWatchlist: Boolean = false,
+    val autoPlay: Boolean = true,
+    val autoNext: Boolean = true,
+    val autoSkipIntro: Boolean = false,
+    val autoSkipOutro: Boolean = false
 )
 
 class WatchViewModel(
-    private val infoService: InfoService
+    private val infoService: InfoService,
+    private val settingsStore: to.kuudere.anisuge.data.services.SettingsStore
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WatchUiState())
     val uiState = _uiState.asStateFlow()
 
     private var currentAnimeId: String = ""
+
+    init {
+        viewModelScope.launch { settingsStore.autoPlayFlow.collect { v -> _uiState.update { it.copy(autoPlay = v) } } }
+        viewModelScope.launch { settingsStore.autoNextFlow.collect { v -> _uiState.update { it.copy(autoNext = v) } } }
+        viewModelScope.launch { settingsStore.autoSkipIntroFlow.collect { v -> _uiState.update { it.copy(autoSkipIntro = v) } } }
+        viewModelScope.launch { settingsStore.autoSkipOutroFlow.collect { v -> _uiState.update { it.copy(autoSkipOutro = v) } } }
+    }
 
     fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null) {
         currentAnimeId = animeId
@@ -335,5 +347,21 @@ class WatchViewModel(
                 _uiState.update { it.copy(isUpdatingWatchlist = false) }
             }
         }
+    }
+
+    fun setAutoPlay(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setAutoPlay(enabled) }
+    }
+
+    fun setAutoNext(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setAutoNext(enabled) }
+    }
+
+    fun setAutoSkipIntro(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setAutoSkipIntro(enabled) }
+    }
+
+    fun setAutoSkipOutro(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setAutoSkipOutro(enabled) }
     }
 }

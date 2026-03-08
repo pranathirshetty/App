@@ -30,8 +30,12 @@ object AppComponent {
         }
     }
 
+    val dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> by lazy {
+        createDataStore()
+    }
+
     val sessionStore: SessionStore by lazy {
-        SessionStore(createDataStore())
+        SessionStore(dataStore)
     }
 
     val authService: AuthService by lazy {
@@ -60,5 +64,9 @@ object AppComponent {
 
     val commentService: to.kuudere.anisuge.data.services.CommentService by lazy {
         to.kuudere.anisuge.data.services.CommentService(sessionStore, httpClient)
+    }
+
+    val settingsStore: to.kuudere.anisuge.data.services.SettingsStore by lazy {
+        to.kuudere.anisuge.data.services.SettingsStore(dataStore)
     }
 }

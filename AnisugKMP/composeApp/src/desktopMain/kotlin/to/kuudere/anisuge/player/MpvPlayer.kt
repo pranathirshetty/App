@@ -113,6 +113,9 @@ internal class MpvPlayer(
             mpv.mpv_set_property_string(handle, "start", config.startPosition.toString())
         }
 
+        // Apply auto-play parameter
+        mpv.mpv_set_property_string(handle, "pause", if (config.autoPlay) "no" else "yes")
+
         startEventLoop()
 
         // Load file
