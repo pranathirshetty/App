@@ -36,7 +36,8 @@ data class WatchUiState(
     val isFullscreen: Boolean = false,
     val targetLang: String? = null,
     val targetSubtitleLang: String? = null,
-    val targetSubtitleLangCode: String? = null
+    val targetSubtitleLangCode: String? = null,
+    val isUpdatingWatchlist: Boolean = false
 )
 
 class WatchViewModel(
@@ -315,22 +316,25 @@ class WatchViewModel(
     }
 
     fun updateWatchlistStatus(folder: String) {
-        val currAnimeId = currentAnimeId
-        if (currAnimeId.isEmpty()) return
-        
         viewModelScope.launch {
-            val success = infoService.updateWatchlistStatus(currAnimeId, folder)
-            if (success) {
-                // Update local state to reflect change immediately
-                _uiState.update { state ->
-                    val newData = state.episodeData?.copy(
-                        animeInfo = state.episodeData.animeInfo?.copy(
-                            inWatchlist = folder != "Remove",
-                            folder = if (folder == "Remove") null else folder
+            _uiState.update { it.copy(isUpdatingWatchlist = true) }
+            try {
+                if (currentAnimeId.isEmpty()) return@launch
+                val result = infoService.updateWatchlistStatus(currentAnimeId, folder)
+                if (result) {
+                    _uiState.update { state ->
+                        state.copy(
+                            episodeData = state.episodeData?.copy(
+                                animeInfo = state.episodeData.animeInfo?.copy(
+                                    inWatchlist = folder != "Remove",
+                                    folder = if (folder == "Remove") null else folder
+                                )
+                            )
                         )
-                    )
-                    state.copy(episodeData = newData, showSettingsOverlay = false)
+                    }
                 }
+            } finally {
+                _uiState.update { it.copy(isUpdatingWatchlist = false) }
             }
         }
     }

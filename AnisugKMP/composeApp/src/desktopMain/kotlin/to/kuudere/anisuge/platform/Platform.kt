@@ -18,10 +18,13 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 actual fun SyncFullscreen(isFullscreen: Boolean) {
     val window = LocalWindowScope.current.window
     androidx.compose.runtime.LaunchedEffect(isFullscreen) {
-        if (isFullscreen) {
-            window.extendedState = javax.swing.JFrame.MAXIMIZED_BOTH
-        } else {
-            window.extendedState = javax.swing.JFrame.NORMAL
+        val frame = window as? javax.swing.JFrame
+        if (frame != null) {
+            if (isFullscreen) {
+                frame.extendedState = javax.swing.JFrame.MAXIMIZED_BOTH
+            } else {
+                frame.extendedState = javax.swing.JFrame.NORMAL
+            }
         }
     }
 }

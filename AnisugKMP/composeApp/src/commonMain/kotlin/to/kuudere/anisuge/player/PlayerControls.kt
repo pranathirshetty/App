@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -485,7 +486,7 @@ fun PlayerControls(
                                         Icon(
                                             if (isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, 
                                             null, 
-                                            tint = if (isInWatchlist) Color.Red else Color.White, 
+                                            tint = Color.White, 
                                             modifier = Modifier.size(22.dp)
                                         )
                                     }

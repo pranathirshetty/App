@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 enum class SettingsMenuPage {
-    MAIN, SERVER, AUDIO, QUALITY, SUBTITLES, SPEED
+    MAIN, SERVER, AUDIO, QUALITY, SUBTITLES, SPEED, WATCHLIST
 }
 
 @Composable
@@ -42,7 +42,8 @@ fun SettingsOverlay(
     onCycleAudio: () -> Unit,
     audioTracks: List<Pair<Int, String>> = emptyList(),
     selectedAudioTrack: Int? = null,
-    onAudioTrackSelected: (Int) -> Unit = {}
+    onAudioTrackSelected: (Int) -> Unit = {},
+    onWatchlistStatusSelected: (String) -> Unit = {}
 ) {
     var currentPage by remember { mutableStateOf(uiState.initialSettingsPage ?: SettingsMenuPage.MAIN) }
 
@@ -145,6 +146,22 @@ fun SettingsOverlay(
                                 )
                             }
                             
+                            // Watchlist
+                            uiState.episodeData?.animeInfo?.let { info ->
+                                SettingsMenuItem(
+                                    icon = { 
+                                        if (uiState.isUpdatingWatchlist) {
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                        } else {
+                                            Icon(getBookmarkIcon(), contentDescription = null, tint = if (info.inWatchlist == true) Color.Red else Color.White) 
+                                        }
+                                    },
+                                    title = "Watchlist",
+                                    subtitle = info.folder ?: "Not in list",
+                                    onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
+                                )
+                            }
+                            
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -224,6 +241,22 @@ fun SettingsOverlay(
                                         title = label,
                                         isSelected = url == uiState.currentSubtitleUrl,
                                         onClick = { onSubtitleSelected(url); onDismiss() }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    SettingsMenuPage.WATCHLIST -> {
+                        val folders = listOf("Watching", "On Hold", "Plan To Watch", "Dropped", "Completed", "Remove")
+                        val currentFolder = uiState.episodeData?.animeInfo?.folder
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SubMenuHeader("Watchlist") { currentPage = SettingsMenuPage.MAIN }
+                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                                items(folders) { folder ->
+                                    SubMenuItem(
+                                        title = folder,
+                                        isSelected = if (folder == "Remove") uiState.episodeData?.animeInfo?.inWatchlist == false else folder == currentFolder,
+                                        onClick = { onWatchlistStatusSelected(folder); onDismiss() }
                                     )
                                 }
                             }
@@ -436,6 +469,30 @@ private fun getServerIcon(): ImageVector {
             
             moveTo(6f, 6f); lineToRelative(0.01f, 0f)
             moveTo(6f, 18f); lineToRelative(0.01f, 0f)
+        }
+    }.build()
+}
+
+private fun getBookmarkIcon(): ImageVector {
+    return ImageVector.Builder(
+        name = "Bookmark",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            stroke = SolidColor(Color.White),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) {
+            moveTo(19f, 21f); lineToRelative(-7f, -5f); lineToRelative(-7f, 5f)
+            verticalLineTo(5f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, -2f)
+            horizontalLineToRelative(10f)
+            arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, 2f, 2f)
+            close()
         }
     }.build()
 }

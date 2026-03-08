@@ -59,7 +59,6 @@ fun WatchScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     var isLandscape by remember { mutableStateOf(true) }
-    var showWatchlistSheet by remember { mutableStateOf(false) }
 
     LockScreenOrientation(isLandscape)
     to.kuudere.anisuge.platform.SyncFullscreen(uiState.isFullscreen)
@@ -399,21 +398,10 @@ fun WatchVideoPlayer(
                     onInfoClick = { viewModel.toggleSidePanel("info") },
                     onEpisodesClick = { viewModel.toggleSidePanel("episodes") },
                     onCommentsClick = { viewModel.toggleSidePanel("comments") },
-                    onWatchlistClick = { showWatchlistSheet = true },
+                    onWatchlistClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.WATCHLIST) },
                     isInWatchlist = uiState.episodeData?.animeInfo?.inWatchlist ?: false,
                     currentFolder = uiState.episodeData?.animeInfo?.folder,
                     modifier = Modifier.fillMaxSize()
-                )
-            }
-            
-            if (showWatchlistSheet) {
-                WatchlistBottomSheet(
-                    currentFolder = uiState.episodeData?.animeInfo?.folder,
-                    onSelect = { folder ->
-                        viewModel.updateWatchlistStatus(folder)
-                        showWatchlistSheet = false
-                    },
-                    onDismiss = { showWatchlistSheet = false }
                 )
             }
             
@@ -480,7 +468,8 @@ fun WatchVideoPlayer(
                     onCycleAudio = { playerState.cycleAudio = true },
                     audioTracks = playerState.audioTracks,
                     selectedAudioTrack = playerState.selectedAudioTrack,
-                    onAudioTrackSelected = { playerState.selectedAudioTrack = it }
+                    onAudioTrackSelected = { playerState.selectedAudioTrack = it },
+                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) }
                 )
             }
         } else {
@@ -556,7 +545,8 @@ fun WatchVideoPlayer(
                     onCycleAudio = { },
                     audioTracks = emptyList(),
                     selectedAudioTrack = -1,
-                    onAudioTrackSelected = { }
+                    onAudioTrackSelected = { },
+                    onWatchlistStatusSelected = { folder -> viewModel.updateWatchlistStatus(folder) }
                 )
             }
         }
