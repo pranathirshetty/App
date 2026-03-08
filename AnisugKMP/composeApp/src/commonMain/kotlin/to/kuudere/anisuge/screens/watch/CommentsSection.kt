@@ -321,31 +321,62 @@ fun CommentsSection(
         ) {
             Text("COMMENTS", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 0.8.sp)
             Spacer(Modifier.width(8.dp))
-            // Red badge
-            Box(
-                Modifier.background(AccentRed, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.dp)
-            ) {
-                Text(totalComments.toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+            Text(totalComments.toString(), color = TextMuted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
-            // Sort tabs — matching Kuudere's button row
-            listOf("best" to "Best", "newest" to "Newest", "oldest" to "Oldest").forEach { (key, label) ->
-                val active = sortBy == key
-                Box(
-                    Modifier
+            // Sort Dropdown for compact mobile UI
+            var sortMenuExpanded by remember { mutableStateOf(false) }
+            val sortLabels = listOf("best" to "Best", "newest" to "Newest", "oldest" to "Oldest")
+            val activeLabel = sortLabels.find { it.first == sortBy }?.second ?: "Newest"
+
+            Box {
+                Row(
+                    modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
-                        .background(if (active) AccentRed else Color.Transparent)
-                        .clickable { if (sortBy != key) { sortBy = key } }
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .background(BgCard)
+                        .clickable { sortMenuExpanded = true }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isLoading && active) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            CircularProgressIndicator(Modifier.size(9.dp), color = Color.White, strokeWidth = 1.5.dp)
-                            Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        Text(label, color = if (active) Color.White else TextMuted, fontSize = 11.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                    if (isLoading) {
+                        CircularProgressIndicator(Modifier.size(10.dp), color = AccentRed, strokeWidth = 1.5.dp)
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(activeLabel, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Sort Options", tint = TextMuted, modifier = Modifier.size(14.dp))
+                }
+
+                DropdownMenu(
+                    expanded = sortMenuExpanded,
+                    onDismissRequest = { sortMenuExpanded = false },
+                    modifier = Modifier.background(BgDark).border(1.dp, BorderSub, RoundedCornerShape(8.dp))
+                ) {
+                    sortLabels.forEach { (key, label) ->
+                        val active = sortBy == key
+                        DropdownMenuItem(
+                            text = { 
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        label, 
+                                        color = if (active) AccentRed else TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (active) {
+                                        Spacer(Modifier.width(16.dp))
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = AccentRed, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            },
+                            onClick = {
+                                if (sortBy != key) sortBy = key
+                                sortMenuExpanded = false
+                            }
+                        )
                     }
                 }
             }
