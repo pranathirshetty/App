@@ -418,13 +418,13 @@ fun CommentsSection(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                         // Avatar
                         Box(
-                            Modifier.size(38.dp).clip(CircleShape).background(BgCard),
+                            Modifier.size(32.dp).clip(CircleShape).background(BgCard),
                             contentAlignment = Alignment.Center
                         ) {
                             if (userPfp != null) {
                                 AsyncImage(userPfp, null, Modifier.fillMaxSize().clip(CircleShape))
                             } else {
-                                Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(18.dp))
                             }
                         }
 
@@ -553,25 +553,27 @@ fun CommentsSection(
             } else {
                 // ── Comment list with space-y-6 ──────────────────────────────
                 items(comments, key = { it.data.id }) { model ->
-                    CommentItem(
-                        model = model,
-                        userId = userId,
-                        userPfp = userPfp,
-                        depth = 0,
-                        onVote = { type -> vote(model, type) },
-                        onReplyToggle = { updateRoot(model.data.id) { it.copy(isReplying = !it.isReplying, replyText = "") } },
-                        onReplyTextChange = { text -> updateRoot(model.data.id) { it.copy(replyText = text) } },
-                        onSubmitReply = { postReply(model) },
-                        onToggleReplies = {
-                            val m = comments.first { it.data.id == model.data.id }
-                            if (!m.showReplies && m.replies.isEmpty() && m.data.reply_count > 0) loadReplies(m)
-                            else updateRoot(model.data.id) { it.copy(showReplies = !it.showReplies) }
-                        },
-                        onLoadMoreReplies = { loadReplies(model) },
-                        onVoteReply = { reply, type -> vote(reply, type, parentId = model.data.id) },
-                        onDelete = { deleteComment(model.data.id) },
-                        onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
-                    )
+                    Box(Modifier.padding(horizontal = 16.dp)) {
+                        CommentItem(
+                            model = model,
+                            userId = userId,
+                            userPfp = userPfp,
+                            depth = 0,
+                            onVote = { type -> vote(model, type) },
+                            onReplyToggle = { updateRoot(model.data.id) { it.copy(isReplying = !it.isReplying, replyText = "") } },
+                            onReplyTextChange = { text -> updateRoot(model.data.id) { it.copy(replyText = text) } },
+                            onSubmitReply = { postReply(model) },
+                            onToggleReplies = {
+                                val m = comments.first { it.data.id == model.data.id }
+                                if (!m.showReplies && m.replies.isEmpty() && m.data.reply_count > 0) loadReplies(m)
+                                else updateRoot(model.data.id) { it.copy(showReplies = !it.showReplies) }
+                            },
+                            onLoadMoreReplies = { loadReplies(model) },
+                            onVoteReply = { reply, type -> vote(reply, type, parentId = model.data.id) },
+                            onDelete = { deleteComment(model.data.id) },
+                            onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
+                        )
+                    }
                     Spacer(Modifier.height(24.dp))
                 }
 
