@@ -254,6 +254,30 @@ fun CommentsSection(
         }
     }
 
+    fun postReplyNested(rootModel: CommentUiModel, replyModel: CommentUiModel) {
+        if (!isAuthenticated || replyModel.replyText.isBlank()) return
+        updateReply(rootModel.data.id, replyModel.data.id) { it.copy(isSubmitting = true) }
+        scope.launch {
+            val res = commentService.postComment(animeId, episodeNumber, replyModel.replyText, replyModel.replyIsSpoiler, replyModel.data.id)
+            if (res?.success == true) {
+                val id = res.data?.commentId ?: res.data?.id ?: System.currentTimeMillis().toString()
+                updateReply(rootModel.data.id, replyModel.data.id) { c ->
+                    c.copy(
+                        replies = c.replies + CommentUiModel(
+                            data = Comment(
+                                id = id, author = username, authorId = userId, authorPfp = userPfp,
+                                content = replyModel.replyText, likes = 0, dislikes = 0
+                            )
+                        ),
+                        replyText = "", replyIsSpoiler = false, isReplying = false, showReplies = true, isSubmitting = false
+                    )
+                }
+            } else {
+                updateReply(rootModel.data.id, replyModel.data.id) { it.copy(isSubmitting = false) }
+            }
+        }
+    }
+
     fun deleteComment(id: String) {
         scope.launch {
             val ok = commentService.deleteComment(id)
@@ -572,8 +596,13 @@ fun CommentsSection(
                             },
                             onLoadMoreReplies = { loadReplies(model) },
                             onVoteReply = { reply, type -> vote(reply, type, parentId = model.data.id) },
-                            onDelete = { deleteComment(model.data.id) },
+                            onDelete = { id -> deleteComment(id) },
                             onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
+                            onNestedReplyToggle = { replyId -> updateReply(model.data.id, replyId) { it.copy(isReplying = !it.isReplying, replyText = "", replyIsSpoiler = false) } },
+                            onNestedReplyTextChange = { replyId, text -> updateReply(model.data.id, replyId) { it.copy(replyText = text) } },
+                            onNestedReplySpoilerChange = { replyId, isS -> updateReply(model.data.id, replyId) { it.copy(replyIsSpoiler = isS) } },
+                            onNestedSubmitReply = { replyModel -> postReplyNested(model, replyModel) },
+                            onNestedDropdownToggle = { replyId -> updateReply(model.data.id, replyId) { it.copy(showMoreDropdown = !it.showMoreDropdown) } }
                         )
                     }
                 }
@@ -670,8 +699,13 @@ private fun CommentItem(
     onToggleReplies: () -> Unit,
     onLoadMoreReplies: () -> Unit,
     onVoteReply: (CommentUiModel, String) -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (String) -> Unit,
     onDropdownToggle: () -> Unit,
+    onNestedReplyToggle: (String) -> Unit = {},
+    onNestedReplyTextChange: (String, String) -> Unit = { _, _ -> },
+    onNestedReplySpoilerChange: (String, Boolean) -> Unit = { _, _ -> },
+    onNestedSubmitReply: (CommentUiModel) -> Unit = {},
+    onNestedDropdownToggle: (String) -> Unit = {}
 ) {
     val c = model.data
     val hasThread = model.isReplying || model.replies.isNotEmpty() || c.reply_count > 0
@@ -735,11 +769,9 @@ private fun CommentItem(
                     }
                     if (model.dislikes > 0) Text(model.dislikes.toString(), color = if (model.isUnliked) AccentBlue else TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
-                    if (depth == 0) {
-                        Row(Modifier.clickable { onReplyToggle() }.padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Icon(Icons.AutoMirrored.Filled.Reply, null, tint = TextMuted, modifier = Modifier.size(13.dp))
-                            Text("Reply", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                    Row(Modifier.clickable { onReplyToggle() }.padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.Reply, null, tint = TextMuted, modifier = Modifier.size(13.dp))
+                        Text("Reply", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(Modifier.weight(1f))
@@ -748,7 +780,7 @@ private fun CommentItem(
                         Text("••• More", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp, modifier = Modifier.clickable { onDropdownToggle() }.padding(4.dp))
                         DropdownMenu(expanded = model.showMoreDropdown, onDismissRequest = { onDropdownToggle() }, modifier = Modifier.background(BgDark).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))) {
                             if (isOwnComment) {
-                                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(13.dp)); Text("Delete Comment", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold) } }, onClick = { onDropdownToggle(); onDelete() })
+                                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(13.dp)); Text("Delete Comment", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold) } }, onClick = { onDropdownToggle(); onDelete(model.data.id) })
                             } else {
                                 DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icon(Icons.Default.Flag, null, tint = TextMuted, modifier = Modifier.size(13.dp)); Text("Report", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) } }, onClick = { onDropdownToggle() })
                             }
@@ -766,7 +798,7 @@ private fun CommentItem(
                 
                 // 1. Reply Editor
                 AnimatedVisibility(
-                    visible = model.isReplying && depth == 0,
+                    visible = model.isReplying,
                     enter = expandVertically(animationSpec = tween(300)) + fadeIn(tween(300)),
                     exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(tween(300))
                 ) {
@@ -814,7 +846,22 @@ private fun CommentItem(
                     Column(Modifier.fillMaxWidth()) {
                         model.replies.forEach { reply ->
                             ThreadConnectionLayout(isLast = false) {
-                                CommentItem(reply, userId, userPfp, depth + 1, { type -> onVoteReply(reply, type) }, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
+                                CommentItem(
+                                    model = reply,
+                                    userId = userId,
+                                    userPfp = userPfp,
+                                    depth = depth + 1,
+                                    onVote = { type -> onVoteReply(reply, type) },
+                                    onReplyToggle = { onNestedReplyToggle(reply.data.id) },
+                                    onReplyTextChange = { text -> onNestedReplyTextChange(reply.data.id, text) },
+                                    onReplySpoilerChange = { isS -> onNestedReplySpoilerChange(reply.data.id, isS) },
+                                    onSubmitReply = { onNestedSubmitReply(reply) },
+                                    onToggleReplies = { },
+                                    onLoadMoreReplies = { },
+                                    onVoteReply = { _, _ -> },
+                                    onDelete = { id -> onDelete(id) },
+                                    onDropdownToggle = { onNestedDropdownToggle(reply.data.id) }
+                                )
                             }
                         }
                         
