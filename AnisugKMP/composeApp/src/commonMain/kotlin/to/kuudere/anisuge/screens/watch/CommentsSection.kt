@@ -554,7 +554,7 @@ fun CommentsSection(
             } else {
                 // ── Comment list with space-y-6 ──────────────────────────────
                 items(comments, key = { it.data.id }) { model ->
-                    Box(Modifier.padding(horizontal = 16.dp)) {
+                    Box(Modifier.animateItem().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
                         CommentItem(
                             model = model,
                             userId = userId,
@@ -576,7 +576,6 @@ fun CommentsSection(
                             onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
                         )
                     }
-                    Spacer(Modifier.height(24.dp))
                 }
 
                 // Load More button
@@ -755,26 +754,23 @@ private fun CommentItem(
             }
         }
 
-        // ── Nested Thread Area ──
         if (hasThread) {
-            Column(Modifier.fillMaxWidth().padding(start = threadOffset)) {
+            Column(Modifier.fillMaxWidth().padding(start = threadOffset).animateContentSize(animationSpec = tween(300))) {
                 val connectionItems = mutableListOf<@Composable (isLast: Boolean) -> Unit>()
                 
                 if (model.isReplying && depth == 0) {
                     connectionItems.add { isLast ->
-                        AnimatedVisibility(visible = true, enter = expandVertically(animationSpec = tween(300)) + fadeIn(), exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()) {
-                            ThreadConnectionLayout(isLast = isLast) {
-                                ReplyEditor(
-                                    userPfp = userPfp,
-                                    text = model.replyText,
-                                    isSubmitting = model.isSubmitting,
-                                    isSpoiler = model.replyIsSpoiler,
-                                    onTextChange = onReplyTextChange,
-                                    onSpoilerChange = onReplySpoilerChange,
-                                    onSubmit = onSubmitReply,
-                                    onCancel = onReplyToggle
-                                )
-                            }
+                        ThreadConnectionLayout(isLast = isLast) {
+                            ReplyEditor(
+                                userPfp = userPfp,
+                                text = model.replyText,
+                                isSubmitting = model.isSubmitting,
+                                isSpoiler = model.replyIsSpoiler,
+                                onTextChange = onReplyTextChange,
+                                onSpoilerChange = onReplySpoilerChange,
+                                onSubmit = onSubmitReply,
+                                onCancel = onReplyToggle
+                            )
                         }
                     }
                 }
