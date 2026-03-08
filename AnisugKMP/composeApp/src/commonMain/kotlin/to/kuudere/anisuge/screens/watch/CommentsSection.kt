@@ -638,7 +638,7 @@ private fun ThreadConnectionLayout(
             val strokeWidth = 1.dp.toPx()
             val curveY = curveOffsetY.toPx()
             val r = 12.dp.toPx()
-            val endY = if (isLast) curveY else size.height
+            val endY = if (isLast) curveY else size.height + 1f
             
             drawLine(color = BorderLine.copy(alpha = 0.8f), start = Offset(0f, 0f), end = Offset(0f, endY), strokeWidth = strokeWidth)
             
@@ -681,15 +681,19 @@ private fun CommentItem(
 
     Column(Modifier.fillMaxWidth().background(if (c.highlight) Color(0xFF1C1A00) else Color.Transparent)) {
         // ── Parent Comment Content ──
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(bottom = 4.dp)) {
+        Row(Modifier.fillMaxWidth().drawBehind {
+            if (hasThread) {
+                val strokeWidth = 1.dp.toPx()
+                val lineX = (avatarSize / 2).toPx()
+                val startY = avatarSize.toPx()
+                drawLine(color = BorderLine.copy(alpha = 0.8f), start = Offset(lineX, startY), end = Offset(lineX, size.height + 1f), strokeWidth = strokeWidth)
+            }
+        }.padding(bottom = 4.dp)) {
             // Left column (Avatar + Thread line)
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(avatarSize)) {
                 Box(Modifier.size(avatarSize).clip(CircleShape).background(BgCard), contentAlignment = Alignment.Center) {
                     if (c.authorPfp != null) AsyncImage(c.authorPfp, null, Modifier.fillMaxSize().clip(CircleShape))
                     else Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(if (depth == 0) 18.dp else 14.dp))
-                }
-                if (hasThread) {
-                    Box(Modifier.width(1.dp).fillMaxHeight().background(BorderLine.copy(alpha = 0.8f)))
                 }
             }
 
