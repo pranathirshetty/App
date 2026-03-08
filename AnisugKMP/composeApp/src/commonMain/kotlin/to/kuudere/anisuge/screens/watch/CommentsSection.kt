@@ -26,7 +26,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
@@ -622,6 +624,34 @@ fun CommentsSection(
 // ── Comment Item (recursive) ──────────────────────────────────────────────────
 
 @Composable
+private fun ThreadConnectionLayout(
+    isLast: Boolean,
+    content: @Composable () -> Unit
+) {
+    Box(
+        Modifier.drawBehind {
+            val strokeWidth = 1.dp.toPx()
+            val curveY = 20.dp.toPx() // center of child avatar (paddingTop 8dp + avatar radius 12dp)
+            val r = 12.dp.toPx()
+            val endY = if (isLast) curveY else size.height
+            
+            drawLine(color = BorderLine.copy(alpha = 0.8f), start = Offset(0f, 0f), end = Offset(0f, endY), strokeWidth = strokeWidth)
+            
+            val path = Path().apply {
+                moveTo(0f, curveY - r)
+                quadraticBezierTo(0f, curveY, r, curveY)
+                lineTo(24.dp.toPx(), curveY)
+            }
+            drawPath(path, color = BorderLine.copy(alpha = 0.8f), style = Stroke(strokeWidth))
+        }
+    ) {
+        Box(Modifier.padding(start = 24.dp, top = 8.dp, bottom = 8.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
 private fun CommentItem(
     model: CommentUiModel,
     userId: String?,
@@ -640,116 +670,53 @@ private fun CommentItem(
     val c = model.data
     val hasThread = model.isReplying || model.replies.isNotEmpty() || c.reply_count > 0
     val isOwnComment = userId != null && (c.authorId == userId)
-    val avatarSize = if (depth == 0) 28.dp else 24.dp
-    val leftPad = if (depth == 0) 16.dp else 0.dp
+    val avatarSize = if (depth == 0) 32.dp else 24.dp
+    val threadOffset = avatarSize / 2
 
-    Box(
-        Modifier.fillMaxWidth()
-            .background(if (c.highlight) Color(0xFF1C1A00) else Color.Transparent)
-            .padding(start = leftPad)
-    ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(if (depth == 0) 10.dp else 6.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            // ── Left column: avatar + thread line ───────────────────────────
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Avatar
-                Box(
-                    Modifier.size(avatarSize).clip(CircleShape).background(BgCard),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (c.authorPfp != null) {
-                        AsyncImage(c.authorPfp, null, Modifier.fillMaxSize().clip(CircleShape))
-                    } else {
-                        Icon(Icons.Default.Person, null, tint = TextMuted,
-                            modifier = Modifier.size(if (depth == 0) 14.dp else 12.dp))
-                    }
+    Column(Modifier.fillMaxWidth().background(if (c.highlight) Color(0xFF1C1A00) else Color.Transparent)) {
+        // ── Parent Comment Content ──
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(bottom = 4.dp)) {
+            // Left column (Avatar + Thread line)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(avatarSize)) {
+                Box(Modifier.size(avatarSize).clip(CircleShape).background(BgCard), contentAlignment = Alignment.Center) {
+                    if (c.authorPfp != null) AsyncImage(c.authorPfp, null, Modifier.fillMaxSize().clip(CircleShape))
+                    else Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(if (depth == 0) 18.dp else 14.dp))
                 }
-                // Vertical thread line
                 if (hasThread) {
                     Box(Modifier.width(1.dp).fillMaxHeight().background(BorderLine.copy(alpha = 0.8f)))
                 }
             }
 
-            // ── Right column: content ────────────────────────────────────────
-            Column(Modifier.weight(1f).padding(end = 12.dp, bottom = 4.dp)) {
-                Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.width(12.dp))
 
-                // Author + time
+            // Right column (Body)
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        c.author ?: "Anonymous",
-                        color = TextPrimary, fontWeight = FontWeight.Bold,
-                        fontSize = if (depth == 0) 13.sp else 12.sp,
-                        modifier = Modifier.clickable { /* navigate to profile */ }
-                    )
-                    if (c.created_at != null) {
-                        Text(formatRelTime(c.created_at), color = TextMuted,
-                            fontSize = if (depth == 0) 11.sp else 10.sp)
-                    }
+                    Text(c.author ?: "Anonymous", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = if (depth == 0) 13.sp else 12.sp, modifier = Modifier.clickable { })
+                    if (c.created_at != null) Text(formatRelTime(c.created_at), color = TextMuted, fontSize = if (depth == 0) 11.sp else 10.sp)
                 }
 
                 Spacer(Modifier.height(4.dp))
-
-                // Content
                 CommentContent(c.content, c.isSpoiller)
-
                 Spacer(Modifier.height(6.dp))
 
-                // Actions row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Like — rose-500 glow when active, scale-110
+                Row(Modifier.padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Like
                     val likeScale by animateFloatAsState(if (model.isLiked) 1.15f else 1f, label = "likeScale")
-                    Box(
-                        Modifier.scale(likeScale).clip(CircleShape)
-                            .background(if (model.isLiked) AccentRed.copy(alpha = 0.1f) else Color.Transparent)
-                            .clickable { onVote("like") }
-                            .padding(5.dp)
-                    ) {
-                        Icon(Icons.Default.ThumbUp, null,
-                            tint = if (model.isLiked) AccentRed else TextMuted,
-                            modifier = Modifier.size(13.dp))
+                    Box(Modifier.scale(likeScale).clip(CircleShape).background(if (model.isLiked) AccentRed.copy(alpha = 0.1f) else Color.Transparent).clickable { onVote("like") }.padding(5.dp)) {
+                        Icon(Icons.Default.ThumbUp, null, tint = if (model.isLiked) AccentRed else TextMuted, modifier = Modifier.size(13.dp))
                     }
-                    if (model.likes > 0) {
-                        Text(
-                            model.likes.toString(),
-                            color = if (model.isLiked) AccentRed else TextMuted,
-                            fontSize = 11.sp, fontWeight = FontWeight.Bold
-                        )
-                    }
+                    if (model.likes > 0) Text(model.likes.toString(), color = if (model.isLiked) AccentRed else TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
-                    // Dislike — blue-500 when active
+                    // Dislike
                     val dislikeScale by animateFloatAsState(if (model.isUnliked) 1.15f else 1f, label = "dislikeScale")
-                    Box(
-                        Modifier.scale(dislikeScale).clip(CircleShape)
-                            .background(if (model.isUnliked) AccentBlue.copy(alpha = 0.1f) else Color.Transparent)
-                            .clickable { onVote("dislike") }
-                            .padding(5.dp)
-                    ) {
-                        Icon(Icons.Default.ThumbDown, null,
-                            tint = if (model.isUnliked) AccentBlue else TextMuted,
-                            modifier = Modifier.size(13.dp))
+                    Box(Modifier.scale(dislikeScale).clip(CircleShape).background(if (model.isUnliked) AccentBlue.copy(alpha = 0.1f) else Color.Transparent).clickable { onVote("dislike") }.padding(5.dp)) {
+                        Icon(Icons.Default.ThumbDown, null, tint = if (model.isUnliked) AccentBlue else TextMuted, modifier = Modifier.size(13.dp))
                     }
-                    if (model.dislikes > 0) {
-                        Text(
-                            model.dislikes.toString(),
-                            color = if (model.isUnliked) AccentBlue else TextMuted,
-                            fontSize = 11.sp, fontWeight = FontWeight.Bold
-                        )
-                    }
+                    if (model.dislikes > 0) Text(model.dislikes.toString(), color = if (model.isUnliked) AccentBlue else TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
-                    // Reply (only root-level)
                     if (depth == 0) {
-                        Row(
-                            Modifier.clickable { onReplyToggle() }.padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
+                        Row(Modifier.clickable { onReplyToggle() }.padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             Icon(Icons.AutoMirrored.Filled.Reply, null, tint = TextMuted, modifier = Modifier.size(13.dp))
                             Text("Reply", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
@@ -757,162 +724,77 @@ private fun CommentItem(
 
                     Spacer(Modifier.weight(1f))
 
-                    // ••• More dropdown
                     Box {
-                        Text(
-                            "••• More",
-                            color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Medium,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.clickable { onDropdownToggle() }.padding(4.dp)
-                        )
-                        DropdownMenu(
-                            expanded = model.showMoreDropdown,
-                            onDismissRequest = { onDropdownToggle() },
-                            modifier = Modifier.background(Color(0xFF09090B)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Icon(Icons.Default.Flag, null, tint = TextMuted, modifier = Modifier.size(13.dp))
-                                        Text("Report", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.width(4.dp))
-                                        Box(Modifier.background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 2.dp)) {
-                                            Text("Soon", color = TextMuted, fontSize = 9.sp)
-                                        }
-                                    }
-                                },
-                                onClick = {},
-                                enabled = false,
-                            )
+                        Text("••• More", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp, modifier = Modifier.clickable { onDropdownToggle() }.padding(4.dp))
+                        DropdownMenu(expanded = model.showMoreDropdown, onDismissRequest = { onDropdownToggle() }, modifier = Modifier.background(BgDark).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))) {
                             if (isOwnComment) {
-                                Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(1.dp).background(Color.White.copy(alpha = 0.1f)))
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(13.dp))
-                                            Text("Delete Comment", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    },
-                                    onClick = { onDropdownToggle(); onDelete() },
-                                )
+                                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(13.dp)); Text("Delete Comment", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold) } }, onClick = { onDropdownToggle(); onDelete() })
+                            } else {
+                                DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { Icon(Icons.Default.Flag, null, tint = TextMuted, modifier = Modifier.size(13.dp)); Text("Report", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) } }, onClick = { onDropdownToggle() })
                             }
                         }
                     }
                 }
+            }
+        }
 
-                // Reply inputbox (collapsed/expanded)
-                AnimatedVisibility(
-                    visible = model.isReplying && depth == 0,
-                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
-                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
-                ) {
-                    Spacer(Modifier.height(8.dp))
-                    // Connect reply box with curve line visually shown by indentation
-                    ReplyEditor(
-                        userPfp = userPfp,
-                        text = model.replyText,
-                        isSubmitting = model.isSubmitting,
-                        onTextChange = onReplyTextChange,
-                        onSubmit = onSubmitReply,
-                        onCancel = onReplyToggle,
-                    )
+        // ── Nested Thread Area ──
+        if (hasThread) {
+            Column(Modifier.fillMaxWidth().padding(start = threadOffset)) {
+                val connectionItems = mutableListOf<@Composable (isLast: Boolean) -> Unit>()
+                
+                if (model.isReplying && depth == 0) {
+                    connectionItems.add { isLast ->
+                        AnimatedVisibility(visible = true, enter = expandVertically(animationSpec = tween(300)) + fadeIn(), exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()) {
+                            ThreadConnectionLayout(isLast = isLast) {
+                                ReplyEditor(userPfp, model.replyText, model.isSubmitting, onReplyTextChange, onSubmitReply, onReplyToggle)
+                            }
+                        }
+                    }
                 }
-
-                // "View N replies" toggle — collapsed state
+                
                 if (depth == 0 && c.reply_count > 0 && !model.showReplies) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier.clickable { onToggleReplies() }.padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // Small horizontal dash like the original
-                        Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
-                        if (model.isLoadingReplies) {
-                            CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
-                        } else {
-                            Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(13.dp))
+                    connectionItems.add { isLast ->
+                        ThreadConnectionLayout(isLast = isLast) {
+                            Row(Modifier.clickable { onToggleReplies() }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
+                                if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
+                                else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
+                                Text("View ${c.reply_count} ${if (c.reply_count == 1) "reply" else "replies"}", color = TextSec, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        Text(
-                            "View ${c.reply_count} ${if (c.reply_count == 1) "reply" else "replies"}",
-                            color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold
-                        )
                     }
                 }
 
-                // Nested replies — expanded state
                 if (depth == 0 && model.showReplies && model.replies.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Column(
-                        Modifier.padding(start = 0.dp), // thread line comes from avatar column
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        model.replies.forEach { reply ->
-                            // Curve connector
-                            Box(
-                                Modifier.padding(start = 2.dp, top = 12.dp, bottom = 4.dp)
-                            ) {
-                                // Rounded L-shape curve
-                                Box(Modifier.size(12.dp, 24.dp).drawBehind {
-                                    val stroke = Stroke(width = 1.dp.toPx())
-                                    drawArc(
-                                        color = BorderLine.copy(alpha = 0.8f),
-                                        startAngle = 180f,
-                                        sweepAngle = -90f,
-                                        useCenter = false,
-                                        topLeft = Offset(-size.width, 0f),
-                                        size = androidx.compose.ui.geometry.Size(size.width * 2, size.height),
-                                        style = stroke
-                                    )
-                                })
+                    model.replies.forEach { reply ->
+                        connectionItems.add { isLast ->
+                            ThreadConnectionLayout(isLast = isLast) {
+                                CommentItem(reply, userId, userPfp, depth + 1, { type -> onVoteReply(reply, type) }, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
                             }
-                            CommentItem(
-                                model = reply,
-                                userId = userId,
-                                userPfp = userPfp,
-                                depth = depth + 1,
-                                onVote = { type -> onVoteReply(reply, type) },
-                                onReplyToggle = {},
-                                onReplyTextChange = {},
-                                onSubmitReply = {},
-                                onToggleReplies = {},
-                                onLoadMoreReplies = {},
-                                onVoteReply = { _, _ -> },
-                                onDelete = {},
-                                onDropdownToggle = {},
-                            )
                         }
-
-                        // "Show X more replies · Hide replies"
-                        if (c.reply_count > 0) {
-                            Spacer(Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.5f)))
-
-                                if (model.hasMoreReplies) {
-                                    Text(
-                                        text = if (model.isLoadingReplies) "Loading..."
-                                               else "Show ${c.reply_count - model.replies.size} more replies",
-                                        color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() }
-                                    )
-                                    Text("·", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
-                                }
-
-                                Row(
-                                    Modifier.clickable { onToggleReplies() },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                ) {
-                                    Icon(Icons.Default.KeyboardArrowUp, null, tint = TextSec, modifier = Modifier.size(12.dp))
-                                    Text("Hide replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (c.reply_count > 0) {
+                        connectionItems.add { isLast ->
+                            ThreadConnectionLayout(isLast = isLast) {
+                                Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.5f)))
+                                    if (model.hasMoreReplies) {
+                                        Text(if (model.isLoadingReplies) "Loading..." else "Show ${c.reply_count - model.replies.size} more replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() })
+                                        Text("·", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
+                                    }
+                                    Row(Modifier.clickable { onToggleReplies() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.KeyboardArrowUp, null, tint = TextSec, modifier = Modifier.size(13.dp))
+                                        Text("Hide replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
                     }
+                }
+
+                connectionItems.forEachIndexed { i, render ->
+                    render(i == connectionItems.lastIndex)
                 }
             }
         }
