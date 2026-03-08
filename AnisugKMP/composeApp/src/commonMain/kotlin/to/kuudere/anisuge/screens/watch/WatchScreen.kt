@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
@@ -300,10 +302,10 @@ fun PlayerOverlayButtons(viewModel: WatchViewModel, uiState: WatchUiState) {
             OverlayIconButton(Icons.Default.Info, "Info", uiState.activeSidePanel == "info") { 
                 viewModel.toggleSidePanel("info") 
             }
-            OverlayIconButton(Icons.Default.List, "Episodes", uiState.activeSidePanel == "episodes") { 
+            OverlayIconButton(Icons.AutoMirrored.Filled.List, "Episodes", uiState.activeSidePanel == "episodes") { 
                 viewModel.toggleSidePanel("episodes") 
             }
-            OverlayIconButton(Icons.Default.Comment, "Comments", uiState.activeSidePanel == "comments") { 
+            OverlayIconButton(Icons.AutoMirrored.Filled.Comment, "Comments", uiState.activeSidePanel == "comments") { 
                 viewModel.toggleSidePanel("comments") 
             }
         }
@@ -486,10 +488,78 @@ fun WatchVideoPlayer(
             }
         } else {
             Box(modifier = modifier.background(Color.Black)) {
-                Text(
-                    text = "No streaming links available",
-                    color = Color.White,
-                    modifier = Modifier.align(Alignment.Center)
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No streaming links available for server: ${uiState.currentServer}",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.toggleSettingsOverlay() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Change Server", color = Color.Black, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            if (uiState.showSettingsOverlay) {
+                val servers = listOf("hiya", "hiya-dub", "zen", "zen2")
+                SettingsOverlay(
+                    uiState = uiState,
+                    servers = servers,
+                    onDismiss = { viewModel.toggleSettingsOverlay() },
+                    onQualitySelected = { viewModel.setQuality(it) },
+                    onSubtitleSelected = { url -> 
+                        val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == url }
+                        val lang = selectedSub?.title ?: selectedSub?.resolvedLang
+                        viewModel.setSubtitle(url, lang) 
+                    },
+                    onServerSelected = { serverLabel -> 
+                        val currentServer = uiState.currentServer.lowercase()
+                        val newServer = serverLabel.lowercase()
+                        val isFromZen = currentServer.startsWith("zen")
+                        val isToZen = newServer.startsWith("zen")
+                        val isFromHiya = currentServer.startsWith("hiya")
+                        
+                        var targetAudioLang: String? = null
+                        if (isFromZen && isToZen) targetAudioLang = "sub"
+                        else if (isFromHiya && isToZen) targetAudioLang = if (currentServer == "hiya-dub") "dub" else "sub"
+                        
+                        viewModel.changeServerWithState(
+                            newServer = serverLabel, 
+                            position = uiState.savedWatchPosition, 
+                            targetAudioLang = targetAudioLang,
+                            targetSubtitleLang = null,
+                            targetSubtitleLangCode = null
+                        )
+                    },
+                    onSpeedSelected = { viewModel.setSpeed(it) },
+                    onCycleAudio = { },
+                    audioTracks = emptyList(),
+                    selectedAudioTrack = -1,
+                    onAudioTrackSelected = { }
                 )
             }
         }
