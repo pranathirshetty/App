@@ -37,13 +37,15 @@ class SessionStore(private val dataStore: DataStore<Preferences>) {
     }
 
     fun isExpired(session: SessionInfo): Boolean {
+        if (session.expire.isBlank()) return false
         return try {
             // expire is ISO-8601 string, compare to current time
             val expire = kotlinx.datetime.Instant.parse(session.expire)
             val now    = kotlinx.datetime.Clock.System.now()
             now > expire
         } catch (e: Exception) {
-            true // treat parse failures as expired
+            println("[SessionStore] parse error for expire date '${session.expire}': ${e.message}")
+            false // assume valid if unparseable to avoid permanent logout
         }
     }
 }

@@ -57,4 +57,8 @@ object AppComponent {
     val scheduleService: to.kuudere.anisuge.data.services.ScheduleService by lazy {
         to.kuudere.anisuge.data.services.ScheduleService(sessionStore, httpClient)
     }
+
+    val commentService: to.kuudere.anisuge.data.services.CommentService by lazy {
+        to.kuudere.anisuge.data.services.CommentService(sessionStore, httpClient)
+    }
 }

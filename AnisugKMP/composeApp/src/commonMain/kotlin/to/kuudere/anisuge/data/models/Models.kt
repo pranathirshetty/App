@@ -49,10 +49,13 @@ data class SessionData(
 @Serializable
 data class UserProfile(
     val id: String? = null,
+    val userId: String? = null,
     val username: String? = null,
     val email: String? = null,
     val avatar: String? = null,
-)
+) {
+    val effectiveId: String? get() = id ?: userId
+}
 
 @Serializable
 data class CurrentUserResponse(

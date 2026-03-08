@@ -1,0 +1,1165 @@
+package to.kuudere.anisuge.screens.watch
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
+import to.kuudere.anisuge.AppComponent
+import to.kuudere.anisuge.data.models.Comment
+
+// ── Colour palette — mirrors Kuudere's zinc/black dark theme ─────────────────
+private val BgBlack      = Color(0xFF000000)
+private val BgDark       = Color(0xFF09090B)    // zinc-950
+private val BgCard       = Color(0xFF18181B)    // zinc-900
+private val BgInput      = Color(0xFF27272A)    // zinc-800 / 50%
+private val BorderSub    = Color(0xFF3F3F46)    // zinc-700 / 50%
+private val BorderLine   = Color(0xFF27272A)    // zinc-800 / 80% — thread lines
+private val TextPrimary  = Color(0xFFE4E4E7)    // zinc-200
+private val TextSec      = Color(0xFFA1A1AA)    // zinc-400
+private val TextMuted    = Color(0xFF71717A)    // zinc-500
+private val AccentRed    = Color(0xFFEF4444)
+private val AccentBlue   = Color(0xFF3B82F6)
+
+// ── Internal mutable UI model ─────────────────────────────────────────────────
+
+data class CommentUiModel(
+    val data: Comment,
+    val likes: Int = 0,
+    val dislikes: Int = 0,
+    val isLiked: Boolean = false,
+    val isUnliked: Boolean = false,
+    val showReplies: Boolean = false,
+    val isReplying: Boolean = false,
+    val replyText: String = "",
+    val isSubmitting: Boolean = false,
+    val isLoadingReplies: Boolean = false,
+    val replies: List<CommentUiModel> = emptyList(),
+    val hasMoreReplies: Boolean = false,
+    val repliesPage: Int = 0,
+    val showMoreDropdown: Boolean = false,
+)
+
+private fun Comment.toUi(): CommentUiModel = CommentUiModel(
+    data = this,
+    likes = this.likes,
+    dislikes = this.dislikes,
+    isLiked = this.isLiked,
+    isUnliked = this.isUnliked,
+    showReplies = this.showReplies,
+    replies = this.replies.map { it.toUi() },
+    hasMoreReplies = this.hasMoreReplies,
+    repliesPage = this.repliesPage,
+)
+
+// ── CommentsSection ────────────────────────────────────────────────────────────
+
+@Composable
+fun CommentsSection(
+    animeId: String,
+    episodeNumber: Int,
+    userId: String?,
+    username: String?,
+    userPfp: String?,
+    onClose: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val commentService = remember { AppComponent.commentService }
+    val isAuthenticated = userId != null
+
+    var comments by remember { mutableStateOf<List<CommentUiModel>>(emptyList()) }
+    var totalComments by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(true) }
+    var currentPage by remember { mutableIntStateOf(1) }
+    var hasMore by remember { mutableStateOf(false) }
+    var sortBy by remember { mutableStateOf("newest") }
+
+    var rootText by remember { mutableStateOf("") }
+    var isPostingRoot by remember { mutableStateOf(false) }
+    var rootIsSpoiler by remember { mutableStateOf(false) }
+    var rootShowPreview by remember { mutableStateOf(false) }
+    var rootFocused by remember { mutableStateOf(false) }
+    var rootImageDialog by remember { mutableStateOf(false) }
+    var imageUrlInput by remember { mutableStateOf("") }
+
+    val listState = rememberLazyListState()
+
+    fun sortParam() = when (sortBy) { "oldest" -> "oldest"; "best" -> "best"; else -> "new" }
+
+    fun loadComments(page: Int = 1) {
+        scope.launch {
+            isLoading = true
+            val res = commentService.getComments(animeId, episodeNumber, page, sortParam())
+            if (res != null) {
+                val incoming = res.comments.map { it.toUi() }
+                comments = if (page == 1) incoming else {
+                    val ids = comments.map { it.data.id }.toSet()
+                    comments + incoming.filter { it.data.id !in ids }
+                }
+                totalComments = res.total_comments
+                currentPage = page
+                hasMore = res.has_more
+            }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(animeId, episodeNumber, sortBy) { loadComments(1) }
+
+    // ── Updater helpers ──────────────────────────────────────────────────────
+    fun updateRoot(id: String, fn: (CommentUiModel) -> CommentUiModel) {
+        comments = comments.map { if (it.data.id == id) fn(it) else it }
+    }
+    fun updateReply(parentId: String, replyId: String, fn: (CommentUiModel) -> CommentUiModel) {
+        comments = comments.map { c ->
+            if (c.data.id == parentId)
+                c.copy(replies = c.replies.map { if (it.data.id == replyId) fn(it) else it })
+            else c
+        }
+    }
+
+    fun vote(model: CommentUiModel, type: String, parentId: String? = null) {
+        if (!isAuthenticated) return
+        val updated = if (type == "like") {
+            val was = model.isLiked
+            model.copy(
+                likes = if (was) model.likes - 1 else model.likes + 1,
+                dislikes = if (!was && model.isUnliked) maxOf(0, model.dislikes - 1) else model.dislikes,
+                isLiked = !was,
+                isUnliked = if (!was) false else model.isUnliked
+            )
+        } else {
+            val was = model.isUnliked
+            model.copy(
+                dislikes = if (was) maxOf(0, model.dislikes - 1) else model.dislikes + 1,
+                likes = if (!was && model.isLiked) maxOf(0, model.likes - 1) else model.likes,
+                isUnliked = !was,
+                isLiked = if (!was) false else model.isLiked
+            )
+        }
+        if (parentId != null) updateReply(parentId, model.data.id) { updated }
+        else updateRoot(model.data.id) { updated }
+        scope.launch { commentService.voteComment(model.data.id, type) }
+    }
+
+    fun postRoot() {
+        println("[CommentsSection] postRoot called: isAuthenticated=$isAuthenticated, rootText.length=${rootText.length}")
+        if (!isAuthenticated || rootText.isBlank()) return
+        scope.launch {
+            isPostingRoot = true
+            val res = commentService.postComment(animeId, episodeNumber, rootText, rootIsSpoiler)
+            println("[CommentsSection] postRoot response: $res")
+            if (res?.success == true) {
+                val id = res.data?.commentId ?: res.data?.id ?: System.currentTimeMillis().toString()
+                println("[CommentsSection] postRoot success! Assigning ID: $id")
+                comments = listOf(CommentUiModel(
+                    data = Comment(
+                        id = id, author = username, authorId = userId, authorPfp = userPfp,
+                        content = rootText, isSpoiller = rootIsSpoiler, likes = 0, dislikes = 0
+                    )
+                )) + comments
+                totalComments++
+                rootText = ""; rootIsSpoiler = false; rootFocused = false
+            } else {
+                println("[CommentsSection] postRoot non-success: message=${res?.message}")
+            }
+            isPostingRoot = false
+        }
+    }
+
+    fun loadReplies(model: CommentUiModel) {
+        updateRoot(model.data.id) { it.copy(isLoadingReplies = true) }
+        scope.launch {
+            val page = model.repliesPage + 1
+            val res = commentService.getReplies(animeId, episodeNumber, model.data.id, page)
+            if (res != null) {
+                val existingIds = model.replies.map { it.data.id }.toSet()
+                updateRoot(model.data.id) { c ->
+                    c.copy(
+                        replies = c.replies + res.comments.map { it.toUi() }.filter { it.data.id !in existingIds },
+                        repliesPage = page, hasMoreReplies = res.has_more,
+                        showReplies = true, isLoadingReplies = false
+                    )
+                }
+            } else {
+                updateRoot(model.data.id) { it.copy(isLoadingReplies = false) }
+            }
+        }
+    }
+
+    fun postReply(parent: CommentUiModel) {
+        println("[CommentsSection] postReply called: isAuthenticated=$isAuthenticated, parentId=${parent.data.id}")
+        if (!isAuthenticated || parent.replyText.isBlank()) return
+        updateRoot(parent.data.id) { it.copy(isSubmitting = true) }
+        scope.launch {
+            val res = commentService.postComment(animeId, episodeNumber, parent.replyText, false, parent.data.id)
+            println("[CommentsSection] postReply response: $res")
+            if (res?.success == true) {
+                val id = res.data?.commentId ?: res.data?.id ?: System.currentTimeMillis().toString()
+                println("[CommentsSection] postReply success! Assigning ID: $id")
+                updateRoot(parent.data.id) { c ->
+                    c.copy(
+                        replies = c.replies + CommentUiModel(
+                            data = Comment(
+                                id = id, author = username, authorId = userId, authorPfp = userPfp,
+                                content = parent.replyText, likes = 0, dislikes = 0
+                            )
+                        ),
+                        replyText = "", isReplying = false, showReplies = true, isSubmitting = false
+                    )
+                }
+            } else {
+                println("[CommentsSection] postReply non-success: message=${res?.message}")
+                updateRoot(parent.data.id) { it.copy(isSubmitting = false) }
+            }
+        }
+    }
+
+    fun deleteComment(id: String) {
+        scope.launch {
+            val ok = commentService.deleteComment(id)
+            if (ok) {
+                comments = comments.filter { it.data.id != id }
+                totalComments = maxOf(0, totalComments - 1)
+            }
+        }
+    }
+
+    // ── UI ───────────────────────────────────────────────────────────────────
+    // Image insert dialog (matches Kuudere's AlertDialog)
+    if (rootImageDialog) {
+        AlertDialog(
+            onDismissRequest = { rootImageDialog = false; imageUrlInput = "" },
+            title = { Text("Insert Image", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Paste the URL of the image you want to include in your comment.", color = TextSec, fontSize = 13.sp)
+                    BasicTextField(
+                        value = imageUrlInput,
+                        onValueChange = { imageUrlInput = it },
+                        textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                        cursorBrush = SolidColor(AccentRed),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .background(BgInput.copy(alpha = 0.5f))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .defaultMinSize(minHeight = 44.dp),
+                        decorationBox = { inner ->
+                            if (imageUrlInput.isEmpty()) Text("https://example.com/image.png", color = TextMuted, fontSize = 13.sp)
+                            inner()
+                        }
+                    )
+                    Text("Supports PNG, JPG, GIF, WebP", color = TextMuted, fontSize = 10.sp, letterSpacing = 0.8.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { rootImageDialog = false; imageUrlInput = "" }) {
+                    Text("Cancel", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+            },
+            confirmButton = {
+                Box(
+                    Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(AccentRed)
+                        .clickable {
+                            if (imageUrlInput.isNotBlank()) {
+                                rootText += "![image](${imageUrlInput.trim()})"
+                            }
+                            rootImageDialog = false; imageUrlInput = ""
+                        }.padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text("Insert Image", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = BgDark,
+            tonalElevation = 0.dp
+        )
+    }
+
+    Column(Modifier.fillMaxSize().background(BgBlack)) {
+        // ── Header with sort tabs ────────────────────────────────────────────
+        Row(
+            Modifier.fillMaxWidth().background(BgBlack)
+                .border(0.dp, Color.Transparent) // keeps structure
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("COMMENTS", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 0.8.sp)
+            Spacer(Modifier.width(8.dp))
+            // Red badge
+            Box(
+                Modifier.background(AccentRed, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
+                Text(totalComments.toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.weight(1f))
+            // Sort tabs — matching Kuudere's button row
+            listOf("best" to "Best", "newest" to "Newest", "oldest" to "Oldest").forEach { (key, label) ->
+                val active = sortBy == key
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (active) AccentRed else Color.Transparent)
+                        .clickable { if (sortBy != key) { sortBy = key } }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    if (isLoading && active) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            CircularProgressIndicator(Modifier.size(9.dp), color = Color.White, strokeWidth = 1.5.dp)
+                            Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text(label, color = if (active) Color.White else TextMuted, fontSize = 11.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.LightGray)
+            }
+        }
+        // Divider
+        Box(Modifier.fillMaxWidth().height(1.dp).background(BorderLine.copy(alpha = 0.5f)))
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            // ── Encouraging prompt + comment input ───────────────────────────
+            item {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Encouraging message
+                    Box(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(BgCard).padding(12.dp)
+                    ) {
+                        Text(
+                            "If you don't mind, please leave a comment and share your thoughts — it will make the website even more lively! Many people are eager to read your comments! 😊",
+                            color = TextSec, fontSize = 12.sp, lineHeight = 17.sp
+                        )
+                    }
+
+                    // Comment count row
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("$totalComments comments", color = TextMuted, fontSize = 12.sp)
+                    }
+
+                    // Input area
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                        // Avatar
+                        Box(
+                            Modifier.size(38.dp).clip(CircleShape).background(BgCard),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (userPfp != null) {
+                                AsyncImage(userPfp, null, Modifier.fillMaxSize().clip(CircleShape))
+                            } else {
+                                Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            // Use InteractionSource to reliably detect focus on the TextField
+                            val rootTfInteraction = remember { MutableInteractionSource() }
+                            val rootTfFocused by rootTfInteraction.collectIsFocusedAsState()
+                            LaunchedEffect(rootTfFocused) { if (rootTfFocused) rootFocused = true }
+
+                            // Textarea
+                            Box(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .background(BgInput.copy(alpha = 0.5f))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                BasicTextField(
+                                    value = rootText,
+                                    onValueChange = { rootText = it },
+                                    textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp, lineHeight = 18.sp),
+                                    cursorBrush = SolidColor(AccentRed),
+                                    interactionSource = rootTfInteraction,
+                                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = if (rootFocused) 80.dp else 38.dp),
+                                    decorationBox = { inner ->
+                                        if (rootText.isEmpty()) Text("Write your comment...", color = TextMuted, fontSize = 13.sp)
+                                        inner()
+                                    }
+                                )
+                            }
+
+                            // Toolbar — only when focused or text is present
+                            AnimatedVisibility(
+                                visible = rootFocused || rootText.isNotBlank() || isPostingRoot,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // ── Left: formatting icons (B / I / || / Image / Lock / Eye) ──
+                                    // Bold
+                                    FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
+                                        rootText = applyMarkdown(rootText, "**")
+                                    }
+                                    // Italic
+                                    FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
+                                        rootText = applyMarkdown(rootText, "_")
+                                    }
+                                    // Inline spoiler (EyeOff → ||text||)
+                                    FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
+                                        rootText = applyMarkdown(rootText, "||")
+                                    }
+                                    // Insert Image
+                                    FormatIconButton(Icons.Default.Image, false, Color.Transparent) {
+                                        rootImageDialog = true
+                                    }
+                                    // Whole-comment spoiler (Lock toggle) — red when active
+                                    FormatIconButton(
+                                        icon = if (rootIsSpoiler) Icons.Default.Lock else Icons.Default.LockOpen,
+                                        active = rootIsSpoiler, activeColor = AccentRed
+                                    ) { rootIsSpoiler = !rootIsSpoiler }
+                                    // Preview toggle (Eye) — blue when active
+                                    FormatIconButton(
+                                        icon = Icons.Default.Visibility,
+                                        active = rootShowPreview, activeColor = AccentBlue
+                                    ) { rootShowPreview = !rootShowPreview }
+
+                                    Spacer(Modifier.weight(1f))
+
+                                    // Cancel
+                                    Text(
+                                        "Cancel", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable {
+                                            rootFocused = false; rootText = ""; rootIsSpoiler = false; rootShowPreview = false
+                                        }.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    // SEND
+                                    Box(
+                                        Modifier.clip(RoundedCornerShape(6.dp))
+                                            .background(if (rootText.isBlank() || isPostingRoot) AccentRed.copy(alpha = 0.4f) else AccentRed)
+                                            .clickable(enabled = rootText.isNotBlank() && !isPostingRoot) { postRoot() }
+                                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isPostingRoot) {
+                                            CircularProgressIndicator(Modifier.size(11.dp), color = Color.White, strokeWidth = 1.5.dp)
+                                        } else {
+                                            Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Preview pane (shows rendered text when rootShowPreview)
+                            if (rootShowPreview && rootFocused && rootText.isNotBlank()) {
+                                Box(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                        .background(BgInput.copy(alpha = 0.3f))
+                                        .padding(12.dp)
+                                ) {
+                                    CommentContent(content = rootText, isSpoiler = rootIsSpoiler)
+                                }
+                            }
+                        }
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(BorderLine.copy(alpha = 0.5f)))
+            }
+
+            // ── Loading state ────────────────────────────────────────────────
+            if (isLoading && comments.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AccentRed, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                    }
+                }
+            } else if (comments.isEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                        Text("No comments yet. Be the first to comment!", color = TextMuted, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                // ── Comment list with space-y-6 ──────────────────────────────
+                items(comments, key = { it.data.id }) { model ->
+                    CommentItem(
+                        model = model,
+                        userId = userId,
+                        userPfp = userPfp,
+                        depth = 0,
+                        onVote = { type -> vote(model, type) },
+                        onReplyToggle = { updateRoot(model.data.id) { it.copy(isReplying = !it.isReplying, replyText = "") } },
+                        onReplyTextChange = { text -> updateRoot(model.data.id) { it.copy(replyText = text) } },
+                        onSubmitReply = { postReply(model) },
+                        onToggleReplies = {
+                            val m = comments.first { it.data.id == model.data.id }
+                            if (!m.showReplies && m.replies.isEmpty() && m.data.reply_count > 0) loadReplies(m)
+                            else updateRoot(model.data.id) { it.copy(showReplies = !it.showReplies) }
+                        },
+                        onLoadMoreReplies = { loadReplies(model) },
+                        onVoteReply = { reply, type -> vote(reply, type, parentId = model.data.id) },
+                        onDelete = { deleteComment(model.data.id) },
+                        onDropdownToggle = { updateRoot(model.data.id) { it.copy(showMoreDropdown = !it.showMoreDropdown) } },
+                    )
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // Load More button
+                if (hasMore) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            Box(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .background(BgCard.copy(alpha = 0.5f))
+                                    .clickable(enabled = !isLoading) { loadComments(currentPage + 1) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoading) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        CircularProgressIndicator(Modifier.size(12.dp), color = AccentRed, strokeWidth = 1.5.dp)
+                                        Text("Loading...", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                                    }
+                                } else {
+                                    Text("LOAD MORE", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Skeleton shimmer while paginating
+                if (isLoading && comments.isNotEmpty()) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).graphicsLayer { alpha = 0.5f },
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(Modifier.size(36.dp).clip(CircleShape).background(BgCard))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(Modifier.width(100.dp).height(12.dp).clip(RoundedCornerShape(4.dp)).background(BgCard))
+                                Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(4.dp)).background(BgCard))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Comment Item (recursive) ──────────────────────────────────────────────────
+
+@Composable
+private fun CommentItem(
+    model: CommentUiModel,
+    userId: String?,
+    userPfp: String?,
+    depth: Int,
+    onVote: (String) -> Unit,
+    onReplyToggle: () -> Unit,
+    onReplyTextChange: (String) -> Unit,
+    onSubmitReply: () -> Unit,
+    onToggleReplies: () -> Unit,
+    onLoadMoreReplies: () -> Unit,
+    onVoteReply: (CommentUiModel, String) -> Unit,
+    onDelete: () -> Unit,
+    onDropdownToggle: () -> Unit,
+) {
+    val c = model.data
+    val hasThread = model.isReplying || model.replies.isNotEmpty() || c.reply_count > 0
+    val isOwnComment = userId != null && (c.authorId == userId)
+    val avatarSize = if (depth == 0) 28.dp else 24.dp
+    val leftPad = if (depth == 0) 16.dp else 0.dp
+
+    Box(
+        Modifier.fillMaxWidth()
+            .background(if (c.highlight) Color(0xFF1C1A00) else Color.Transparent)
+            .padding(start = leftPad)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(if (depth == 0) 10.dp else 6.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            // ── Left column: avatar + thread line ───────────────────────────
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Avatar
+                Box(
+                    Modifier.size(avatarSize).clip(CircleShape).background(BgCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (c.authorPfp != null) {
+                        AsyncImage(c.authorPfp, null, Modifier.fillMaxSize().clip(CircleShape))
+                    } else {
+                        Icon(Icons.Default.Person, null, tint = TextMuted,
+                            modifier = Modifier.size(if (depth == 0) 14.dp else 12.dp))
+                    }
+                }
+                // Vertical thread line
+                if (hasThread) {
+                    Box(Modifier.width(1.dp).fillMaxHeight().background(BorderLine.copy(alpha = 0.8f)))
+                }
+            }
+
+            // ── Right column: content ────────────────────────────────────────
+            Column(Modifier.weight(1f).padding(end = 12.dp, bottom = 4.dp)) {
+                Spacer(Modifier.height(2.dp))
+
+                // Author + time
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        c.author ?: "Anonymous",
+                        color = TextPrimary, fontWeight = FontWeight.Bold,
+                        fontSize = if (depth == 0) 13.sp else 12.sp,
+                        modifier = Modifier.clickable { /* navigate to profile */ }
+                    )
+                    if (c.created_at != null) {
+                        Text(formatRelTime(c.created_at), color = TextMuted,
+                            fontSize = if (depth == 0) 11.sp else 10.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Content
+                CommentContent(c.content, c.isSpoiller)
+
+                Spacer(Modifier.height(6.dp))
+
+                // Actions row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Like — rose-500 glow when active, scale-110
+                    val likeScale by animateFloatAsState(if (model.isLiked) 1.15f else 1f, label = "likeScale")
+                    Box(
+                        Modifier.scale(likeScale).clip(CircleShape)
+                            .background(if (model.isLiked) AccentRed.copy(alpha = 0.1f) else Color.Transparent)
+                            .clickable { onVote("like") }
+                            .padding(5.dp)
+                    ) {
+                        Icon(Icons.Default.ThumbUp, null,
+                            tint = if (model.isLiked) AccentRed else TextMuted,
+                            modifier = Modifier.size(13.dp))
+                    }
+                    if (model.likes > 0) {
+                        Text(
+                            model.likes.toString(),
+                            color = if (model.isLiked) AccentRed else TextMuted,
+                            fontSize = 11.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Dislike — blue-500 when active
+                    val dislikeScale by animateFloatAsState(if (model.isUnliked) 1.15f else 1f, label = "dislikeScale")
+                    Box(
+                        Modifier.scale(dislikeScale).clip(CircleShape)
+                            .background(if (model.isUnliked) AccentBlue.copy(alpha = 0.1f) else Color.Transparent)
+                            .clickable { onVote("dislike") }
+                            .padding(5.dp)
+                    ) {
+                        Icon(Icons.Default.ThumbDown, null,
+                            tint = if (model.isUnliked) AccentBlue else TextMuted,
+                            modifier = Modifier.size(13.dp))
+                    }
+                    if (model.dislikes > 0) {
+                        Text(
+                            model.dislikes.toString(),
+                            color = if (model.isUnliked) AccentBlue else TextMuted,
+                            fontSize = 11.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Reply (only root-level)
+                    if (depth == 0) {
+                        Row(
+                            Modifier.clickable { onReplyToggle() }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Reply, null, tint = TextMuted, modifier = Modifier.size(13.dp))
+                            Text("Reply", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(Modifier.weight(1f))
+
+                    // ••• More dropdown
+                    Box {
+                        Text(
+                            "••• More",
+                            color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.5.sp,
+                            modifier = Modifier.clickable { onDropdownToggle() }.padding(4.dp)
+                        )
+                        DropdownMenu(
+                            expanded = model.showMoreDropdown,
+                            onDismissRequest = { onDropdownToggle() },
+                            modifier = Modifier.background(Color(0xFF09090B)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Icon(Icons.Default.Flag, null, tint = TextMuted, modifier = Modifier.size(13.dp))
+                                        Text("Report", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.width(4.dp))
+                                        Box(Modifier.background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(50)).padding(horizontal = 5.dp, vertical = 2.dp)) {
+                                            Text("Soon", color = TextMuted, fontSize = 9.sp)
+                                        }
+                                    }
+                                },
+                                onClick = {},
+                                enabled = false,
+                            )
+                            if (isOwnComment) {
+                                Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(1.dp).background(Color.White.copy(alpha = 0.1f)))
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(13.dp))
+                                            Text("Delete Comment", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    onClick = { onDropdownToggle(); onDelete() },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Reply inputbox (collapsed/expanded)
+                AnimatedVisibility(
+                    visible = model.isReplying && depth == 0,
+                    enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
+                    exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
+                ) {
+                    Spacer(Modifier.height(8.dp))
+                    // Connect reply box with curve line visually shown by indentation
+                    ReplyEditor(
+                        userPfp = userPfp,
+                        text = model.replyText,
+                        isSubmitting = model.isSubmitting,
+                        onTextChange = onReplyTextChange,
+                        onSubmit = onSubmitReply,
+                        onCancel = onReplyToggle,
+                    )
+                }
+
+                // "View N replies" toggle — collapsed state
+                if (depth == 0 && c.reply_count > 0 && !model.showReplies) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier.clickable { onToggleReplies() }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Small horizontal dash like the original
+                        Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
+                        if (model.isLoadingReplies) {
+                            CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
+                        } else {
+                            Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(13.dp))
+                        }
+                        Text(
+                            "View ${c.reply_count} ${if (c.reply_count == 1) "reply" else "replies"}",
+                            color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Nested replies — expanded state
+                if (depth == 0 && model.showReplies && model.replies.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Column(
+                        Modifier.padding(start = 0.dp), // thread line comes from avatar column
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        model.replies.forEach { reply ->
+                            // Curve connector
+                            Box(
+                                Modifier.padding(start = 2.dp, top = 12.dp, bottom = 4.dp)
+                            ) {
+                                // Rounded L-shape curve
+                                Box(Modifier.size(12.dp, 24.dp).drawBehind {
+                                    val stroke = Stroke(width = 1.dp.toPx())
+                                    drawArc(
+                                        color = BorderLine.copy(alpha = 0.8f),
+                                        startAngle = 180f,
+                                        sweepAngle = -90f,
+                                        useCenter = false,
+                                        topLeft = Offset(-size.width, 0f),
+                                        size = androidx.compose.ui.geometry.Size(size.width * 2, size.height),
+                                        style = stroke
+                                    )
+                                })
+                            }
+                            CommentItem(
+                                model = reply,
+                                userId = userId,
+                                userPfp = userPfp,
+                                depth = depth + 1,
+                                onVote = { type -> onVoteReply(reply, type) },
+                                onReplyToggle = {},
+                                onReplyTextChange = {},
+                                onSubmitReply = {},
+                                onToggleReplies = {},
+                                onLoadMoreReplies = {},
+                                onVoteReply = { _, _ -> },
+                                onDelete = {},
+                                onDropdownToggle = {},
+                            )
+                        }
+
+                        // "Show X more replies · Hide replies"
+                        if (c.reply_count > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.5f)))
+
+                                if (model.hasMoreReplies) {
+                                    Text(
+                                        text = if (model.isLoadingReplies) "Loading..."
+                                               else "Show ${c.reply_count - model.replies.size} more replies",
+                                        color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable(enabled = !model.isLoadingReplies) { onLoadMoreReplies() }
+                                    )
+                                    Text("·", color = TextMuted.copy(alpha = 0.5f), fontSize = 11.sp)
+                                }
+
+                                Row(
+                                    Modifier.clickable { onToggleReplies() },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowUp, null, tint = TextSec, modifier = Modifier.size(12.dp))
+                                    Text("Hide replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Comment Content — spoiler blur ────────────────────────────────────────────
+
+@Composable
+private fun CommentContent(content: String, isSpoiler: Boolean) {
+    var revealed by remember { mutableStateOf(false) }
+    val text = content.replace("\\n", "\n")
+
+    if (isSpoiler && !revealed) {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(BgCard)
+                .clickable { revealed = true }
+                .padding(horizontal = 6.dp, vertical = 3.dp)
+        ) {
+            Text(text, color = Color.Transparent, fontSize = 13.sp, lineHeight = 18.sp)
+            Text("Spoiler — tap to reveal", color = TextMuted, fontSize = 12.sp)
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            val imageRegex = """!\[.*?\]\((.*?)\)""".toRegex()
+            val parts = mutableListOf<@Composable () -> Unit>()
+            var lastIndex = 0
+
+            for (match in imageRegex.findAll(text)) {
+                val textPart = text.substring(lastIndex, match.range.start).trim()
+                if (textPart.isNotEmpty()) {
+                    parts.add { StyledCommentText(textPart) }
+                }
+                val url = match.groupValues[1]
+                parts.add {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = "User image",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(BorderSub.copy(alpha = 0.1f))
+                    )
+                }
+                lastIndex = match.range.endInclusive + 1
+            }
+            val remaining = text.substring(lastIndex).trim()
+            if (remaining.isNotEmpty()) {
+                parts.add { StyledCommentText(remaining) }
+            }
+
+            for (part in parts) {
+                part()
+            }
+        }
+    }
+}
+
+@Composable
+private fun StyledCommentText(text: String) {
+    var inlineSpoilersRevealed by remember { mutableStateOf(false) }
+    val annotatedTokenRegex = """(\*\*[^*]+\*\*|__[^_]+__|\|\|[^|]+\|\||_[^_]+_)""".toRegex()
+    
+    val annotatedString = buildAnnotatedString {
+        var lastIndex = 0
+        for (match in annotatedTokenRegex.findAll(text)) {
+            append(text.substring(lastIndex, match.range.start))
+            val token = match.value
+            when {
+                token.startsWith("**") -> {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(token.drop(2).dropLast(2))
+                    }
+                }
+                token.startsWith("__") -> {
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                        append(token.drop(2).dropLast(2))
+                    }
+                }
+                token.startsWith("_") -> {
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                        append(token.drop(1).dropLast(1))
+                    }
+                }
+                token.startsWith("||") -> {
+                    val content = token.drop(2).dropLast(2)
+                    withStyle(
+                        SpanStyle(
+                            background = BgCard,
+                            // If revealed, show text color, otherwise blend with background
+                            color = if (inlineSpoilersRevealed) TextPrimary else Color.Transparent
+                        )
+                    ) {
+                        append(content)
+                    }
+                }
+                else -> append(token)
+            }
+            lastIndex = match.range.endInclusive + 1
+        }
+        append(text.substring(lastIndex))
+    }
+
+    Text(
+        text = annotatedString,
+        color = TextPrimary.copy(alpha = 0.9f),
+        fontSize = 13.sp,
+        lineHeight = 19.sp,
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+        ) {
+            inlineSpoilersRevealed = !inlineSpoilersRevealed
+        }
+    )
+}
+
+// ── Reply Editor ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun ReplyEditor(
+    userPfp: String?,
+    text: String,
+    isSubmitting: Boolean,
+    onTextChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.size(24.dp).clip(CircleShape).background(BgCard), contentAlignment = Alignment.Center) {
+            if (userPfp != null) {
+                AsyncImage(userPfp, null, Modifier.fillMaxSize().clip(CircleShape))
+            } else {
+                Icon(Icons.Default.Person, null, tint = TextMuted, modifier = Modifier.size(12.dp))
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            var showPreview by remember { mutableStateOf(false) }
+
+            Box(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .background(BgInput.copy(alpha = 0.5f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    textStyle = TextStyle(color = TextPrimary, fontSize = 13.sp),
+                    cursorBrush = SolidColor(AccentRed),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 70.dp),
+                    decorationBox = { inner ->
+                        if (text.isEmpty()) Text("Write your reply...", color = TextMuted, fontSize = 13.sp)
+                        inner()
+                    }
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Bold
+                FormatIconButton(Icons.Default.FormatBold, false, Color.Transparent) {
+                    onTextChange(applyMarkdown(text, "**"))
+                }
+                // Italic
+                FormatIconButton(Icons.Default.FormatItalic, false, Color.Transparent) {
+                    onTextChange(applyMarkdown(text, "_"))
+                }
+                // Inline spoiler
+                FormatIconButton(Icons.Default.VisibilityOff, false, Color.Transparent) {
+                    onTextChange(applyMarkdown(text, "||"))
+                }
+                // Preview toggle (Eye)
+                FormatIconButton(
+                    icon = Icons.Default.Visibility,
+                    active = showPreview, activeColor = AccentBlue
+                ) { showPreview = !showPreview }
+
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Cancel", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onCancel() }.padding(horizontal = 6.dp, vertical = 4.dp)
+                )
+                Box(
+                    Modifier.clip(RoundedCornerShape(6.dp))
+                        .background(if (text.isBlank() || isSubmitting) AccentRed.copy(alpha = 0.4f) else AccentRed)
+                        .clickable(enabled = text.isNotBlank() && !isSubmitting) { onSubmit() }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(Modifier.size(10.dp), color = Color.White, strokeWidth = 1.5.dp)
+                    } else {
+                        Text("REPLY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (showPreview && text.isNotBlank()) {
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, BorderSub.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .background(BgInput.copy(alpha = 0.3f))
+                        .padding(12.dp)
+                ) {
+                    CommentContent(content = text, isSpoiler = false)
+                }
+            }
+        }
+    }
+}
+
+// ── Format toolbar buttons ────────────────────────────────────────────────────
+
+@Composable
+private fun FormatButton(label: String, italic: Boolean = false, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(4.dp))
+            .clickable { onClick() }
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label, color = TextMuted, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal
+        )
+    }
+}
+
+@Composable
+private fun FormatIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    active: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        Modifier.clip(RoundedCornerShape(4.dp))
+            .background(if (active) activeColor.copy(alpha = 0.1f) else Color.Transparent)
+            .clickable { onClick() }
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, null, tint = if (active) activeColor else TextMuted, modifier = Modifier.size(13.dp))
+    }
+}
+
+
+// ── Markdown apply helper ─────────────────────────────────────────────────────
+
+/** Wraps the current text with the given marker (appended at end since we don't have cursor pos). */
+private fun applyMarkdown(text: String, marker: String): String {
+    // If text is empty just insert the markers so user types between them
+    if (text.isEmpty()) return "$marker$marker"
+    // Otherwise append markers around the whole text or at end
+    return "$text$marker$marker"
+}
+
+// ── Relative timestamp ────────────────────────────────────────────────────────
+
+fun formatRelTime(isoDate: String): String = try {
+    val fmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+    fmt.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    val date = fmt.parse(isoDate.substringBefore(".").replace("Z", "")) ?: return ""
+    val s = (System.currentTimeMillis() - date.time) / 1000
+    when {
+        s < 60      -> "${s}s ago"
+        s < 3600    -> "${s / 60}m ago"
+        s < 86400   -> "${s / 3600}h ago"
+        s < 2592000 -> "${s / 86400}d ago"
+        else        -> "${s / 2592000}mo ago"
+    }
+} catch (e: Exception) { "" }

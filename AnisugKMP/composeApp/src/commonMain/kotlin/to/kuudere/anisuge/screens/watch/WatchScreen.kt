@@ -46,6 +46,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.layout.ContentScale
 import to.kuudere.anisuge.ui.WatchlistBottomSheet
 import kotlinx.coroutines.launch
+import to.kuudere.anisuge.AppComponent
+import to.kuudere.anisuge.data.models.SessionCheckResult
 
 @Composable
 fun WatchScreen(
@@ -110,7 +112,7 @@ fun WatchScreen(
                             exit = slideOutHorizontally(animationSpec = tween(300)) { it } + shrinkHorizontally(animationSpec = tween(300), shrinkTowards = Alignment.Start) + fadeOut(animationSpec = tween(300))
                         ) {
                             Box(Modifier.width(sidePanelWidth).fillMaxHeight()) {
-                                SidePanelContent(uiState, viewModel)
+                                SidePanelContent(uiState, viewModel, animeId)
                             }
                         }
                     }
@@ -136,7 +138,7 @@ fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: S
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel) {
+fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: String = "") {
     Column(
         Modifier
             .fillMaxSize()
@@ -144,26 +146,27 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel) {
             .border(1.dp, Color(0xFF222222))
     ) {
         // Top header
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0A0A0A))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val title = when (uiState.activeSidePanel) {
-                "info" -> "Anime Info"
-                "episodes" -> "Episodes"
-                "comments" -> "Comments"
-                else -> ""
+        if (uiState.activeSidePanel != "comments" && uiState.activeSidePanel != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF0A0A0A))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val title = when (uiState.activeSidePanel) {
+                    "info" -> "Anime Info"
+                    "episodes" -> "Episodes"
+                    else -> ""
+                }
+                Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { viewModel.toggleSidePanel(null) }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, null, tint = Color.LightGray)
+                }
             }
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = { viewModel.toggleSidePanel(null) }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Close, null, tint = Color.LightGray)
-            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF222222)))
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF222222)))
         
         // Content
         Box(Modifier.fillMaxSize()) {
@@ -272,9 +275,25 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel) {
                         }
                     }
                     "comments" -> {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Comments integration here", color = Color.LightGray)
+                        var fastUserId by remember { mutableStateOf<String?>(null) }
+                        LaunchedEffect(Unit) {
+                            fastUserId = AppComponent.sessionStore.get()?.userId
                         }
+
+                        val userProfile by produceState<to.kuudere.anisuge.data.models.UserProfile?>(null) {
+                            val result = AppComponent.authService.checkSession()
+                            value = if (result is SessionCheckResult.Valid) result.user else null
+                        }
+                        
+                        // Use the Kuudere string slug passed to WatchScreen, not the anilist int
+                        CommentsSection(
+                            animeId = animeId,
+                            episodeNumber = uiState.currentEpisodeNumber,
+                            userId = userProfile?.effectiveId ?: fastUserId,
+                            username = userProfile?.username,
+                            userPfp = userProfile?.avatar,
+                            onClose = { viewModel.toggleSidePanel(null) }
+                        )
                     }
                     else -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
