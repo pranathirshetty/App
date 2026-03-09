@@ -27,6 +27,7 @@ actual fun VideoPlayerSurface(
     onFinished: (() -> Unit)?
 ) {
     val context = LocalContext.current
+    val currentOnFinished by rememberUpdatedState(onFinished)
 
     val resolvedUrl = remember(state.config.url) {
         val url = state.config.url
@@ -51,7 +52,7 @@ actual fun VideoPlayerSurface(
     }
 
     if (resolvedUrl == null) {
-        LaunchedEffect(Unit) { onFinished?.invoke() }
+        LaunchedEffect(Unit) { currentOnFinished?.invoke() }
         Box(modifier = modifier.fillMaxSize().background(Color.Black))
         return
     }
@@ -198,7 +199,7 @@ actual fun VideoPlayerSurface(
                     MPVLib.MPV_EVENT_END_FILE -> {
                         state.isPlaying = false
                         if (!state.config.loop) {
-                            onFinished?.invoke()
+                            currentOnFinished?.invoke()
                         }
                     }
                 }

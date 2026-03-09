@@ -7,7 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -91,95 +93,99 @@ fun SettingsOverlay(
                                 Box(modifier = Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.DarkGray))
                             }
 
-                            // Quality
-                            if (uiState.availableQualities.isNotEmpty()) {
-                                SettingsMenuItem(
-                                    icon = { Icon(getSignalIcon(), contentDescription = null, tint = Color.White) }, // Icon
-                                    title = "Quality",
-                                    subtitle = uiState.currentQuality,
-                                    onClick = { currentPage = SettingsMenuPage.QUALITY }
-                                )
-                            }
+                            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                                // 1. Server
+                                if (servers.isNotEmpty()) {
+                                    SettingsMenuItem(
+                                        icon = { Icon(getServerIcon(), contentDescription = null, tint = Color.White) },
+                                        title = "Server",
+                                        subtitle = uiState.currentServer,
+                                        onClick = { currentPage = SettingsMenuPage.SERVER }
+                                    )
+                                }
+                                
+                                // 2. Quality
+                                if (uiState.availableQualities.isNotEmpty()) {
+                                    SettingsMenuItem(
+                                        icon = { Icon(getSignalIcon(), contentDescription = null, tint = Color.White) }, // Icon
+                                        title = "Quality",
+                                        subtitle = uiState.currentQuality,
+                                        onClick = { currentPage = SettingsMenuPage.QUALITY }
+                                    )
+                                }
 
-                            // Playback Speed
-                            SettingsMenuItem(
-                                icon = { Icon(getGaugeIcon(), contentDescription = null, tint = Color.White) },
-                                title = "Playback speed",
-                                subtitle = if (uiState.playbackSpeed == 1.0) "Normal" else "${uiState.playbackSpeed}x",
-                                onClick = { currentPage = SettingsMenuPage.SPEED }
-                            )
+                                // 3. Playback settings
+                                val isAutoplayOn = uiState.autoPlay || uiState.autoNext || uiState.autoSkipIntro || uiState.autoSkipOutro
+                                SettingsMenuItem(
+                                    icon = { Icon(Icons.Default.PlayCircleFilled, contentDescription = null, tint = Color.White) },
+                                    title = "Playback settings",
+                                    subtitle = if (isAutoplayOn) "On" else "Off",
+                                    onClick = { currentPage = SettingsMenuPage.AUTOPLAY }
+                                )
 
-                            // Captions / Subtitles
-                            if (uiState.availableSubtitles.isNotEmpty()) {
-                                val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
-                                val currentLabel = selectedSub?.title ?: selectedSub?.resolvedLang ?: "Off"
-                                SettingsMenuItem(
-                                    icon = { Icon(getClosedCaptionIcon(), contentDescription = null, tint = Color.White) },
-                                    title = "Captions",
-                                    subtitle = currentLabel,
-                                    onClick = { currentPage = SettingsMenuPage.SUBTITLES }
-                                )
-                            }
+                                // 4. Audio Track
+                                if (audioTracks.isNotEmpty()) {
+                                    val currentLabel = audioTracks.firstOrNull { it.first == selectedAudioTrack }?.second ?: "Default"
+                                    SettingsMenuItem(
+                                        icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
+                                        title = "Audio Track",
+                                        subtitle = currentLabel,
+                                        onClick = { currentPage = SettingsMenuPage.AUDIO }
+                                    )
+                                } else {
+                                    // Fallback cycle
+                                    SettingsMenuItem(
+                                        icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
+                                        title = "Audio Track",
+                                        subtitle = "Cycle",
+                                        onClick = { onCycleAudio(); onDismiss() }
+                                    )
+                                }
+                                
+                                // 5. Captions
+                                if (uiState.availableSubtitles.isNotEmpty()) {
+                                    val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
+                                    val currentLabel = selectedSub?.title ?: selectedSub?.resolvedLang ?: "Off"
+                                    SettingsMenuItem(
+                                        icon = { Icon(getClosedCaptionIcon(), contentDescription = null, tint = Color.White) },
+                                        title = "Captions",
+                                        subtitle = currentLabel,
+                                        onClick = { currentPage = SettingsMenuPage.SUBTITLES }
+                                    )
+                                }
 
-                            // Audio Track
-                            if (audioTracks.isNotEmpty()) {
-                                val currentLabel = audioTracks.firstOrNull { it.first == selectedAudioTrack }?.second ?: "Default"
+                                // 6. Playback speed
                                 SettingsMenuItem(
-                                    icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
-                                    title = "Audio Track",
-                                    subtitle = currentLabel,
-                                    onClick = { currentPage = SettingsMenuPage.AUDIO }
+                                    icon = { Icon(getGaugeIcon(), contentDescription = null, tint = Color.White) },
+                                    title = "Playback speed",
+                                    subtitle = if (uiState.playbackSpeed == 1.0) "Normal" else "${uiState.playbackSpeed}x",
+                                    onClick = { currentPage = SettingsMenuPage.SPEED }
                                 )
-                            } else {
-                                // Fallback cycle
-                                SettingsMenuItem(
-                                    icon = { Icon(getLanguagesIcon(), contentDescription = null, tint = Color.White) },
-                                    title = "Audio Track",
-                                    subtitle = "Cycle",
-                                    onClick = { onCycleAudio(); onDismiss() }
-                                )
-                            }
 
-                            // Server
-                            if (servers.isNotEmpty()) {
-                                SettingsMenuItem(
-                                    icon = { Icon(getServerIcon(), contentDescription = null, tint = Color.White) },
-                                    title = "Server",
-                                    subtitle = uiState.currentServer,
-                                    onClick = { currentPage = SettingsMenuPage.SERVER }
-                                )
+                                // 7. Watchlist
+                                uiState.episodeData?.let { data ->
+                                    SettingsMenuItem(
+                                        icon = { 
+                                            if (uiState.isUpdatingWatchlist) {
+                                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                            } else {
+                                                Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
+                                            }
+                                        },
+                                        title = "Watchlist",
+                                        subtitle = data.folder ?: "Not in list",
+                                        onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
+                                    )
+                                }
+                                
+                                Spacer(Modifier.height(8.dp))
                             }
-                            
-                            uiState.episodeData?.let { data ->
-                                SettingsMenuItem(
-                                    icon = { 
-                                        if (uiState.isUpdatingWatchlist) {
-                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                        } else {
-                                            Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
-                                        }
-                                    },
-                                    title = "Watchlist",
-                                    subtitle = data.folder ?: "Not in list",
-                                    onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
-                                )
-                            }
-                            // Autoplay Settings
-                            val isAutoplayOn = uiState.autoPlay || uiState.autoNext || uiState.autoSkipIntro || uiState.autoSkipOutro
-                            SettingsMenuItem(
-                                icon = { Icon(Icons.Default.PlayCircleFilled, contentDescription = null, tint = Color.White) },
-                                title = "Playback settings",
-                                subtitle = if (isAutoplayOn) "On" else "Off",
-                                onClick = { currentPage = SettingsMenuPage.AUTOPLAY }
-                            )
-                            
-                            Spacer(Modifier.height(8.dp))
                         }
                     }
                     SettingsMenuPage.SERVER -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Server") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 items(servers) { serverName ->
                                     SubMenuItem(
                                         title = serverName,
@@ -193,7 +199,7 @@ fun SettingsOverlay(
                     SettingsMenuPage.QUALITY -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Quality") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 items(uiState.availableQualities) { (quality, _) ->
                                     SubMenuItem(
                                         title = quality,
@@ -207,7 +213,7 @@ fun SettingsOverlay(
                     SettingsMenuPage.AUDIO -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Audio Track") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 items(audioTracks) { (id, label) ->
                                     SubMenuItem(
                                         title = label,
@@ -222,7 +228,7 @@ fun SettingsOverlay(
                         val speeds = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Playback speed") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 items(speeds) { speed ->
                                     val titleStr = if (speed == 1.0) "Normal" else "${speed}x"
                                     SubMenuItem(
@@ -237,7 +243,7 @@ fun SettingsOverlay(
                     SettingsMenuPage.SUBTITLES -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Captions") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 item {
                                     SubMenuItem(
                                         title = "Off",
@@ -262,7 +268,7 @@ fun SettingsOverlay(
                         val currentFolder = uiState.episodeData?.folder
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Watchlist") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 items(folders) { folder ->
                                     SubMenuItem(
                                         title = folder,
@@ -276,7 +282,7 @@ fun SettingsOverlay(
                     SettingsMenuPage.AUTOPLAY -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             SubMenuHeader("Playback settings") { currentPage = SettingsMenuPage.MAIN }
-                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp).fillMaxWidth()) {
+                            LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 item {
                                     ToggleMenuItem(
                                         title = "Auto Play",

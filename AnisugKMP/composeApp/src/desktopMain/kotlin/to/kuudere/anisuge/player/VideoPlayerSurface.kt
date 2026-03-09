@@ -34,6 +34,7 @@ actual fun VideoPlayerSurface(
     modifier:   Modifier,
     onFinished: (() -> Unit)?,
 ) {
+    val currentOnFinished by rememberUpdatedState(onFinished)
     var player       by remember { mutableStateOf<MpvPlayer?>(null) }
     var frameBitmap  by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
 
@@ -43,7 +44,7 @@ actual fun VideoPlayerSurface(
 
     // ── Player lifecycle ─────────────────────────────────────────────────────
     DisposableEffect(state.config) {
-        val p = MpvPlayer(config = state.config, state = state, onFinished = onFinished)
+        val p = MpvPlayer(config = state.config, state = state, onFinished = { currentOnFinished?.invoke() })
         player = p
         onDispose { p.destroy() }
     }
