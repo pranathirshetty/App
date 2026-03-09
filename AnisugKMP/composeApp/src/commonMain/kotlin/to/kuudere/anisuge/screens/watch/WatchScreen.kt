@@ -67,6 +67,7 @@ fun WatchScreen(
     episodeNumber: Int,
     server: String? = null,
     lang: String? = null,
+    offlinePath: String? = null,
     viewModel: WatchViewModel,
     onBack: () -> Unit
 ) {
@@ -85,8 +86,8 @@ fun WatchScreen(
         handleBack()
     }
 
-    LaunchedEffect(animeId, episodeNumber) {
-        viewModel.initialize(animeId, episodeNumber, server, lang)
+    LaunchedEffect(animeId, episodeNumber, offlinePath) {
+        viewModel.initialize(animeId, episodeNumber, server, lang, offlinePath)
     }
 
     Scaffold(

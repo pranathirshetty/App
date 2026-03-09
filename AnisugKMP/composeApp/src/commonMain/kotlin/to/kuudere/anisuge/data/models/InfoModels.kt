@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class AnimeDetails(
     val id: String = "",
+    val anilistId: Int? = null,
     val english: String? = null,
     val romaji: String? = null,
     val native: String? = null,

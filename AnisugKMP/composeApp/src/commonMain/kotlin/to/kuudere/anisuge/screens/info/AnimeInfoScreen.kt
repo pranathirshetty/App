@@ -57,12 +57,40 @@ fun AnimeInfoScreen(
 
     val state by viewModel.uiState.collectAsState()
     var showEpisodes by remember { mutableStateOf(true) }
+    var selectedEpisodeForDownload by remember { mutableStateOf<to.kuudere.anisuge.data.models.EpisodeItem?>(null) }
 
     // Auto-load episodes since it's the default tab
     LaunchedEffect(state.details) {
         if (state.details != null && state.episodes.isEmpty() && !state.isLoadingEpisodes) {
             viewModel.loadEpisodes()
         }
+    }
+
+    if (selectedEpisodeForDownload != null && state.details != null) {
+        val ep = selectedEpisodeForDownload!!
+        val anilistId = state.details!!.anilistId ?: 0
+        DownloadEpisodeDialog(
+            animeId = state.details!!.id,
+            episodeId = ep.id,
+            episodeNumber = ep.number,
+            anilistId = anilistId,
+            infoService = to.kuudere.anisuge.AppComponent.infoService,
+            onDismiss = { selectedEpisodeForDownload = null },
+            onStartDownload = { server, subLang, audioLang, downloadFonts ->
+                val title = state.details!!.title
+                to.kuudere.anisuge.utils.DownloadManager.startDownload(
+                    animeId = state.details!!.id,
+                    anilistId = anilistId,
+                    episodeNumber = ep.number,
+                    title = title,
+                    coverImage = state.details!!.cover,
+                    server = server,
+                    subLang = subLang,
+                    audioLang = audioLang,
+                    downloadFonts = downloadFonts
+                )
+            }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -85,7 +113,8 @@ fun AnimeInfoScreen(
                         onWatchlistUpdate = { viewModel.updateWatchlist(it) },
                         onWatchNow = { onWatchEpisode(anime.id, "sub", 1) },
                         onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
-                        onGenreClick = onGenreClick
+                        onGenreClick = onGenreClick,
+                        onDownloadEpisode = { selectedEpisodeForDownload = it }
                     )
                     // Top Bar Back Button overlay
                     Box(
@@ -116,7 +145,8 @@ fun AnimeInfoScreen(
                         onWatchlistUpdate = { viewModel.updateWatchlist(it) },
                         onWatchNow = { onWatchEpisode(anime.id, "sub", 1) },
                         onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
-                        onGenreClick = onGenreClick
+                        onGenreClick = onGenreClick,
+                        onDownloadEpisode = { selectedEpisodeForDownload = it }
                     )
                 }
             }
@@ -138,7 +168,8 @@ private fun MobileLayout(
     onWatchlistUpdate: (String) -> Unit,
     onWatchNow: () -> Unit,
     onWatchEpisode: (Int) -> Unit,
-    onGenreClick: (String) -> Unit
+    onGenreClick: (String) -> Unit,
+    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -318,7 +349,7 @@ private fun MobileLayout(
 
              if (showEpisodes) {
                  Box(Modifier.padding(horizontal = 16.dp)) {
-                     EpisodeListSection(state, onWatchEpisode)
+                     EpisodeListSection(state, onWatchEpisode, onDownloadEpisode)
                  }
              } else {
                  Column(Modifier.padding(horizontal = 16.dp)) {
@@ -376,7 +407,8 @@ private fun DesktopLayout(
     onWatchlistUpdate: (String) -> Unit,
     onWatchNow: () -> Unit,
     onWatchEpisode: (Int) -> Unit,
-    onGenreClick: (String) -> Unit
+    onGenreClick: (String) -> Unit,
+    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit
 ) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val baseWidth = 1400.dp
@@ -887,7 +919,8 @@ private fun DesktopLayout(
                                 episode = episode,
                                 thumbnail = state.thumbnails[episode.number.toString()] ?: anime.cover,
                                 modifier = Modifier.animateItem(),
-                                onClick = { onWatchEpisode(episode.number) }
+                                onClick = { onWatchEpisode(episode.number) },
+                                onDownloadClick = { onDownloadEpisode(episode) }
                             )
                         }
                     }
@@ -926,7 +959,7 @@ private fun DesktopLayout(
 }
 
 @Composable
-private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, modifier: Modifier = Modifier, onClick: () -> Unit, onDownloadClick: () -> Unit = {}) {
     Box(
         modifier = modifier
             .width(300.dp)
@@ -962,6 +995,23 @@ private fun DesktopEpisodeCard(episode: EpisodeItem, thumbnail: String?, modifie
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text("8.0", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // Download Button
+        IconButton(
+            onClick = onDownloadClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(32.dp)
+                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+        ) {
+            Icon(
+                Icons.Default.Download,
+                contentDescription = "Download",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
         }
 
         // Bottom Info Match to Screenshot exactly
@@ -1050,7 +1100,8 @@ private fun WatchlistDropdownIcon(
 @Composable
 private fun EpisodeListSection(
     state: AnimeInfoUiState,
-    onWatchEpisode: (Int) -> Unit
+    onWatchEpisode: (Int) -> Unit,
+    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit
 ) {
     if (state.isLoadingEpisodes) {
         Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
@@ -1223,7 +1274,8 @@ private fun EpisodeListSection(
                 EpisodeItemRow(
                     episode = episode,
                     thumbnail = state.thumbnails[episode.number.toString()],
-                    onClick = { onWatchEpisode(episode.number) }
+                    onClick = { onWatchEpisode(episode.number) },
+                    onDownloadClick = { onDownloadEpisode(episode) }
                 )
             }
         }
@@ -1231,7 +1283,7 @@ private fun EpisodeListSection(
 }
 
 @Composable
-private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: () -> Unit) {
+private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: () -> Unit, onDownloadClick: () -> Unit = {}) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -1294,7 +1346,7 @@ private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: ()
             }
             // Download icon top-right
             IconButton(
-                onClick = { /* Download */ },
+                onClick = onDownloadClick,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .size(28.dp)

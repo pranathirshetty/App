@@ -93,6 +93,9 @@ fun App(onAppExit: () -> Unit = {}) {
                         scheduleViewModel = scheduleVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
+                        onWatchOffline = { id, ep, path -> 
+                            navController.navigate(Screen.Watch(id, ep, offlinePath = path).route) 
+                        },
                         onLogout = {
                             navController.navigate(Screen.Auth.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
@@ -137,7 +140,8 @@ fun App(onAppExit: () -> Unit = {}) {
                         navArgument("animeId") { type = androidx.navigation.NavType.StringType },
                         navArgument("episodeNumber") { type = androidx.navigation.NavType.StringType },
                         navArgument("server") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
-                        navArgument("lang") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
+                        navArgument("lang") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("offlinePath") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
                     )
                 ) { backStackEntry ->
                     val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
@@ -145,12 +149,14 @@ fun App(onAppExit: () -> Unit = {}) {
                     val episodeNum = episodeNumStr.toIntOrNull() ?: 1
                     val server = backStackEntry.arguments?.getString("server")
                     val lang = backStackEntry.arguments?.getString("lang")
+                    val offlinePath = backStackEntry.arguments?.getString("offlinePath")
 
                     WatchScreen(
                         animeId = animeId,
                         episodeNumber = episodeNum,
                         server = server,
                         lang = lang,
+                        offlinePath = offlinePath,
                         viewModel = watchVm,
                         onBack = { navController.popBackStack() }
                     )

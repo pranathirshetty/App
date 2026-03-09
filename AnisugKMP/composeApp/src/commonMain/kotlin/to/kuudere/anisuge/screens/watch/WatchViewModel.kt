@@ -10,6 +10,7 @@ import to.kuudere.anisuge.data.models.EpisodeDataResponse
 import to.kuudere.anisuge.data.models.EpisodeLink
 import to.kuudere.anisuge.data.models.StreamingData
 import to.kuudere.anisuge.data.services.InfoService
+import okio.Path.Companion.toPath
 import to.kuudere.anisuge.player.VideoPlayerConfig
 import to.kuudere.anisuge.player.VideoPlayerState
 
@@ -42,7 +43,8 @@ data class WatchUiState(
     val autoPlay: Boolean = true,
     val autoNext: Boolean = true,
     val autoSkipIntro: Boolean = false,
-    val autoSkipOutro: Boolean = false
+    val autoSkipOutro: Boolean = false,
+    val offlinePath: String? = null
 )
 
 class WatchViewModel(
@@ -61,13 +63,13 @@ class WatchViewModel(
         viewModelScope.launch { settingsStore.autoSkipOutroFlow.collect { v -> _uiState.update { it.copy(autoSkipOutro = v) } } }
     }
 
-    fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null) {
+    fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null) {
         currentAnimeId = animeId
         _uiState.update { 
             it.copy(
                 currentEpisodeNumber = episodeNumber, 
                 isLoading = true,
-                loadingMessage = "Fetching episode $episodeNumber...",
+                loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
                 isLoadingVideo = false,
                 streamingData = null,
                 availableQualities = emptyList(),
@@ -77,10 +79,39 @@ class WatchViewModel(
                 savedWatchPosition = 0.0,
                 targetLang = null,
                 targetSubtitleLang = null,
-                targetSubtitleLangCode = null
+                targetSubtitleLangCode = null,
+                offlinePath = offlinePath
             ) 
         }
-        fetchEpisodeData(episodeNumber, server, lang)
+        if (offlinePath != null) {
+            loadOfflineStream(offlinePath)
+        } else {
+            fetchEpisodeData(episodeNumber, server, lang)
+        }
+    }
+
+    private fun loadOfflineStream(path: String) {
+        viewModelScope.launch {
+            // Check for local subs/fonts in same dir
+            val dir = path.substringBeforeLast("/")
+            // Try .ass then .vtt
+            val subPath = if (okio.FileSystem.SYSTEM.exists("$dir/subtitle.ass".toPath())) {
+                "$dir/subtitle.ass"
+            } else if (okio.FileSystem.SYSTEM.exists("$dir/subtitle.vtt".toPath())) {
+                "$dir/subtitle.vtt"
+            } else {
+                null
+            }
+            
+            _uiState.update { it.copy(
+                isLoading = false,
+                isLoadingVideo = false,
+                currentQuality = "Offline",
+                availableQualities = listOf("Offline" to path),
+                currentSubtitleUrl = if (subPath != null) "file://$subPath" else null,
+                currentFontsDir = dir
+            ) }
+        }
     }
 
     private fun fetchEpisodeData(episodeNumber: Int, reqServer: String? = null, reqLang: String? = null) {

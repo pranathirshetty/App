@@ -15,18 +15,20 @@ sealed class Screen(val route: String) {
         val animeId: String, 
         val episodeNumber: Int, 
         val server: String? = null, 
-        val lang: String? = null
+        val lang: String? = null,
+        val offlinePath: String? = null
     ) : Screen(
         "watch/$animeId/$episodeNumber" + buildString {
-            if (server != null || lang != null) append("?")
+            if (server != null || lang != null || offlinePath != null) append("?")
             val params = mutableListOf<String>()
             if (server != null) params.add("server=$server")
             if (lang != null) params.add("lang=$lang")
+            if (offlinePath != null) params.add("offlinePath=$offlinePath")
             append(params.joinToString("&"))
         }
     ) {
         companion object {
-            const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}"
+            const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}&offlinePath={offlinePath}"
         }
     }
 }

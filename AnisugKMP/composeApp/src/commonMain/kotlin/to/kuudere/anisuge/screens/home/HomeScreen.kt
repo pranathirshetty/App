@@ -53,6 +53,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.rememberScrollState
@@ -61,6 +62,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import to.kuudere.anisuge.utils.Uri
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -74,6 +79,10 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Person
@@ -90,6 +99,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -121,6 +139,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.models.ContinueWatchingItem
+import to.kuudere.anisuge.utils.DownloadManager
 import to.kuudere.anisuge.platform.DraggableWindowArea
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
@@ -139,6 +158,7 @@ fun HomeScreen(
     scheduleViewModel: ScheduleViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
+    onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> },
     onLogout: () -> Unit = {},
     onExit: () -> Unit = {},
     startOnDownloads: Boolean = false,
@@ -231,7 +251,7 @@ fun HomeScreen(
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
                             AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
                             AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
-                            AnisugTab.Downloads -> DownloadsTab()
+                            AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
                             }
@@ -1516,68 +1536,176 @@ fun HomeOfflineState(onRetry: () -> Unit) {
 // ── Downloads Tab ─────────────────────────────────────────────────────────
 
 @Composable
-fun DownloadsTab() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0B0B)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(horizontal = 40.dp)
+fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> }) {
+    val tasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
+
+    if (tasks.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B0B0B)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color(0x33B71C1C), Color.Transparent)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(horizontal = 40.dp)
             ) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
-                    contentDescription = null,
-                    tint = Color(0xFFFF4444).copy(alpha = 0.8f),
-                    modifier = Modifier.size(40.dp)
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0x33B71C1C), Color.Transparent)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
+                        contentDescription = null,
+                        tint = Color(0xFFFF4444).copy(alpha = 0.8f),
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+
+                Text(
+                    text = "No Downloads Yet",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "Your offline episodes will appear here.",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    textAlign = TextAlign.Center
                 )
             }
-
-            Text(
-                text = "Downloads",
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Offline downloads are coming soon.\nYou'll be able to save episodes and watch them anywhere without an internet connection.",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-            ) {
+        }
+    } else {
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier.fillMaxSize().background(Color.Black).padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item {
                 Text(
-                    text = "Coming Soon",
-                    color = Color(0xFFFF4444).copy(alpha = 0.8f),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp
+                    "Downloads",
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp, top = 32.dp)
                 )
+            }
+            items(tasks, key = { it.id }) { task ->
+                val manager = to.kuudere.anisuge.utils.DownloadManager
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF111111))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Anime Cover
+                    Box(
+                        modifier = Modifier
+                            .size(width = 60.dp, height = 84.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF222222))
+                    ) {
+                        if (task.coverImage != null) {
+                            AsyncImage(
+                                model = task.coverImage,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = task.title,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Episode ${task.episodeNumber}",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = task.status,
+                                color = if (task.status == "Finished") Color.Green else if (task.status.startsWith("Failed")) Color.Red else Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            if (task.status != "Finished" && !task.status.startsWith("Failed")) {
+                                LinearProgressIndicator(
+                                    progress = { task.progress },
+                                    modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                                    color = Color.White,
+                                    trackColor = Color.White.copy(alpha = 0.1f)
+                                )
+                            }
+                        }
+                    }
+
+                    // Actions
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (task.status == "Finished") {
+                            // Show in Folder
+                            IconButton(
+                                onClick = { if (task.localPath != null) to.kuudere.anisuge.utils.openDirectory(task.localPath) },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Folder, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                            // Play
+                            IconButton(
+                                onClick = { if (task.localPath != null) onWatchOffline(task.animeId, task.episodeNumber, task.localPath) },
+                                modifier = Modifier.size(36.dp).background(Color.White, CircleShape)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                            }
+                        } else {
+                            // Pause / Resume
+                            IconButton(
+                                onClick = { 
+                                    if (task.isPaused) manager.resumeDownload(task.id) 
+                                    else manager.pauseDownload(task.id) 
+                                },
+                                modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
+                            ) {
+                                Icon(
+                                    if (task.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                    null, tint = Color.White, modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        
+                        // Cancel / Remove
+                        IconButton(
+                            onClick = { manager.removeTask(task.id) },
+                            modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
             }
         }
     }
