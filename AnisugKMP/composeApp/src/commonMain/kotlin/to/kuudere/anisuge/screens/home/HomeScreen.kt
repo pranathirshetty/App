@@ -191,7 +191,13 @@ fun HomeScreen(
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 // ── Mobile header (logo + avatar) ────────────────────────
                 if (!isDesktop) {
-                    MobileTopBar(avatarUrl = homeState.userProfile?.avatar)
+                    MobileTopBar(
+                        avatarUrl = homeState.userProfile?.avatar,
+                        onDownloadClick = {
+                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                            currentTab = AnisugTab.Downloads
+                        }
+                    )
                 }
 
                 Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -1302,7 +1308,7 @@ private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
 
 
 @Composable
-private fun MobileTopBar(avatarUrl: String?) {
+private fun MobileTopBar(avatarUrl: String?, onDownloadClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1323,28 +1329,43 @@ private fun MobileTopBar(avatarUrl: String?) {
                 modifier = Modifier.height(28.dp),
             )
 
-            // User avatar right
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1F1F1F)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (!avatarUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = "Profile",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(CircleShape)
-                    )
-                } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Download icon button
+                IconButton(
+                    onClick = onDownloadClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
                     Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = "Profile",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(20.dp)
+                        imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
+                        contentDescription = "Downloads",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
+                }
+
+                // User avatar right
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1F1F1F)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!avatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Profile",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Person,
+                            contentDescription = "Profile",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
