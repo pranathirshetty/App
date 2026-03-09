@@ -106,8 +106,9 @@ class WatchViewModel(
                 var targetServerName: String? = null
                 var finalLang: String? = reqLang
                 val links = data.episodeLinks ?: emptyList()
+                val hasLinks = links.isNotEmpty()
                 
-                if (reqServer != null && reqLang != null) {
+                if (hasLinks && reqServer != null && reqLang != null) {
                     val rawServerName = if (reqServer.lowercase() == "zen-2") "Zen-2" else reqServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                     val matchedLink = links.find { 
                         it.serverName.equals(rawServerName, ignoreCase = true) && 
@@ -120,7 +121,7 @@ class WatchViewModel(
                     }
                 }
                 
-                if (targetServerName == null) {
+                if (hasLinks && targetServerName == null) {
                     val fallbackLang = reqLang ?: "sub"
                     for (candidate in fallbackPriority) {
                         val apiServerName = when (candidate) {
@@ -141,6 +142,19 @@ class WatchViewModel(
                             finalLang = apiLang
                             break
                         }
+                    }
+                }
+
+                if (!hasLinks) {
+                    targetServerName = when {
+                        !reqServer.isNullOrBlank() -> reqServer.lowercase().let { if (it == "zen-2") "zen2" else it }
+                        reqLang.equals("dub", ignoreCase = true) -> "hiya-dub"
+                        else -> fallbackPriority.first()
+                    }
+                    finalLang = when {
+                        !reqLang.isNullOrBlank() -> reqLang
+                        targetServerName == "hiya-dub" -> "dub"
+                        else -> "sub"
                     }
                 }
 
@@ -173,7 +187,9 @@ class WatchViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
 
-            val response = infoService.getVideoStream(anilistId, episodeNum, serverName)
+            // Convert zen2 to zen-2 for kuudere API
+            val apiServerName = if (serverName == "zen2") "zen-2" else serverName
+            val response = infoService.getVideoStream(anilistId, episodeNum, apiServerName)
             
             val streamData = response?.directLink?.data ?: response?.data
             if (streamData != null) {

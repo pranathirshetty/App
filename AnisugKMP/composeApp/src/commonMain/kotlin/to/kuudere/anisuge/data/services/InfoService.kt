@@ -48,6 +48,7 @@ class InfoService(
         return try {
             val stored = sessionStore.get()
             val response = httpClient.get("$BASE_URL/api/watch/$animeId/$episodeNumber") {
+                parameter("nolinks", "true")
                 if (stored != null) header("Cookie", sessionToCookie(stored))
             }
             response.body<EpisodeDataResponse>()
