@@ -76,6 +76,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.WifiOff
@@ -1319,7 +1320,7 @@ private fun MobileTopBar(avatarUrl: String?) {
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Outlined.Settings,
+                        imageVector = Icons.Outlined.Person,
                         contentDescription = "Profile",
                         tint = Color.Gray,
                         modifier = Modifier.size(20.dp)
