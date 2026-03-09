@@ -413,6 +413,16 @@ fun WatchVideoPlayer(
             LaunchedEffect(playerState.position) {
                 if (playerState.duration <= 0) return@LaunchedEffect
                 val pos = playerState.position
+                val dur = playerState.duration
+                
+                // Proactive Auto Next at the very end of the video
+                if (uiState.autoNext && playerState.hasNextEpisode && pos >= dur - 0.5) {
+                    val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                    if (nextEp != null) {
+                        viewModel.onEpisodeSelected(nextEp.number)
+                        return@LaunchedEffect
+                    }
+                }
 
                 // Auto skip intro
                 if (uiState.autoSkipIntro) {
@@ -446,6 +456,49 @@ fun WatchVideoPlayer(
                         }
                     }
                 )
+
+                // Next Episode Autoplay Overlay
+                if (playerState.duration > 0 && playerState.hasNextEpisode && playerState.position >= playerState.duration - 15.0) {
+                    val remaining = (playerState.duration - playerState.position).toInt().coerceAtLeast(0)
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(bottom = 120.dp, end = 32.dp),
+                        contentAlignment = Alignment.BottomEnd
+                    ) {
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                .background(Color.Black.copy(alpha = 0.7f))
+                                .clickable {
+                                    val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                                    if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Next Episode",
+                                color = Color.White,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            if (uiState.autoNext) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "in ${remaining}s",
+                                    color = Color.LightGray,
+                                    fontSize = 14.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                androidx.compose.material.icons.Icons.Default.SkipNext, 
+                                contentDescription = "Next",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
 
                 // Render out our cross-platform compose player controls overlay
                 PlayerControls(
