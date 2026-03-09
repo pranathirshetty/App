@@ -9,6 +9,22 @@ object SubtitleUtils {
 
     fun prepareSubtitle(url: String): String? {
         return try {
+            // PGS/SUP is a binary image-based format — download raw bytes and pass directly to mpv
+            val cleanUrl = url.lowercase().substringBefore('?')
+            if (cleanUrl.endsWith(".sup") || url.lowercase().contains("format=sup")) {
+                val tmp = java.io.File.createTempFile("anisuge_sub_", ".sup")
+                tmp.deleteOnExit()
+                if (url.startsWith("file://")) {
+                    java.io.File(java.net.URI(url)).copyTo(tmp, overwrite = true)
+                } else {
+                    val conn = java.net.URL(url).openConnection()
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+                    conn.getInputStream().use { it.copyTo(tmp.outputStream()) }
+                }
+                println("[SubtitleUtils] Prepared PGS subtitle → ${tmp.absolutePath}")
+                return tmp.absolutePath
+            }
+
             val content = if (url.startsWith("file://")) {
                 java.io.File(java.net.URI(url)).readText()
             } else {

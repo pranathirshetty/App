@@ -210,8 +210,6 @@ class WatchViewModel(
                 var partialMatchedTargetSubUrl: String? = null
                 
                 streamData.subtitles?.forEach { subData ->
-                    // Skip PGS/SUP format — not supported by libmpv sub-add
-                    if (subData.format?.lowercase() == "sup") return@forEach
                     val url = subData.url ?: return@forEach
                     subtitles.add(subData)
                     if (subData.is_default == true) {
