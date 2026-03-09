@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,7 +21,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -188,28 +192,188 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
             ) { activePanel ->
                 when (activePanel) {
                     "info" -> {
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                            val animeInfo = uiState.episodeData?.animeInfo
-                            Text(
-                                text = animeInfo?.english ?: "Unknown",
-                                color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                // Likes / Dislikes
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.ThumbUp, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(animeInfo?.likes?.toString() ?: "0", color = Color.White)
+                        val animeInfo = uiState.episodeData?.animeInfo
+                        val episodeData = uiState.episodeData
+                        var showWatchlistSheet by remember { mutableStateOf(false) }
+                        val title = animeInfo?.english?.takeIf { !it.isNullOrBlank() }
+                            ?: animeInfo?.romaji?.takeIf { !it.isNullOrBlank() }
+                            ?: animeInfo?.native?.takeIf { !it.isNullOrBlank() }
+                            ?: "Unknown"
+                        val bannerUrl = animeInfo?.banner?.takeIf {
+                            !it.isNullOrBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
+                        }
+                        val backgroundImage = bannerUrl ?: animeInfo?.cover
+                        val hasBanner = bannerUrl != null
+                        val watchlistButtonLabel = if (episodeData?.inWatchlist == true) {
+                            episodeData.folder?.takeIf { it.isNotBlank() && it != "Remove" }
+                                ?: animeInfo?.folder?.takeIf { it.isNotBlank() && it != "Remove" }
+                                ?: "In Watchlist"
+                        } else {
+                            "Watchlist"
+                        }
+                        val metaText = buildList {
+                            animeInfo?.status?.takeIf { !it.isNullOrBlank() }?.let { add(it) }
+                            animeInfo?.genres.orEmpty()
+                                .filter { it.isNotBlank() }
+                                .take(2)
+                                .takeIf { it.isNotEmpty() }
+                                ?.let { add(it.joinToString(" / ")) }
+                        }.joinToString(" • ")
+                        val score = animeInfo?.averageScore?.takeIf { it > 0 }?.div(20f)
+                            ?: animeInfo?.malScore?.takeIf { it > 0 }?.div(2f)?.toFloat()
+
+                        BoxWithConstraints(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            val compact = maxWidth < 340.dp
+                            val heroHeight = if (compact) 220.dp else 250.dp
+                            val posterWidth = if (compact) 116.dp else 130.dp
+                            val posterHeight = if (compact) 170.dp else 190.dp
+                            val heroOverlap = if (compact) 122.dp else 140.dp
+                            val titleSize = if (compact) 20.sp else 24.sp
+
+                            Column(Modifier.fillMaxWidth()) {
+                                Box {
+                                    AsyncImage(
+                                        model = backgroundImage,
+                                        contentDescription = "Background",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(heroHeight)
+                                            .blur(if (hasBanner) 16.dp else 48.dp)
+                                            .alpha(if (hasBanner) 0.6f else 0.75f)
+                                    )
+                                    Box(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(heroHeight)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    0.0f to Color.Black.copy(alpha = 0.0f),
+                                                    0.4f to Color.Black.copy(alpha = 0.4f),
+                                                    1.0f to Color.Black
+                                                )
+                                            )
+                                    )
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.ThumbDown, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(animeInfo?.dislikes?.toString() ?: "0", color = Color.White)
+
+                                Box(Modifier.offset(y = (-heroOverlap))) {
+                                    Column {
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            AsyncImage(
+                                                model = animeInfo?.cover,
+                                                contentDescription = "Cover",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .width(posterWidth)
+                                                    .height(posterHeight)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color(0xFF1A1A1A))
+                                            )
+                                            Spacer(Modifier.width(16.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    text = title,
+                                                    color = Color.White,
+                                                    fontSize = titleSize,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 3,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (score != null) {
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        val filledStars = score.coerceIn(0f, 5f).toInt()
+                                                        repeat(filledStars) {
+                                                            Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                                                        }
+                                                        repeat(5 - filledStars) {
+                                                            Icon(Icons.Default.StarBorder, null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                                                        }
+                                                    }
+                                                }
+                                                if (metaText.isNotBlank()) {
+                                                    Spacer(Modifier.height(8.dp))
+                                                    Text(
+                                                        text = metaText,
+                                                        color = Color.Gray,
+                                                        fontSize = 13.sp,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                Spacer(Modifier.height(16.dp))
+
+                                                Box(
+                                                    Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(Color(0xFF222222))
+                                                        .clickable { showWatchlistSheet = true }
+                                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                                ) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            if (episodeData?.inWatchlist == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                                            null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(
+                                                            text = watchlistButtonLabel,
+                                                            color = Color.White,
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(16.dp))
+
+                                        Column(Modifier.padding(horizontal = 16.dp)) {
+                                            var isExpanded by remember { mutableStateOf(false) }
+
+                                            Text(
+                                                "Storyline",
+                                                color = Color.White,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Normal
+                                            )
+                                            Spacer(Modifier.height(12.dp))
+                                            Text(
+                                                text = stripWatchHtmlTags(animeInfo?.description.orEmpty()),
+                                                color = Color.Gray,
+                                                fontSize = 14.sp,
+                                                lineHeight = 22.sp,
+                                                maxLines = if (isExpanded) Int.MAX_VALUE else 4,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.clickable(enabled = animeInfo?.description?.isNotBlank() == true) {
+                                                    isExpanded = !isExpanded
+                                                }
+                                            )
+                                        }
+
+                                        Spacer(Modifier.height(20.dp))
+                                    }
                                 }
                             }
+                        }
+
+                        if (showWatchlistSheet) {
+                            WatchlistBottomSheet(
+                                currentFolder = episodeData?.folder,
+                                onSelect = { folder ->
+                                    showWatchlistSheet = false
+                                    viewModel.updateWatchlistStatus(folder)
+                                },
+                                onDismiss = { showWatchlistSheet = false }
+                            )
                         }
                     }
                     "episodes" -> {
@@ -694,4 +858,15 @@ private fun formatTime(seconds: Double): String {
     val mStr = m.toString().padStart(2, '0')
     val sStr = s.toString().padStart(2, '0')
     return if (h > 0) "$hStr:$mStr:$sStr" else "$mStr:$sStr"
+}
+
+private fun stripWatchHtmlTags(htmlContent: String): String {
+    return htmlContent
+        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<.*?>"), "")
+        .replace("&quot;", "\"")
+        .replace("&amp;", "&")
+        .replace("&#039;", "'")
+        .replace("\n\n\n", "\n\n")
+        .trim()
 }
