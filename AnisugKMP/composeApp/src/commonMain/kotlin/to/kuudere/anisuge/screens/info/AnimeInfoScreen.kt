@@ -252,13 +252,24 @@ private fun MobileLayout(
                          Modifier
                              .clip(RoundedCornerShape(8.dp))
                              .background(Color(0xFF222222))
-                             .clickable { onWatchNow() }
+                             .clickable {
+                                 if (anime.continueWatching != null && anime.continueWatching.episode != null) {
+                                     onWatchEpisode(anime.continueWatching.episode)
+                                 } else {
+                                     onWatchNow()
+                                 }
+                             }
                              .padding(horizontal = 16.dp, vertical = 8.dp)
                      ) {
                          Row(verticalAlignment = Alignment.CenterVertically) {
                              Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(16.dp))
                              Spacer(Modifier.width(8.dp))
-                             Text("Watch Now", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                             val watchText = if (anime.continueWatching != null && anime.continueWatching.episode != null) {
+                                 "Continue - EP ${anime.continueWatching.episode}"
+                             } else {
+                                 "Watch Now"
+                             }
+                             Text(watchText, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                          }
                      }
                  }
@@ -516,14 +527,25 @@ private fun DesktopLayout(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Button(
-                        onClick = onWatchNow,
+                        onClick = {
+                            if (anime.continueWatching != null && anime.continueWatching.episode != null) {
+                                onWatchEpisode(anime.continueWatching.episode)
+                            } else {
+                                onWatchNow()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
                         shape = RoundedCornerShape(32.dp),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
-                            Text("WATCH NOW", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            val watchText = if (anime.continueWatching != null && anime.continueWatching.episode != null) {
+                                "CONTINUE - EP ${anime.continueWatching.episode}"
+                            } else {
+                                "WATCH NOW"
+                            }
+                            Text(watchText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 

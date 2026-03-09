@@ -32,6 +32,7 @@ data class AnimeDetails(
     val views: String? = "0",
     val likes: String? = "0",
     val folder: String? = null,
+    val continueWatching: ContinueWatching? = null
 ) {
     val title: String get() {
         val eng = english?.takeIf { it.isNotBlank() }
@@ -49,6 +50,15 @@ data class AnimeDetailsResponse(
 data class WatchlistUpdateResponse(
     val success: Boolean = true,
     val message: String? = null
+)
+
+@Serializable
+data class ContinueWatching(
+    val continueId: String? = null,
+    val link: String? = null,
+    val episode: Int? = null,
+    val progress: String? = null,
+    val duration: String? = null
 )
 
 @Serializable
