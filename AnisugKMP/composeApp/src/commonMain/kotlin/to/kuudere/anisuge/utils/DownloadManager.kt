@@ -15,7 +15,11 @@ import okio.buffer
 import to.kuudere.anisuge.AppComponent
 import to.kuudere.anisuge.data.models.StreamingData
 import kotlinx.coroutines.Job
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 
+@Serializable
 data class DownloadTask(
     val id: String, // animeId_epNum
     val animeId: String,
@@ -28,7 +32,7 @@ data class DownloadTask(
     val eta: String = "",
     val localPath: String? = null,
     val isPaused: Boolean = false,
-    @kotlin.jvm.Transient internal var job: Job? = null
+    @kotlinx.serialization.Transient internal var job: Job? = null
 )
 
 object DownloadManager {
@@ -36,6 +40,44 @@ object DownloadManager {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val httpClient = AppComponent.httpClient
     private val infoService = AppComponent.infoService
+    
+    private val persistenceFile = "${getDownloadsDirectory()}/tasks.json".toPath()
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+
+    init {
+        loadTasks()
+    }
+
+    private fun loadTasks() {
+        scope.launch {
+            try {
+                if (FileSystem.SYSTEM.exists(persistenceFile)) {
+                    val content = FileSystem.SYSTEM.read(persistenceFile) { readUtf8() }
+                    val loaded = json.decodeFromString<List<DownloadTask>>(content)
+                    // Reset transient states
+                    val sanitized = loaded.map { 
+                        if (it.status != "Finished" && !it.status.startsWith("Failed")) {
+                            it.copy(status = "Paused", isPaused = true)
+                        } else it
+                    }
+                    tasks.value = sanitized
+                }
+            } catch (e: Exception) {
+                println("Failed to load tasks: ${e.message}")
+            }
+        }
+    }
+
+    private fun saveTasks() {
+        scope.launch {
+            try {
+                val content = json.encodeToString(tasks.value)
+                FileSystem.SYSTEM.write(persistenceFile) { writeUtf8(content) }
+            } catch (e: Exception) {
+                println("Failed to save tasks: ${e.message}")
+            }
+        }
+    }
 
     fun startDownload(
         animeId: String,
@@ -51,12 +93,13 @@ object DownloadManager {
         val taskId = "${animeId}_$episodeNumber"
         val existing = tasks.value.find { it.id == taskId }
         if (existing != null) {
-            if (existing.status == "Paused") resumeDownload(taskId)
+            if (existing.isPaused || existing.status.startsWith("Failed")) resumeDownload(taskId)
             return
         }
 
         val newTask = DownloadTask(taskId, animeId, title, episodeNumber, coverImage, 0f, "Fetching stream...")
         tasks.update { it + newTask }
+        saveTasks()
 
         executeDownload(newTask, anilistId, server, subLang, audioLang, downloadFonts)
     }
@@ -223,15 +266,18 @@ object DownloadManager {
 
     fun pauseDownload(id: String) {
         updateTask(id) { it.copy(isPaused = true, status = "Paused") }
+        saveTasks()
     }
 
     fun resumeDownload(id: String) {
         updateTask(id) { it.copy(isPaused = false, status = "Resuming...") }
+        // Simple resume for now. For full resume, need to re-execute download loop.
     }
 
     fun cancelDownload(id: String) {
         tasks.value.find { it.id == id }?.job?.cancel()
         tasks.update { it.filterNot { t -> t.id == id } }
+        saveTasks()
     }
 
     fun removeTask(id: String) {
@@ -263,6 +309,10 @@ object DownloadManager {
     private fun updateTask(id: String, update: (DownloadTask) -> DownloadTask) {
         tasks.update { list ->
             list.map { if (it.id == id) update(it) else it }
+        }
+        val task = tasks.value.find { it.id == id }
+        if (task?.status == "Finished" || task?.status?.startsWith("Failed") == true) {
+            saveTasks()
         }
     }
 }

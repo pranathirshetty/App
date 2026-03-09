@@ -38,6 +38,10 @@ object SubtitleUtils {
                 SubtitleFormat.ASS -> content
                 SubtitleFormat.SRT -> srtToAss(content)
                 SubtitleFormat.VTT -> vttToAss(content)
+                SubtitleFormat.PGS -> {
+                    println("[SubtitleUtils] PGS format should be handled earlier")
+                    return null
+                }
                 SubtitleFormat.UNKNOWN -> {
                     println("[SubtitleUtils] Unknown format, skipping")
                     return null
@@ -176,10 +180,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if (cleanUrl.endsWith(".ass") || cleanUrl.endsWith(".ssa")) return SubtitleFormat.ASS
         if (cleanUrl.endsWith(".vtt")) return SubtitleFormat.VTT
         if (cleanUrl.endsWith(".srt")) return SubtitleFormat.SRT
+        if (cleanUrl.endsWith(".sup")) return SubtitleFormat.PGS
         if (content.contains("[Script Info]")) return SubtitleFormat.ASS
         if (content.trimStart().startsWith("WEBVTT")) return SubtitleFormat.VTT
         return SubtitleFormat.SRT
     }
 
-    enum class SubtitleFormat { ASS, VTT, SRT, UNKNOWN }
+    enum class SubtitleFormat { ASS, VTT, SRT, PGS, UNKNOWN }
 }
