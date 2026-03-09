@@ -461,7 +461,7 @@ fun WatchVideoPlayer(
                 if (playerState.duration > 0 && playerState.hasNextEpisode && playerState.position >= playerState.duration - 15.0) {
                     val remaining = (playerState.duration - playerState.position).toInt().coerceAtLeast(0)
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(bottom = 120.dp, end = 32.dp),
+                        modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, end = 32.dp),
                         contentAlignment = Alignment.BottomEnd
                     ) {
                         androidx.compose.foundation.layout.Row(
