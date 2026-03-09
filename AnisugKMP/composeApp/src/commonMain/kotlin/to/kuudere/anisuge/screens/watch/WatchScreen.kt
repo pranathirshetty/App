@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -512,9 +513,14 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                         DropdownMenu(
                                             expanded = searchQuery.isBlank() && isPageDropdownExpanded && pageGroups.size > 1,
                                             onDismissRequest = { isPageDropdownExpanded = false },
+                                            offset = with(density) {
+                                                DpOffset(x = 0.dp, y = (pageDropdownAnchorSize.height.toDp() - 6.dp).coerceAtLeast(0.dp))
+                                            },
                                             modifier = Modifier
                                                 .width(with(density) { pageDropdownAnchorSize.width.toDp() })
                                                 .heightIn(max = 320.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
                                                 .background(Color(0xFF111111)),
                                             containerColor = Color(0xFF111111)
                                         ) {
