@@ -28,8 +28,10 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import to.kuudere.anisuge.platform.LockScreenOrientation
@@ -392,9 +394,12 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                         var currentPageStart by remember(totalEpisodes, uiState.currentEpisodeNumber) {
                             mutableStateOf(currentEpisodePageStart)
                         }
-                        var showPageSheet by remember { mutableStateOf(false) }
+                        var isPageDropdownExpanded by remember { mutableStateOf(false) }
                         var hasScrolled by remember { mutableStateOf(false) }
+                        var pageDropdownAnchorSize by remember { mutableStateOf(IntSize.Zero) }
                         val listState = rememberLazyListState()
+                        val density = androidx.compose.ui.platform.LocalDensity.current
+                        val headerItemCount = 2
 
                         val visibleEpisodes = remember(episodes, searchQuery, isAscending, currentPageStart) {
                             val baseEpisodes = if (searchQuery.isBlank()) {
@@ -418,16 +423,16 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                         }
 
                         LaunchedEffect(searchQuery, isAscending, currentPageStart) {
-                            if (visibleEpisodes.isNotEmpty()) {
+                            if (visibleEpisodes.isNotEmpty() || totalEpisodes > 0) {
                                 listState.scrollToItem(0)
                             }
                         }
 
-                        LaunchedEffect(uiState.activeSidePanel, searchQuery, isAscending, currentPageStart) {
+                        LaunchedEffect(uiState.activeSidePanel, searchQuery, isAscending, currentPageStart, isPageDropdownExpanded) {
                             if (uiState.activeSidePanel == "episodes" && !hasScrolled) {
                                 val currentEpIndex = visibleEpisodes.indexOfFirst { it.number == uiState.currentEpisodeNumber }
                                 if (currentEpIndex >= 0) {
-                                    listState.animateScrollToItem(currentEpIndex)
+                                    listState.animateScrollToItem(currentEpIndex + headerItemCount)
                                 }
                                 hasScrolled = true
                             }
@@ -436,244 +441,259 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                         LaunchedEffect(uiState.activeSidePanel) {
                             if (uiState.activeSidePanel != "episodes") {
                                 hasScrolled = false
+                                isPageDropdownExpanded = false
                             }
                         }
 
-                        Column(Modifier.fillMaxSize().padding(16.dp)) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            state = listState,
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             if (totalEpisodes == 0) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Text("No episodes found", color = Color.Gray)
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillParentMaxSize()
+                                            .padding(top = 48.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("No episodes found", color = Color.Gray)
+                                    }
                                 }
                             } else {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF1A1A1A))
-                                        .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) { showPageSheet = true }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                                ) {
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
-                                            Text(
-                                                text = if (searchQuery.isBlank()) "Episodes $currentPageStart - $end" else "Search results",
-                                                color = Color.White,
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Spacer(Modifier.height(4.dp))
-                                            Text(
-                                                text = if (searchQuery.isBlank()) "$totalEpisodes total episodes" else "${visibleEpisodes.size} matching episodes",
-                                                color = Color.Gray,
-                                                fontSize = 12.sp
-                                            )
+                                item {
+                                    Box {
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .onGloballyPositioned { coordinates ->
+                                                    pageDropdownAnchorSize = coordinates.size
+                                                }
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color(0xFF1A1A1A))
+                                                .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) {
+                                                    isPageDropdownExpanded = !isPageDropdownExpanded
+                                                }
+                                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                                        ) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column {
+                                                    val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                                                    Text(
+                                                        text = if (searchQuery.isBlank()) "Episodes $currentPageStart - $end" else "Search results",
+                                                        color = Color.White,
+                                                        fontSize = 15.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(
+                                                        text = if (searchQuery.isBlank()) "$totalEpisodes total episodes" else "${visibleEpisodes.size} matching episodes",
+                                                        color = Color.Gray,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+
+                                                if (searchQuery.isBlank() && pageGroups.size > 1) {
+                                                    Icon(
+                                                        imageVector = if (isPageDropdownExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                                        contentDescription = "Select range",
+                                                        tint = Color.White
+                                                    )
+                                                }
+                                            }
                                         }
 
-                                        if (searchQuery.isBlank() && pageGroups.size > 1) {
+                                        DropdownMenu(
+                                            expanded = searchQuery.isBlank() && isPageDropdownExpanded && pageGroups.size > 1,
+                                            onDismissRequest = { isPageDropdownExpanded = false },
+                                            modifier = Modifier
+                                                .width(with(density) { pageDropdownAnchorSize.width.toDp() })
+                                                .heightIn(max = 320.dp)
+                                                .background(Color(0xFF111111)),
+                                            containerColor = Color(0xFF111111)
+                                        ) {
+                                            pageGroups.forEach { start ->
+                                                val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                                                val isSelected = start == currentPageStart
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = "Episodes $start - $end",
+                                                            color = Color.White,
+                                                            fontSize = 15.sp,
+                                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                        )
+                                                    },
+                                                    onClick = {
+                                                        currentPageStart = start
+                                                        isPageDropdownExpanded = false
+                                                    },
+                                                    trailingIcon = {
+                                                        if (isSelected) {
+                                                            Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                                        }
+                                                    },
+                                                    colors = MenuDefaults.itemColors(
+                                                        textColor = Color.White,
+                                                        trailingIconColor = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                item {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        OutlinedTextField(
+                                            value = searchQuery,
+                                            onValueChange = {
+                                                searchQuery = it
+                                                if (it.isNotBlank()) {
+                                                    isPageDropdownExpanded = false
+                                                }
+                                            },
+                                            modifier = Modifier.weight(1f).height(50.dp),
+                                            placeholder = {
+                                                Text(
+                                                    "Search episode...",
+                                                    color = Color.White.copy(alpha = 0.4f),
+                                                    fontSize = 14.sp
+                                                )
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.Search,
+                                                    null,
+                                                    tint = Color.White.copy(alpha = 0.4f),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            },
+                                            trailingIcon = {
+                                                if (searchQuery.isNotEmpty()) {
+                                                    IconButton(onClick = { searchQuery = "" }) {
+                                                        Icon(
+                                                            Icons.Default.Clear,
+                                                            null,
+                                                            tint = Color.White.copy(alpha = 0.5f),
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                                unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
+                                                focusedContainerColor = Color(0xFF1A1A1A),
+                                                unfocusedContainerColor = Color(0xFF1A1A1A),
+                                                focusedTextColor = Color.White,
+                                                unfocusedTextColor = Color.White,
+                                                cursorColor = Color.White
+                                            ),
+                                            shape = RoundedCornerShape(10.dp),
+                                            singleLine = true
+                                        )
+
+                                        IconButton(
+                                            onClick = { isAscending = !isAscending },
+                                            modifier = Modifier
+                                                .size(50.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color(0xFF1A1A1A))
+                                        ) {
                                             Icon(
-                                                Icons.Default.KeyboardArrowDown,
-                                                contentDescription = "Select range",
+                                                imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                                contentDescription = if (isAscending) "Ascending" else "Descending",
                                                 tint = Color.White
                                             )
                                         }
                                     }
                                 }
 
-                                if (showPageSheet) {
-                                    ModalBottomSheet(
-                                        onDismissRequest = { showPageSheet = false },
-                                        containerColor = Color(0xFF111111),
-                                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                                    ) {
-                                        Column(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .heightIn(max = 320.dp)
-                                                .verticalScroll(rememberScrollState())
-                                                .padding(horizontal = 16.dp)
-                                                .padding(bottom = 32.dp)
+                                if (visibleEpisodes.isEmpty()) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillParentMaxWidth()
+                                                .padding(top = 48.dp),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Text(
-                                                "Select Episode Range",
-                                                color = Color.White,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(bottom = 12.dp)
-                                            )
-                                            pageGroups.forEach { start ->
-                                                val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
-                                                val isSelected = start == currentPageStart
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(10.dp))
-                                                        .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-                                                        .clickable {
-                                                            currentPageStart = start
-                                                            showPageSheet = false
-                                                        }
-                                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Text(
-                                                        text = "Episodes $start - $end",
-                                                        color = Color.White,
-                                                        fontSize = 15.sp,
-                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                                    )
-                                                    if (isSelected) {
-                                                        Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                                    }
-                                                }
-                                            }
+                                            Text("No matching episodes", color = Color.Gray)
                                         }
                                     }
-                                }
+                                } else {
+                                    items(visibleEpisodes, key = { it.number }) { episode ->
+                                        val isSelected = episode.number == uiState.currentEpisodeNumber
+                                        val thumbnail = uiState.thumbnails[episode.number.toString()]
 
-                                Spacer(Modifier.height(12.dp))
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isSelected) Color.White else Color(0xFF111111))
+                                                .clickable { viewModel.onEpisodeSelected(episode.number) }
+                                                .padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (thumbnail != null) {
+                                                AsyncImage(
+                                                    model = thumbnail,
+                                                    contentDescription = "Episode ${episode.number} Thumbnail",
+                                                    modifier = Modifier
+                                                        .width(100.dp)
+                                                        .aspectRatio(16f / 9f)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(Color.DarkGray),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                                Spacer(Modifier.width(12.dp))
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(100.dp)
+                                                        .aspectRatio(16f / 9f)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(Color.DarkGray),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
+                                                }
+                                                Spacer(Modifier.width(12.dp))
+                                            }
 
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedTextField(
-                                        value = searchQuery,
-                                        onValueChange = { searchQuery = it },
-                                        modifier = Modifier.weight(1f).height(50.dp),
-                                        placeholder = {
-                                            Text(
-                                                "Search episode...",
-                                                color = Color.White.copy(alpha = 0.4f),
-                                                fontSize = 14.sp
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Default.Search,
-                                                null,
-                                                tint = Color.White.copy(alpha = 0.4f),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            if (searchQuery.isNotEmpty()) {
-                                                IconButton(onClick = { searchQuery = "" }) {
-                                                    Icon(
-                                                        Icons.Default.Clear,
-                                                        null,
-                                                        tint = Color.White.copy(alpha = 0.5f),
-                                                        modifier = Modifier.size(18.dp)
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    "Episode ${episode.number}",
+                                                    color = if (isSelected) Color.Black else Color.White,
+                                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                                    fontSize = 15.sp
+                                                )
+                                                val title = episode.titles?.firstOrNull()
+                                                if (!title.isNullOrBlank()) {
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(
+                                                        title,
+                                                        color = if (isSelected) Color.DarkGray else Color.LightGray,
+                                                        fontSize = 12.sp,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
                                             }
-                                        },
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = Color.White.copy(alpha = 0.1f),
-                                            unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                                            focusedContainerColor = Color(0xFF1A1A1A),
-                                            unfocusedContainerColor = Color(0xFF1A1A1A),
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            cursorColor = Color.White
-                                        ),
-                                        shape = RoundedCornerShape(10.dp),
-                                        singleLine = true
-                                    )
 
-                                    IconButton(
-                                        onClick = { isAscending = !isAscending },
-                                        modifier = Modifier
-                                            .size(50.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF1A1A1A))
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = if (isAscending) "Ascending" else "Descending",
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.height(12.dp))
-
-                                if (visibleEpisodes.isEmpty()) {
-                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                        Text("No matching episodes", color = Color.Gray)
-                                    }
-                                } else {
-                                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
-                                        items(visibleEpisodes, key = { it.number }) { episode ->
-                                            val isSelected = episode.number == uiState.currentEpisodeNumber
-                                            val thumbnail = uiState.thumbnails[episode.number.toString()]
-
-                                            Row(
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 4.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(if (isSelected) Color.White else Color(0xFF111111))
-                                                    .clickable { viewModel.onEpisodeSelected(episode.number) }
-                                                    .padding(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                if (thumbnail != null) {
-                                                    AsyncImage(
-                                                        model = thumbnail,
-                                                        contentDescription = "Episode ${episode.number} Thumbnail",
-                                                        modifier = Modifier
-                                                            .width(100.dp)
-                                                            .aspectRatio(16f / 9f)
-                                                            .clip(RoundedCornerShape(4.dp))
-                                                            .background(Color.DarkGray),
-                                                        contentScale = ContentScale.Crop
-                                                    )
-                                                    Spacer(Modifier.width(12.dp))
-                                                } else {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .width(100.dp)
-                                                            .aspectRatio(16f / 9f)
-                                                            .clip(RoundedCornerShape(4.dp))
-                                                            .background(Color.DarkGray),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
-                                                    }
-                                                    Spacer(Modifier.width(12.dp))
-                                                }
-
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(
-                                                        "Episode ${episode.number}",
-                                                        color = if (isSelected) Color.Black else Color.White,
-                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                                        fontSize = 15.sp
-                                                    )
-                                                    val title = episode.titles?.firstOrNull()
-                                                    if (!title.isNullOrBlank()) {
-                                                        Spacer(Modifier.height(4.dp))
-                                                        Text(
-                                                            title,
-                                                            color = if (isSelected) Color.DarkGray else Color.LightGray,
-                                                            fontSize = 12.sp,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-
-                                                if (isSelected) {
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
-                                                }
+                                            if (isSelected) {
+                                                Spacer(Modifier.width(8.dp))
+                                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
                                             }
                                         }
                                     }
