@@ -382,13 +382,15 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                         val episodes = uiState.episodeData?.allEpisodes ?: emptyList()
                         val listState = rememberLazyListState()
                         val sortedEpisodes = episodes.sortedBy { it.number }
+                        var hasScrolled by remember { mutableStateOf(false) }
                         
-                        // Auto-scroll to current episode when episodes panel opens
-                        LaunchedEffect(uiState.currentEpisodeNumber, uiState.activeSidePanel) {
-                            if (uiState.activeSidePanel == "episodes") {
+                        // Auto-scroll to current episode only when episodes panel first opens
+                        LaunchedEffect(uiState.activeSidePanel) {
+                            if (uiState.activeSidePanel == "episodes" && !hasScrolled) {
                                 val currentEpIndex = sortedEpisodes.indexOfFirst { it.number == uiState.currentEpisodeNumber }
                                 if (currentEpIndex >= 0) {
                                     listState.animateScrollToItem(currentEpIndex)
+                                    hasScrolled = true
                                 }
                             }
                         }
