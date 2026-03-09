@@ -78,6 +78,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.WatchLater
@@ -139,32 +140,12 @@ fun HomeScreen(
     onWatchClick: (String, String, Int, String?) -> Unit,
     onLogout: () -> Unit = {},
     onExit: () -> Unit = {},
+    startOnDownloads: Boolean = false,
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
-    var currentTab by remember { mutableStateOf(AnisugTab.Home) }
+    var currentTab by remember(startOnDownloads) { mutableStateOf(if (startOnDownloads) AnisugTab.Downloads else AnisugTab.Home) }
     var prevTabIndex by remember { mutableStateOf(0) }
     var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
-
-    if (homeState.isLoading && homeState.topAiring.isEmpty() && currentTab == AnisugTab.Home) {
-        Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
-            CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
-        }
-        return
-    }
-
-    if (homeState.error != null && currentTab == AnisugTab.Home) {
-        Box(Modifier.fillMaxSize().background(Color(0xFF0B0B0B)), Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(homeState.error ?: "Unknown error", color = Color.White)
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = { homeViewModel.refresh() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
-                ) { Text("Retry") }
-            }
-        }
-        return
-    }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
         val isDesktop = maxWidth >= 800.dp
@@ -215,16 +196,41 @@ fun HomeScreen(
                         }
                     ) { tab ->
                         when (tab) {
-                            AnisugTab.Home -> HomeContent(
-                                state = homeState,
-                                onAnimeClick = onAnimeClick,
-                                onWatchClick = onWatchClick,
-                                onWatchlistClick = { showWatchlistFor = it },
-                                onRefresh = { homeViewModel.refresh() }
-                            )
+                            AnisugTab.Home -> {
+                                when {
+                                    homeState.isLoading && homeState.topAiring.isEmpty() ->
+                                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                            CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                                        }
+                                    homeState.isOffline && homeState.topAiring.isEmpty() ->
+                                        HomeOfflineState(onRetry = { homeViewModel.refresh() })
+                                    homeState.error != null && homeState.topAiring.isEmpty() ->
+                                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                                Text(homeState.error ?: "Unknown error", color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                                                Button(
+                                                    onClick = { homeViewModel.refresh() },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
+                                                ) { Text("Retry") }
+                                            }
+                                        }
+                                    // Catch-all: finished loading, no data, no explicit flag set
+                                    // (Ktor may wrap the exception differently on some devices)
+                                    !homeState.isLoading && homeState.topAiring.isEmpty() ->
+                                        HomeOfflineState(onRetry = { homeViewModel.refresh() })
+                                    else -> HomeContent(
+                                        state = homeState,
+                                        onAnimeClick = onAnimeClick,
+                                        onWatchClick = onWatchClick,
+                                        onWatchlistClick = { showWatchlistFor = it },
+                                        onRefresh = { homeViewModel.refresh() }
+                                    )
+                                }
+                            }
                             AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
                             AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
                             AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
+                            AnisugTab.Downloads -> DownloadsTab()
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
                             }
@@ -1439,3 +1445,140 @@ private object Uri {
         return query.split('&').firstOrNull { it.startsWith("$key=") }?.substringAfter('=')
     }
 }
+
+// ── Offline State ─────────────────────────────────────────────────────────
+
+@Composable
+fun HomeOfflineState(onRetry: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B0B0B)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(horizontal = 40.dp)
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.05f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.WifiOff,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = "No Internet Connection",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Check your connection and tap Retry.\nYou can still browse your Downloads while offline.",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor   = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp)
+            ) {
+                Text("Retry", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+// ── Downloads Tab ─────────────────────────────────────────────────────────
+
+@Composable
+fun DownloadsTab() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B0B0B)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(horizontal = 40.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(Color(0x33B71C1C), Color.Transparent)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
+                    contentDescription = null,
+                    tint = Color(0xFFFF4444).copy(alpha = 0.8f),
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            Text(
+                text = "Downloads",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "Offline downloads are coming soon.\nYou'll be able to save episodes and watch them anywhere without an internet connection.",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "Coming Soon",
+                    color = Color(0xFFFF4444).copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+    }
+}
+

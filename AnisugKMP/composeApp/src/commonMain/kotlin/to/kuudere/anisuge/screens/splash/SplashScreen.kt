@@ -44,7 +44,8 @@ fun SplashScreen(
     LaunchedEffect(destination, videoFinished) {
         if (videoFinished && destination != SplashDestination.Waiting) {
             when (destination) {
-                is SplashDestination.GoHome -> onNavigateToHome()
+                is SplashDestination.GoHome,
+                is SplashDestination.GoHomeOffline -> onNavigateToHome()
                 else -> onNavigateToAuth()
             }
         }

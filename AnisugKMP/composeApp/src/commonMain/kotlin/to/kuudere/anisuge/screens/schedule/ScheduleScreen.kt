@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import to.kuudere.anisuge.data.models.ScheduleAnime
+import to.kuudere.anisuge.screens.home.HomeOfflineState
 
 // ── Colours ── Black & white only ─────────────────────────────────────────────
 
@@ -133,11 +134,15 @@ fun ScheduleScreen(
 
     Box(Modifier.fillMaxSize().background(BG)) {
         when {
-            state.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+            state.isLoading && state.schedule.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(36.dp))
             }
 
-            state.error != null -> Column(
+            state.isOffline && state.schedule.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                HomeOfflineState(onRetry = { viewModel.refresh() })
+            }
+
+            state.error != null && state.schedule.isEmpty() -> Column(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,

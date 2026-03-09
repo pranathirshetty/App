@@ -20,6 +20,7 @@ import to.kuudere.anisuge.screens.auth.AuthScreen
 import to.kuudere.anisuge.screens.auth.AuthViewModel
 import to.kuudere.anisuge.screens.splash.SplashScreen
 import to.kuudere.anisuge.screens.splash.SplashViewModel
+import to.kuudere.anisuge.screens.splash.SplashDestination
 import to.kuudere.anisuge.screens.home.HomeScreen
 import to.kuudere.anisuge.screens.home.HomeViewModel
 import to.kuudere.anisuge.screens.search.SearchScreen
@@ -98,6 +99,7 @@ fun App(onAppExit: () -> Unit = {}) {
                             }
                         },
                         onExit = onAppExit,
+                        startOnDownloads = splashVm.destination.value == SplashDestination.GoHomeOffline
                     )
                 }
 

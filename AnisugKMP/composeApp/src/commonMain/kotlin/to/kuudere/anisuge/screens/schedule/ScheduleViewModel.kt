@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.ScheduleAnime
 import to.kuudere.anisuge.data.services.ScheduleService
+import to.kuudere.anisuge.utils.isNetworkError
 
 private const val PAGE_SIZE = 3
 
@@ -20,6 +21,7 @@ data class ScheduleUiState(
     val loadedDates: Int = 0,
     val totalDates: Int = 0,
     val error: String? = null,
+    val isOffline: Boolean = false,
 )
 
 class ScheduleViewModel(
@@ -42,12 +44,13 @@ class ScheduleViewModel(
                         isLoading    = false,
                         schedule     = resp.data,
                         hasMore      = resp.hasMore,
+                        isOffline    = false,
                         loadedDates  = resp.loadedDates ?: resp.data.size,
                         totalDates   = resp.totalDates ?: resp.data.size,
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, isOffline = e.isNetworkError(), error = if (e.isNetworkError()) null else e.message) }
             }
         }
     }

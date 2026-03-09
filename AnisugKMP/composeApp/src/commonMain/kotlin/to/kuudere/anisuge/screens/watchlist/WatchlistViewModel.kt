@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.AppComponent
 import to.kuudere.anisuge.data.models.AnimeItem
+import to.kuudere.anisuge.utils.isNetworkError
 
 data class WatchlistState(
     val selectedFolder: String = "All lists",
@@ -23,7 +24,8 @@ data class WatchlistState(
     val error: String? = null,
     val currentPage: Int = 1,
     val totalPages: Int = 1,
-    val isPaginating: Boolean = false
+    val isPaginating: Boolean = false,
+    val isOffline: Boolean = false,
 )
 
 class WatchlistViewModel : ViewModel() {
@@ -119,14 +121,15 @@ class WatchlistViewModel : ViewModel() {
                         items = if (page == 1) response.items else it.items + response.items,
                         isLoading = false,
                         isPaginating = false,
+                        isOffline = false,
                         currentPage = response.page,
                         totalPages = response.total
                     ) }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, isPaginating = false, error = "Failed to load watchlist") }
+                    _uiState.update { it.copy(isLoading = false, isPaginating = false, isOffline = false, error = "Failed to load watchlist") }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, isPaginating = false, error = e.message) }
+                _uiState.update { it.copy(isLoading = false, isPaginating = false, isOffline = e.isNetworkError(), error = if (e.isNetworkError()) null else e.message) }
             }
         }
     }

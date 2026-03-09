@@ -31,30 +31,25 @@ class SearchService(
         rating: String? = null,
         sort: String? = null
     ): SearchResponse? {
-        return try {
-            val stored = sessionStore.get()
-            val response = httpClient.get("$BASE_URL/search") {
-                parameter("format", "api")
-                parameter("page", page)
-                keyword?.let { parameter("keyword", it) }
-                genres?.let { if (it.isNotEmpty()) parameter("genres", it.joinToString(",")) }
-                season?.let { parameter("season", it) }
-                year?.let { parameter("year", it) }
-                type?.let { parameter("type", it) }
-                status?.let { 
-                    val s = if (it == "Not Yet Released") "NOT_YET_RELEASED" else it
-                    parameter("status", s) 
-                }
-                language?.let { parameter("language", it) }
-                rating?.let { parameter("rating", it) }
-                sort?.let { parameter("sort", it) }
-
-                if (stored != null) header("Cookie", sessionToCookie(stored))
+        val stored = sessionStore.get()
+        val response = httpClient.get("$BASE_URL/search") {
+            parameter("format", "api")
+            parameter("page", page)
+            keyword?.let { parameter("keyword", it) }
+            genres?.let { if (it.isNotEmpty()) parameter("genres", it.joinToString(",")) }
+            season?.let { parameter("season", it) }
+            year?.let { parameter("year", it) }
+            type?.let { parameter("type", it) }
+            status?.let { 
+                val s = if (it == "Not Yet Released") "NOT_YET_RELEASED" else it
+                parameter("status", s) 
             }
-            response.body<SearchResponse>()
-        } catch (e: Exception) {
-            println("[SearchService] search error: ${e.message}")
-            null
+            language?.let { parameter("language", it) }
+            rating?.let { parameter("rating", it) }
+            sort?.let { parameter("sort", it) }
+
+            if (stored != null) header("Cookie", sessionToCookie(stored))
         }
+        return response.body<SearchResponse>()
     }
 }

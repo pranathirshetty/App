@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.services.SearchService
+import to.kuudere.anisuge.utils.isNetworkError
 
 data class SearchUiState(
     val results: List<AnimeItem> = emptyList(),
@@ -23,6 +24,7 @@ data class SearchUiState(
     val selectedStatus: String? = null,
     val selectedLanguage: String? = null,
     val selectedRating: String? = null,
+    val isOffline: Boolean = false,
 )
 
 class SearchViewModel(private val searchService: SearchService) : ViewModel() {
@@ -95,31 +97,41 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
         }
 
         val currentState = _uiState.value
-        val response = searchService.search(
-            keyword = currentState.keyword.ifBlank { null },
-            page = currentState.currentPage,
-            genres = currentState.selectedGenres,
-            season = currentState.selectedSeason,
-            year = currentState.selectedYear,
-            type = currentState.selectedType,
-            status = currentState.selectedStatus,
-            language = currentState.selectedLanguage,
-            rating = currentState.selectedRating
-        )
+        try {
+            val response = searchService.search(
+                keyword = currentState.keyword.ifBlank { null },
+                page = currentState.currentPage,
+                genres = currentState.selectedGenres,
+                season = currentState.selectedSeason,
+                year = currentState.selectedYear,
+                type = currentState.selectedType,
+                status = currentState.selectedStatus,
+                language = currentState.selectedLanguage,
+                rating = currentState.selectedRating
+            )
 
-        if (response != null && response.success) {
-            val newItems = response.animeData ?: emptyList()
+            if (response != null && response.success) {
+                val newItems = response.animeData ?: emptyList()
+                _uiState.value = _uiState.value.copy(
+                    results = if (loadMore) _uiState.value.results + newItems else newItems,
+                    isLoading = false,
+                    isLoadingMore = false,
+                    isOffline = false,
+                    hasMore = response.hasMore ?: false,
+                    currentPage = if (newItems.isNotEmpty() && (response.hasMore ?: false)) currentState.currentPage + 1 else currentState.currentPage
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isLoadingMore = false,
+                    isOffline = false
+                )
+            }
+        } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(
-                results = if (loadMore) _uiState.value.results + newItems else newItems,
                 isLoading = false,
                 isLoadingMore = false,
-                hasMore = response.hasMore ?: false,
-                currentPage = if (newItems.isNotEmpty() && (response.hasMore ?: false)) currentState.currentPage + 1 else currentState.currentPage
-            )
-        } else {
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                isLoadingMore = false
+                isOffline = e.isNetworkError()
             )
         }
     }

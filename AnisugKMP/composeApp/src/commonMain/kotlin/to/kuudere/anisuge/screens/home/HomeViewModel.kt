@@ -20,6 +20,7 @@ import to.kuudere.anisuge.data.services.InfoService
 data class HomeUiState(
     val isLoading:        Boolean              = true,
     val isLoggingOut:     Boolean              = false,
+    val isOffline:        Boolean              = false,
     val userProfile:      UserProfile?         = null,
     val topAiring:        List<AnimeItem>       = emptyList(),
     val latestEpisodes:   List<AnimeItem>       = emptyList(),
@@ -44,7 +45,7 @@ class HomeViewModel(
 
     fun refresh() {
         scope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, isOffline = false, error = null) }
             try {
                 val userRes = authService.checkSession()
                 val userProfile = (userRes as? SessionCheckResult.Valid)?.user
@@ -63,7 +64,17 @@ class HomeViewModel(
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                val isNetworkError = generateSequence(e as Throwable) { it.cause }.any { cause ->
+                    cause is java.net.UnknownHostException
+                        || cause is java.net.ConnectException
+                        || cause is java.net.SocketTimeoutException
+                        || cause is java.net.NoRouteToHostException
+                        || cause.message?.contains("Unable to resolve host", ignoreCase = true) == true
+                        || cause.message?.contains("Failed to connect", ignoreCase = true) == true
+                        || cause.message?.contains("timeout", ignoreCase = true) == true
+                        || cause.message?.contains("Network is unreachable", ignoreCase = true) == true
+                }
+                _uiState.update { it.copy(isLoading = false, isOffline = isNetworkError, error = if (isNetworkError) null else e.message) }
             }
         }
     }

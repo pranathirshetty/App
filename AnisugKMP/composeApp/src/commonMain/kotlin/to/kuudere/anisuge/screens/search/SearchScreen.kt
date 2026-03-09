@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
+import to.kuudere.anisuge.screens.home.HomeOfflineState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -98,6 +99,12 @@ fun SearchScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Color.White)
+                        }
+                    }
+                } else if (state.isOffline && state.results.isEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Box(Modifier.fillMaxWidth().height(400.dp)) {
+                            HomeOfflineState(onRetry = { viewModel.search() })
                         }
                     }
                 } else {

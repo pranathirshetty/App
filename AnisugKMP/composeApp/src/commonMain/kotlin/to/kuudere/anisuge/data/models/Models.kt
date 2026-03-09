@@ -64,7 +64,8 @@ data class CurrentUserResponse(
 )
 
 sealed interface SessionCheckResult {
-    data object NoSession : SessionCheckResult
-    data object Expired   : SessionCheckResult
+    data object NoSession     : SessionCheckResult
+    data object Expired       : SessionCheckResult
+    data object NetworkError  : SessionCheckResult   // transient connectivity failure
     data class Valid(val session: SessionInfo, val user: UserProfile? = null) : SessionCheckResult
 }

@@ -31,6 +31,7 @@ import coil3.compose.AsyncImage
 
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.ui.AnimeCard
+import to.kuudere.anisuge.screens.home.HomeOfflineState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -440,6 +441,12 @@ fun WatchlistScreen(
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
                             CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                        }
+                    }
+                } else if (state.isOffline && state.items.isEmpty()) {
+                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                        Box(Modifier.fillMaxWidth().height(400.dp)) {
+                            HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) })
                         }
                     }
                 } else {

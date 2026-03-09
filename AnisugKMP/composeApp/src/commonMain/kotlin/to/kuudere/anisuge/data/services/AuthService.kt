@@ -72,8 +72,8 @@ class AuthService(
             if (body.success != false) SessionCheckResult.Valid(stored, body.user)
             else SessionCheckResult.Expired
         } catch (e: Exception) {
-            // Network error — treat as expired/unauthenticated
-            SessionCheckResult.Expired
+            // Network error — session might still be valid, just no connectivity
+            SessionCheckResult.NetworkError
         }
     }
 

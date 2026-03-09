@@ -13,6 +13,8 @@ sealed interface SplashDestination {
     data object Waiting : SplashDestination
     data object GoAuth  : SplashDestination
     data object GoHome  : SplashDestination
+    /** We have a stored session but no internet – go home in offline mode */
+    data object GoHomeOffline : SplashDestination
 }
 
 class SplashViewModel(private val authService: AuthService) : ViewModel() {
@@ -25,8 +27,9 @@ class SplashViewModel(private val authService: AuthService) : ViewModel() {
 
     private fun checkSession() = viewModelScope.launch {
         _destination.value = when (authService.checkSession()) {
-            is SessionCheckResult.Valid -> SplashDestination.GoHome
-            else                        -> SplashDestination.GoAuth
+            is SessionCheckResult.Valid        -> SplashDestination.GoHome
+            is SessionCheckResult.NetworkError -> SplashDestination.GoHomeOffline
+            else                               -> SplashDestination.GoAuth
         }
     }
 }
