@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -378,8 +380,21 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                     }
                     "episodes" -> {
                         val episodes = uiState.episodeData?.allEpisodes ?: emptyList()
-                        LazyColumn(Modifier.fillMaxSize().padding(16.dp)) {
-                            items(episodes.sortedBy { it.number }) { episode ->
+                        val listState = rememberLazyListState()
+                        val sortedEpisodes = episodes.sortedBy { it.number }
+                        
+                        // Auto-scroll to current episode when episodes panel opens
+                        LaunchedEffect(uiState.currentEpisodeNumber, uiState.activeSidePanel) {
+                            if (uiState.activeSidePanel == "episodes") {
+                                val currentEpIndex = sortedEpisodes.indexOfFirst { it.number == uiState.currentEpisodeNumber }
+                                if (currentEpIndex >= 0) {
+                                    listState.animateScrollToItem(currentEpIndex)
+                                }
+                            }
+                        }
+                        
+                        LazyColumn(Modifier.fillMaxSize().padding(16.dp), state = listState) {
+                            items(sortedEpisodes) { episode ->
                                 val isSelected = episode.number == uiState.currentEpisodeNumber
                                 val thumbnail = uiState.thumbnails[episode.number.toString()]
                                 
