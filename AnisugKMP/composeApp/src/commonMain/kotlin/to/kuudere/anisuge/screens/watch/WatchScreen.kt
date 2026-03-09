@@ -466,35 +466,36 @@ fun WatchVideoPlayer(
                     ) {
                         androidx.compose.foundation.layout.Row(
                             modifier = Modifier
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                                .background(Color.Black.copy(alpha = 0.7f))
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.3f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .background(Color.Black.copy(alpha = 0.8f))
                                 .clickable {
                                     val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
                                     if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
                                 }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Next Episode",
+                                "Next episode",
                                 color = Color.White,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                fontSize = 12.sp
                             )
                             if (uiState.autoNext) {
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     "in ${remaining}s",
                                     color = Color.LightGray,
-                                    fontSize = 14.sp
+                                    fontSize = 12.sp
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 androidx.compose.material.icons.Icons.Default.SkipNext, 
                                 contentDescription = "Next",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
