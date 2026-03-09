@@ -87,7 +87,16 @@ fun WatchScreen(
                 .padding(paddingValues)
         ) {
             if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(color = Color.White)
+                    uiState.loadingMessage?.let { msg ->
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                    }
+                }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val isPanelActive = uiState.activeSidePanel != null
@@ -318,7 +327,16 @@ fun WatchVideoPlayer(
 
     if (uiState.isLoadingVideo) {
         Box(modifier = modifier.background(Color.Black)) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color.White)
+                uiState.loadingMessage?.let { msg ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                }
+            }
         }
     } else {
         val currentUrl = uiState.availableQualities.find { it.first == uiState.currentQuality }?.second
@@ -338,13 +356,14 @@ fun WatchVideoPlayer(
             LaunchedEffect(uiState.availableSubtitles) {
                 if (uiState.availableSubtitles.isNotEmpty()) {
                     playerState.allSubUrls = uiState.availableSubtitles.mapNotNull { sub ->
-                        sub.url?.let { it to (it == uiState.currentSubtitleUrl) }
+                        sub.url?.let { Triple(it, sub.title ?: sub.resolvedLang ?: "Subtitle", it == uiState.currentSubtitleUrl) }
                     }
                 }
             }
 
             LaunchedEffect(uiState.currentSubtitleUrl) {
                 playerState.subFileUrl = uiState.currentSubtitleUrl ?: "NONE"
+                playerState.subFileName = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }?.let { it.title ?: it.resolvedLang } ?: "Subtitle"
             }
 
             LaunchedEffect(playerState.isPlaying, playerState.isPaused) {

@@ -27,7 +27,8 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     var pauseRequested  by mutableStateOf(false)
     var seekTarget      by mutableStateOf<Double?>(null)
     var subFileUrl      by mutableStateOf<String?>(null)  // single sub change at runtime
-    var allSubUrls      by mutableStateOf<List<Pair<String, Boolean>>?>(null) // (url, isDefault)
+    var subFileName     by mutableStateOf<String?>(null)
+    var allSubUrls      by mutableStateOf<List<Triple<String, String, Boolean>>?>(null) // (url, lang_name, isDefault)
     var cycleAudio      by mutableStateOf(false)
     var selectedAudioTrack by mutableStateOf<Int?>(null)
     

@@ -184,7 +184,7 @@ actual fun VideoPlayerSurface(
                         // Load pending subtitles asynchronously to prevent JNI blocking
                         state.allSubUrls?.let { subs ->
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                subs.forEach { (url, isDefault) ->
+                                subs.forEach { (url, name, isDefault) ->
                                     val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                     if (localPath != null) {
                                         val flag = if (isDefault) "select" else "auto"
@@ -351,7 +351,7 @@ actual fun VideoPlayerSurface(
         state.allSubUrls?.let { subs ->
             if (state.isPlaying) {
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                    subs.forEach { (url, isDefault) ->
+                    subs.forEach { (url, name, isDefault) ->
                         val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                         if (localPath != null) {
                             val flag = if (isDefault) "select" else "auto"

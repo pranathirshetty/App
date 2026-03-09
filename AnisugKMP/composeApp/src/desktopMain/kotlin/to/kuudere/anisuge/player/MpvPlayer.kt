@@ -217,7 +217,7 @@ internal class MpvPlayer(
         scope.launch {
             var lastSentPause = false
             var pendingSub: String? = null
-            var pendingAllSubs: List<Pair<String, Boolean>>? = null
+            var pendingAllSubs: List<Triple<String, String, Boolean>>? = null
             var lastSentAudioTrack: Int? = null
             var lastSentVolume: Double? = null
             var lastSentBrightness: Double? = null
@@ -287,7 +287,7 @@ internal class MpvPlayer(
                             if (!subsToLoad.isNullOrEmpty()) {
                                 println("[MpvPlayer] FILE_LOADED: loading ${subsToLoad.size} subtitle(s)")
                                 launch(Dispatchers.IO) {
-                                    subsToLoad.forEach { (url, isDefault) ->
+                                    subsToLoad.forEach { (url, name, isDefault) ->
                                         val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                         if (localPath != null) {
                                             val flag = if (isDefault) "select" else "auto"
@@ -349,7 +349,9 @@ internal class MpvPlayer(
                         if (sub == "NONE") {
                             mpv.mpv_set_option_string(handle, "sid", "no")
                         } else {
-                            launch(Dispatchers.IO) { setSubFile(sub) }
+                            launch(Dispatchers.IO) { 
+                                setSubFile(sub) 
+                            }
                         }
                         withContext(Dispatchers.Main) { state.subFileUrl = null }
                     } else {
@@ -409,7 +411,7 @@ internal class MpvPlayer(
                     if (state.isPlaying) {
                         println("[MpvPlayer] Runtime: loading ${subs.size} subtitle(s)")
                         launch(Dispatchers.IO) {
-                            subs.forEach { (url, isDefault) ->
+                            subs.forEach { (url, name, isDefault) ->
                                 val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                 if (localPath != null) {
                                     val flag = if (isDefault) "select" else "auto"

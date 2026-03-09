@@ -18,6 +18,7 @@ import to.kuudere.anisuge.screens.watch.SettingsMenuPage
 data class WatchUiState(
     val isLoading: Boolean = true,
     val isLoadingVideo: Boolean = false,
+    val loadingMessage: String? = null,
     val episodeData: EpisodeDataResponse? = null,
     val thumbnails: Map<String, String> = emptyMap(),
     val currentEpisodeNumber: Int = 1,
@@ -66,7 +67,7 @@ class WatchViewModel(
             it.copy(
                 currentEpisodeNumber = episodeNumber, 
                 isLoading = true,
-                // Clear old video state so the previous anime's stream doesn't keep playing
+                loadingMessage = "Fetching episode $episodeNumber...",
                 isLoadingVideo = false,
                 streamingData = null,
                 availableQualities = emptyList(),
@@ -84,13 +85,14 @@ class WatchViewModel(
 
     private fun fetchEpisodeData(episodeNumber: Int, reqServer: String? = null, reqLang: String? = null) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, loadingMessage = "Fetching episode data...") }
             val data = infoService.getEpisodes(currentAnimeId, episodeNumber)
             
             if (data != null) {
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
+                        loadingMessage = "Switching servers...",
                         episodeData = data,
                         savedWatchPosition = data.current?.toDouble() ?: 0.0
                     )
@@ -169,7 +171,7 @@ class WatchViewModel(
         val episodeNum = currState.currentEpisodeNumber
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName) }
+            _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
 
             val response = infoService.getVideoStream(anilistId, episodeNum, serverName)
             
@@ -222,12 +224,16 @@ class WatchViewModel(
                 // Download fonts if available
                 var localFontsDir: String? = null
                 if (!streamData.fonts.isNullOrEmpty()) {
-                    localFontsDir = to.kuudere.anisuge.utils.downloadFontsAndGetDir(streamData.fonts)
+                    _uiState.update { it.copy(loadingMessage = "Downloading fonts...") }
+                    localFontsDir = to.kuudere.anisuge.utils.downloadFontsAndGetDir(streamData.fonts) { fontMsg ->
+                        _uiState.update { it.copy(loadingMessage = fontMsg) }
+                    }
                 }
 
                 _uiState.update { state ->
                     state.copy(
                         isLoadingVideo = false,
+                        loadingMessage = null,
                         streamingData = streamData,
                         availableQualities = qualities,
                         currentQuality = qualities.firstOrNull()?.first ?: "Auto",
@@ -238,7 +244,7 @@ class WatchViewModel(
                 }
                 println("[WatchVM] subtitle=${defaultSubUrl ?: subtitles.firstOrNull()?.url}, fontsDir=$localFontsDir, subtitleCount=${subtitles.size}")
             } else {
-                _uiState.update { it.copy(isLoadingVideo = false) }
+                _uiState.update { it.copy(isLoadingVideo = false, loadingMessage = null) }
             }
         }
     }
