@@ -18,8 +18,12 @@ jna = "5.14.0"
 kotlinx-datetime = "0.6.1"
 okio = "3.9.0"
 media3 = "1.5.1"
+ffmpeg-kit = "6.0"
+jave = "3.5.0"
 
 [libraries]
+# Jave2 for Desktop FFmpeg bundling
+jave-all-deps = { module = "ws.schild:jave-all-deps", version.ref = "jave" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 # Lifecycle
@@ -30,6 +34,9 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
+androidx-media3-muxer = { module = "androidx.media3:media3-muxer", version.ref = "media3" }
+rxffmpeg = { module = "com.github.microshow:RxFFmpeg", version = "4.9.0" }
 # Coroutines
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

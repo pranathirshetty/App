@@ -20,3 +20,66 @@ actual fun openDirectory(path: String) {
         e.printStackTrace()
     }
 }
+
+actual suspend fun muxToMkv(
+    videoPath: String,
+    audioPath: String?,
+    subtitles: List<Pair<String, String>>,
+    fonts: List<String>,
+    outputPath: String
+): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    try {
+        val ffmpegPath = try {
+            ws.schild.jave.process.ffmpeg.DefaultFFMPEGLocator().executablePath
+        } catch (e: Exception) {
+            "ffmpeg" // Fallback to system path if locator fails
+        }
+
+        val args = mutableListOf(ffmpegPath, "-y")
+        args.add("-i"); args.add(videoPath)
+        if (audioPath != null) {
+            args.add("-i"); args.add(audioPath)
+        }
+        subtitles.forEach { (path, _) ->
+            args.add("-i"); args.add(path)
+        }
+
+        args.add("-map"); args.add("0:v")
+        if (audioPath != null) {
+            args.add("-map"); args.add("1:a")
+        } else {
+            args.add("-map"); args.add("0:a?")
+        }
+
+        subtitles.forEachIndexed { i, _ ->
+            val index = if (audioPath != null) i + 2 else i + 1
+            args.add("-map"); args.add("$index:s")
+        }
+
+        fonts.forEach { fontPath ->
+            args.add("-attach"); args.add(fontPath)
+        }
+        args.add("-metadata:s:t"); args.add("mimetype=application/x-truetype-font")
+
+        subtitles.forEachIndexed { i, (_, label) ->
+            args.add("-metadata:s:s:$i"); args.add("title=$label")
+        }
+
+        args.add("-c"); args.add("copy")
+        args.add(outputPath)
+
+        val process = ProcessBuilder(args)
+            .redirectErrorStream(true)
+            .start()
+        
+        val exitCode = process.waitFor()
+        if (exitCode != 0) {
+            val error = process.inputStream.bufferedReader().readText()
+            println("[FFmpeg] Error ($exitCode): $error")
+        }
+        exitCode == 0
+    } catch (e: Exception) {
+        println("[FFmpeg] Process failed: ${e.message}")
+        false
+    }
+}

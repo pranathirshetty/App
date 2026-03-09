@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.WatchServerResponse
 import to.kuudere.anisuge.data.services.InfoService
+import io.ktor.client.statement.bodyAsText
+import io.ktor.client.request.get
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +38,7 @@ fun DownloadEpisodeDialog(
     var selectedAudioLang by remember { mutableStateOf<String?>("sub") } // 'sub' or 'dub'
     
     var availableSubtitles by remember { mutableStateOf<List<String>>(listOf("All", "English")) }
+    var availableAudioTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var isLoadingSubs by remember { mutableStateOf(false) }
 
     val downloadTasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
@@ -47,13 +50,40 @@ fun DownloadEpisodeDialog(
             val apiServer = if (selectedServer == "zen2") "zen-2" else selectedServer
             val response = infoService.getVideoStream(anilistId, episodeNumber, apiServer)
             val streamData = response?.directLink?.data ?: response?.data
+            
+            // 1. Subtitles
             val subs = streamData?.subtitles?.mapNotNull { it.resolvedLang }?.distinct() ?: emptyList()
             availableSubtitles = listOf("All") + subs
             if (selectedSubLang !in availableSubtitles) {
                 selectedSubLang = if ("English" in availableSubtitles) "English" else availableSubtitles.getOrNull(1) ?: "All"
             }
+
+            // 2. Audio Tracks from M3U8
+            val m3u8Url = streamData?.m3u8_url
+            if (m3u8Url != null) {
+                val masterContent = to.kuudere.anisuge.AppComponent.httpClient.get(m3u8Url).bodyAsText()
+                val tracks = mutableListOf<Pair<String, String>>()
+                masterContent.lines().forEach { line ->
+                    if (line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
+                        val lang = Regex("LANGUAGE=\"([^\"]+)\"").find(line)?.groupValues?.get(1) ?: "unknown"
+                        val name = Regex("NAME=\"([^\"]+)\"").find(line)?.groupValues?.get(1) ?: lang
+                        tracks.add(lang to name)
+                    }
+                }
+                availableAudioTracks = tracks.distinctBy { it.first }
+                
+                // Set default audio lang
+                if (availableAudioTracks.isNotEmpty()) {
+                    if (selectedAudioLang == null || availableAudioTracks.none { it.first == selectedAudioLang }) {
+                        selectedAudioLang = availableAudioTracks.find { it.first == "jpn" || it.first == "ja" }?.first 
+                            ?: availableAudioTracks.first().first
+                    }
+                }
+            } else {
+                availableAudioTracks = emptyList()
+            }
         } catch (e: Exception) {
-            println("Failed to fetch subs for $selectedServer: ${e.message}")
+            println("Failed to fetch subs/audio for $selectedServer: ${e.message}")
         } finally {
             isLoadingSubs = false
         }
@@ -115,26 +145,26 @@ fun DownloadEpisodeDialog(
             }
 
             // Audio Selection (Only relevant for Zen servers which embed multiple tracks)
-            if (selectedServer.startsWith("zen")) {
+            if (availableAudioTracks.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Audio Track (Zen)", color = Color.Gray, fontSize = 14.sp)
+                    Text("Audio Track", color = Color.Gray, fontSize = 14.sp)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("sub" to "Subbed", "dub" to "Dubbed").forEach { (value, label) ->
-                            val isSelected = selectedAudioLang == value
+                        availableAudioTracks.forEach { (code, name) ->
+                            val isSelected = selectedAudioLang == code
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSelected) Color.White else Color(0xFF222222))
-                                    .clickable { selectedAudioLang = value }
+                                    .clickable { selectedAudioLang = code }
                                     .padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = label,
+                                    text = name,
                                     color = if (isSelected) Color.Black else Color.White,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold

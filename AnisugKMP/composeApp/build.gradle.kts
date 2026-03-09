@@ -52,6 +52,7 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.rxffmpeg)
             
             // Native libmpv for Android (has ASS support via libass)
             implementation("dev.jdtech.mpv:libmpv:0.5.1")
@@ -65,6 +66,7 @@ kotlin {
             implementation(libs.ktor.client.cio)
             // JNA for getting AWT canvas WID for MPV playback
             implementation(libs.jna)
+            implementation(libs.jave.all.deps)
         }
 
         commonTest.dependencies {
@@ -77,6 +79,9 @@ android {
     namespace = "to.kuudere.anisuge"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+    // Add repositories block here if needed, but android block doesn't usually take it.
+    // Wait, repositories should be in the top level or settings.
+    
     defaultConfig {
         applicationId = "to.kuudere.anisuge"
         minSdk = libs.versions.android.minSdk.get().toInt()
