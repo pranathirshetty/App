@@ -65,7 +65,6 @@ fun WatchScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val scrollState = rememberScrollState()
     var isLandscape by remember { mutableStateOf(true) }
 
     LockScreenOrientation(isLandscape)
@@ -106,8 +105,8 @@ fun WatchScreen(
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val isPanelActive = uiState.activeSidePanel != null
-                    val sidePanelWidth = 350.dp // Twitch standard width
-                    
+                    val sidePanelWidth = 350.dp
+
                     Row(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             key("video_player") {
@@ -120,7 +119,7 @@ fun WatchScreen(
                                 )
                             }
                         }
-                        
+
                         AnimatedVisibility(
                             visible = isPanelActive,
                             enter = slideInHorizontally(animationSpec = tween(300)) { it } + expandHorizontally(animationSpec = tween(300), expandFrom = Alignment.Start) + fadeIn(animationSpec = tween(300)),
@@ -151,7 +150,7 @@ fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: S
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: String = "") {
     Column(
@@ -380,85 +379,303 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                     }
                     "episodes" -> {
                         val episodes = uiState.episodeData?.allEpisodes ?: emptyList()
-                        val listState = rememberLazyListState()
-                        val sortedEpisodes = episodes.sortedBy { it.number }
+                        val totalEpisodes = episodes.size
+                        val episodesPerPage = 100
+                        val pageGroups = remember(totalEpisodes) {
+                            if (totalEpisodes > 0) (1..totalEpisodes step episodesPerPage).toList() else listOf(1)
+                        }
+                        val currentEpisodePageStart = remember(totalEpisodes, uiState.currentEpisodeNumber) {
+                            if (totalEpisodes > 0) (((uiState.currentEpisodeNumber - 1) / episodesPerPage) * episodesPerPage) + 1 else 1
+                        }
+                        var searchQuery by remember(episodes) { mutableStateOf("") }
+                        var isAscending by remember(episodes) { mutableStateOf(true) }
+                        var currentPageStart by remember(totalEpisodes, uiState.currentEpisodeNumber) {
+                            mutableStateOf(currentEpisodePageStart)
+                        }
+                        var showPageSheet by remember { mutableStateOf(false) }
                         var hasScrolled by remember { mutableStateOf(false) }
-                        
-                        // Auto-scroll to current episode only when episodes panel first opens
-                        LaunchedEffect(uiState.activeSidePanel) {
-                            if (uiState.activeSidePanel == "episodes" && !hasScrolled) {
-                                val currentEpIndex = sortedEpisodes.indexOfFirst { it.number == uiState.currentEpisodeNumber }
-                                if (currentEpIndex >= 0) {
-                                    listState.animateScrollToItem(currentEpIndex)
-                                    hasScrolled = true
+                        val listState = rememberLazyListState()
+
+                        val visibleEpisodes = remember(episodes, searchQuery, isAscending, currentPageStart) {
+                            val baseEpisodes = if (searchQuery.isBlank()) {
+                                episodes.filter { episode ->
+                                    episode.number in currentPageStart until (currentPageStart + episodesPerPage)
+                                }
+                            } else {
+                                episodes.filter { episode ->
+                                    val episodeTitle = episode.titles?.firstOrNull().orEmpty()
+                                    episode.number.toString().contains(searchQuery) ||
+                                        episodeTitle.contains(searchQuery, ignoreCase = true)
                                 }
                             }
+                            if (isAscending) baseEpisodes.sortedBy { it.number } else baseEpisodes.sortedByDescending { it.number }
                         }
-                        
-                        LazyColumn(Modifier.fillMaxSize().padding(16.dp), state = listState) {
-                            items(sortedEpisodes) { episode ->
-                                val isSelected = episode.number == uiState.currentEpisodeNumber
-                                val thumbnail = uiState.thumbnails[episode.number.toString()]
-                                
-                                Row(
+
+                        LaunchedEffect(searchQuery, currentEpisodePageStart) {
+                            if (searchQuery.isBlank() && currentPageStart != currentEpisodePageStart) {
+                                currentPageStart = currentEpisodePageStart
+                            }
+                        }
+
+                        LaunchedEffect(searchQuery, isAscending, currentPageStart) {
+                            if (visibleEpisodes.isNotEmpty()) {
+                                listState.scrollToItem(0)
+                            }
+                        }
+
+                        LaunchedEffect(uiState.activeSidePanel, searchQuery, isAscending, currentPageStart) {
+                            if (uiState.activeSidePanel == "episodes" && !hasScrolled) {
+                                val currentEpIndex = visibleEpisodes.indexOfFirst { it.number == uiState.currentEpisodeNumber }
+                                if (currentEpIndex >= 0) {
+                                    listState.animateScrollToItem(currentEpIndex)
+                                }
+                                hasScrolled = true
+                            }
+                        }
+
+                        LaunchedEffect(uiState.activeSidePanel) {
+                            if (uiState.activeSidePanel != "episodes") {
+                                hasScrolled = false
+                            }
+                        }
+
+                        Column(Modifier.fillMaxSize().padding(16.dp)) {
+                            if (totalEpisodes == 0) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("No episodes found", color = Color.Gray)
+                                }
+                            } else {
+                                Box(
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color.White else Color(0xFF111111))
-                                        .clickable { viewModel.onEpisodeSelected(episode.number) }
-                                        .padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF1A1A1A))
+                                        .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) { showPageSheet = true }
+                                        .padding(horizontal = 16.dp, vertical = 14.dp)
                                 ) {
-                                    if (thumbnail != null) {
-                                        AsyncImage(
-                                            model = thumbnail,
-                                            contentDescription = "Episode ${episode.number} Thumbnail",
-                                            modifier = Modifier
-                                                .width(100.dp)
-                                                .aspectRatio(16f/9f)
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(Color.DarkGray),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        Spacer(Modifier.width(12.dp))
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(100.dp)
-                                                .aspectRatio(16f/9f)
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(Color.DarkGray),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
-                                        }
-                                        Spacer(Modifier.width(12.dp))
-                                    }
-                                    
-                                    Column(Modifier.weight(1f)) {
-                                        Text(
-                                            "Episode ${episode.number}",
-                                            color = if (isSelected) Color.Black else Color.White,
-                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                            fontSize = 15.sp
-                                        )
-                                        val title = episode.titles?.firstOrNull()
-                                        if (!title.isNullOrBlank()) {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            val end = (currentPageStart + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                                            Text(
+                                                text = if (searchQuery.isBlank()) "Episodes $currentPageStart - $end" else "Search results",
+                                                color = Color.White,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
                                             Spacer(Modifier.height(4.dp))
                                             Text(
-                                                title,
-                                                color = if (isSelected) Color.DarkGray else Color.LightGray,
-                                                fontSize = 12.sp,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
+                                                text = if (searchQuery.isBlank()) "$totalEpisodes total episodes" else "${visibleEpisodes.size} matching episodes",
+                                                color = Color.Gray,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+
+                                        if (searchQuery.isBlank() && pageGroups.size > 1) {
+                                            Icon(
+                                                Icons.Default.KeyboardArrowDown,
+                                                contentDescription = "Select range",
+                                                tint = Color.White
                                             )
                                         }
                                     }
-                                    
-                                    if (isSelected) {
-                                        Spacer(Modifier.width(8.dp))
-                                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                                }
+
+                                if (showPageSheet) {
+                                    ModalBottomSheet(
+                                        onDismissRequest = { showPageSheet = false },
+                                        containerColor = Color(0xFF111111),
+                                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                                    ) {
+                                        Column(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .heightIn(max = 320.dp)
+                                                .verticalScroll(rememberScrollState())
+                                                .padding(horizontal = 16.dp)
+                                                .padding(bottom = 32.dp)
+                                        ) {
+                                            Text(
+                                                "Select Episode Range",
+                                                color = Color.White,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(bottom = 12.dp)
+                                            )
+                                            pageGroups.forEach { start ->
+                                                val end = (start + episodesPerPage - 1).coerceAtMost(totalEpisodes)
+                                                val isSelected = start == currentPageStart
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(10.dp))
+                                                        .background(if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                                        .clickable {
+                                                            currentPageStart = start
+                                                            showPageSheet = false
+                                                        }
+                                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "Episodes $start - $end",
+                                                        color = Color.White,
+                                                        fontSize = 15.sp,
+                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                    )
+                                                    if (isSelected) {
+                                                        Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = searchQuery,
+                                        onValueChange = { searchQuery = it },
+                                        modifier = Modifier.weight(1f).height(50.dp),
+                                        placeholder = {
+                                            Text(
+                                                "Search episode...",
+                                                color = Color.White.copy(alpha = 0.4f),
+                                                fontSize = 14.sp
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.Search,
+                                                null,
+                                                tint = Color.White.copy(alpha = 0.4f),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (searchQuery.isNotEmpty()) {
+                                                IconButton(onClick = { searchQuery = "" }) {
+                                                    Icon(
+                                                        Icons.Default.Clear,
+                                                        null,
+                                                        tint = Color.White.copy(alpha = 0.5f),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                            unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
+                                            focusedContainerColor = Color(0xFF1A1A1A),
+                                            unfocusedContainerColor = Color(0xFF1A1A1A),
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            cursorColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        singleLine = true
+                                    )
+
+                                    IconButton(
+                                        onClick = { isAscending = !isAscending },
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFF1A1A1A))
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = if (isAscending) "Ascending" else "Descending",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                if (visibleEpisodes.isEmpty()) {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text("No matching episodes", color = Color.Gray)
+                                    }
+                                } else {
+                                    LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                                        items(visibleEpisodes, key = { it.number }) { episode ->
+                                            val isSelected = episode.number == uiState.currentEpisodeNumber
+                                            val thumbnail = uiState.thumbnails[episode.number.toString()]
+
+                                            Row(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 4.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isSelected) Color.White else Color(0xFF111111))
+                                                    .clickable { viewModel.onEpisodeSelected(episode.number) }
+                                                    .padding(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (thumbnail != null) {
+                                                    AsyncImage(
+                                                        model = thumbnail,
+                                                        contentDescription = "Episode ${episode.number} Thumbnail",
+                                                        modifier = Modifier
+                                                            .width(100.dp)
+                                                            .aspectRatio(16f / 9f)
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(Color.DarkGray),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                    Spacer(Modifier.width(12.dp))
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(100.dp)
+                                                            .aspectRatio(16f / 9f)
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(Color.DarkGray),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
+                                                    }
+                                                    Spacer(Modifier.width(12.dp))
+                                                }
+
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(
+                                                        "Episode ${episode.number}",
+                                                        color = if (isSelected) Color.Black else Color.White,
+                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                                        fontSize = 15.sp
+                                                    )
+                                                    val title = episode.titles?.firstOrNull()
+                                                    if (!title.isNullOrBlank()) {
+                                                        Spacer(Modifier.height(4.dp))
+                                                        Text(
+                                                            title,
+                                                            color = if (isSelected) Color.DarkGray else Color.LightGray,
+                                                            fontSize = 12.sp,
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+
+                                                if (isSelected) {
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
