@@ -65,7 +65,7 @@ fun SearchScreen(
     }
 
     Scaffold(
-        containerColor = Color.Black
+        containerColor = Color(0xFF0B0B0B)
     ) { _ ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val isSmall = maxWidth < 800.dp
