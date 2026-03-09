@@ -94,21 +94,34 @@ class WatchViewModel(
         viewModelScope.launch {
             // Check for local subs/fonts in same dir
             val dir = path.substringBeforeLast("/")
-            // Try .ass then .vtt
-            val subPath = if (okio.FileSystem.SYSTEM.exists("$dir/subtitle.ass".toPath())) {
-                "$dir/subtitle.ass"
-            } else if (okio.FileSystem.SYSTEM.exists("$dir/subtitle.vtt".toPath())) {
-                "$dir/subtitle.vtt"
-            } else {
-                null
+            val subs = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
+            
+            try {
+                val files = okio.FileSystem.SYSTEM.list(dir.toPath())
+                files.forEach { file ->
+                    val name = file.name
+                    if (name.startsWith("subtitle") && (name.endsWith(".ass") || name.endsWith(".vtt") || name.endsWith(".srt"))) {
+                        val label = name.substringAfter("subtitle_", "").substringBeforeLast(".").ifEmpty { "Default" }
+                        subs.add(to.kuudere.anisuge.data.models.SubtitleData(
+                            languageName = label,
+                            url = "file://${file.toString()}",
+                            format = name.substringAfterLast(".")
+                        ))
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+
+            val defaultSub = subs.find { it.url?.contains("subtitle.ass") == true || it.url?.contains("subtitle.vtt") == true } ?: subs.firstOrNull()
             
             _uiState.update { it.copy(
                 isLoading = false,
                 isLoadingVideo = false,
                 currentQuality = "Offline",
                 availableQualities = listOf("Offline" to path),
-                currentSubtitleUrl = if (subPath != null) "file://$subPath" else null,
+                availableSubtitles = subs,
+                currentSubtitleUrl = defaultSub?.url,
                 currentFontsDir = dir
             ) }
         }

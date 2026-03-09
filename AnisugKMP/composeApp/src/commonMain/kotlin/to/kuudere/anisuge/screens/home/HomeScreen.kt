@@ -1647,8 +1647,13 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
                         Spacer(Modifier.height(8.dp))
                         
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val statusText = if (task.status.startsWith("Downloading") && task.downloadSpeed.isNotEmpty()) {
+                                "${task.downloadSpeed} • ${task.eta}"
+                            } else {
+                                task.status
+                            }
                             Text(
-                                text = task.status,
+                                text = statusText,
                                 color = if (task.status == "Finished") Color.Green else if (task.status.startsWith("Failed")) Color.Red else Color.White.copy(alpha = 0.7f),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium

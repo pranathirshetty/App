@@ -188,7 +188,11 @@ fun DownloadEpisodeDialog(
             if (currentTask != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = currentTask.status,
+                        text = if (currentTask.status.startsWith("Downloading") && currentTask.downloadSpeed.isNotEmpty()) {
+                            "${currentTask.status.substringBefore(":")}: ${currentTask.downloadSpeed} • ${currentTask.eta}"
+                        } else {
+                            currentTask.status
+                        },
                         color = if (currentTask.status == "Finished") Color.Green else Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium

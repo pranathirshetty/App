@@ -949,6 +949,7 @@ fun WatchVideoPlayer(
                 }
 
                 // Render out our cross-platform compose player controls overlay
+                val isOffline = uiState.offlinePath != null
                 PlayerControls(
                     playerState = playerState,
                     streamingData = uiState.streamingData,
@@ -957,19 +958,23 @@ fun WatchVideoPlayer(
                     onFullscreenToggle = onFullscreenToggle,
                     onBack = onBack,
                     onNextEpisode = {
-                        val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
-                        if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                        if (!isOffline) {
+                            val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                            if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                        }
                     },
                     onPrevEpisode = {
-                        val prevEp = uiState.episodeData?.allEpisodes?.filter { it.number < uiState.currentEpisodeNumber }?.maxByOrNull { it.number }
-                        if (prevEp != null) viewModel.onEpisodeSelected(prevEp.number)
+                        if (!isOffline) {
+                            val prevEp = uiState.episodeData?.allEpisodes?.filter { it.number < uiState.currentEpisodeNumber }?.maxByOrNull { it.number }
+                            if (prevEp != null) viewModel.onEpisodeSelected(prevEp.number)
+                        }
                     },
                     onCaptionsClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.SUBTITLES) },
                     onSettingsClick = { viewModel.toggleSettingsOverlay() },
-                    onInfoClick = { viewModel.toggleSidePanel("info") },
-                    onEpisodesClick = { viewModel.toggleSidePanel("episodes") },
-                    onCommentsClick = { viewModel.toggleSidePanel("comments") },
-                    onWatchlistClick = { viewModel.toggleSettingsOverlay(SettingsMenuPage.WATCHLIST) },
+                    onInfoClick = { if (!isOffline) viewModel.toggleSidePanel("info") },
+                    onEpisodesClick = { if (!isOffline) viewModel.toggleSidePanel("episodes") },
+                    onCommentsClick = { if (!isOffline) viewModel.toggleSidePanel("comments") },
+                    onWatchlistClick = { if (!isOffline) viewModel.toggleSettingsOverlay(SettingsMenuPage.WATCHLIST) },
                     isInWatchlist = uiState.episodeData?.inWatchlist ?: false,
                     currentFolder = uiState.episodeData?.folder,
                     modifier = Modifier.fillMaxSize()
@@ -977,7 +982,8 @@ fun WatchVideoPlayer(
             }
             
             if (uiState.showSettingsOverlay) {
-                val servers = listOf("hiya", "hiya-dub", "zen", "zen2")
+                val isOffline = uiState.offlinePath != null
+                val servers = if (isOffline) emptyList() else listOf("hiya", "hiya-dub", "zen", "zen2")
                 SettingsOverlay(
                     uiState = uiState,
                     servers = servers,
@@ -989,6 +995,7 @@ fun WatchVideoPlayer(
                         viewModel.setSubtitle(url, lang) 
                     },
                     onServerSelected = { serverLabel -> 
+                        if (isOffline) return@SettingsOverlay
                         val currentServer = uiState.currentServer.lowercase()
                         val newServer = serverLabel.lowercase()
                         

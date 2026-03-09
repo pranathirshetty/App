@@ -105,7 +105,7 @@ fun SettingsOverlay(
                                 }
                                 
                                 // 2. Quality
-                                if (uiState.availableQualities.isNotEmpty()) {
+                                if (uiState.availableQualities.size > 1 || (servers.isNotEmpty() && uiState.availableQualities.isNotEmpty())) {
                                     SettingsMenuItem(
                                         icon = { Icon(getSignalIcon(), contentDescription = null, tint = Color.White) }, // Icon
                                         title = "Quality",
@@ -163,19 +163,21 @@ fun SettingsOverlay(
                                 )
 
                                 // 7. Watchlist
-                                uiState.episodeData?.let { data ->
-                                    SettingsMenuItem(
-                                        icon = { 
-                                            if (uiState.isUpdatingWatchlist) {
-                                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                            } else {
-                                                Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
-                                            }
-                                        },
-                                        title = "Watchlist",
-                                        subtitle = data.folder ?: "Not in list",
-                                        onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
-                                    )
+                                if (servers.isNotEmpty()) {
+                                    uiState.episodeData?.let { data ->
+                                        SettingsMenuItem(
+                                            icon = { 
+                                                if (uiState.isUpdatingWatchlist) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                                } else {
+                                                    Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
+                                                }
+                                            },
+                                            title = "Watchlist",
+                                            subtitle = data.folder ?: "Not in list",
+                                            onClick = { if (!uiState.isUpdatingWatchlist) currentPage = SettingsMenuPage.WATCHLIST }
+                                        )
+                                    }
                                 }
                                 
                                 Spacer(Modifier.height(8.dp))

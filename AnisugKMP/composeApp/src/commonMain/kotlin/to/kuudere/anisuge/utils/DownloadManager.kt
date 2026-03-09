@@ -14,7 +14,6 @@ import okio.Path.Companion.toPath
 import okio.buffer
 import to.kuudere.anisuge.AppComponent
 import to.kuudere.anisuge.data.models.StreamingData
-
 import kotlinx.coroutines.Job
 
 data class DownloadTask(
@@ -25,6 +24,8 @@ data class DownloadTask(
     val coverImage: String? = null,
     val progress: Float = 0f,
     val status: String = "Queued", // Queued, Downloading, Finished, Failed, Paused
+    val downloadSpeed: String = "",
+    val eta: String = "",
     val localPath: String? = null,
     val isPaused: Boolean = false,
     @kotlin.jvm.Transient internal var job: Job? = null
@@ -81,9 +82,7 @@ object DownloadManager {
                     return@launch
                 }
 
-                // Strictly use M3U8 as requested
                 val m3u8Url = streamData.m3u8_url
-                
                 if (m3u8Url == null) {
                     updateTask(taskId) { it.copy(status = "Failed: No M3U8 URL") }
                     return@launch
@@ -145,27 +144,53 @@ object DownloadManager {
                 }
 
                 val finalPath = "$epDir/video.mkv"
-                // Check if we already have some segments (Resume support)
-                // For simplicity here, we overwrite, but check for cancellation/pause in loop
                 val sink = FileSystem.SYSTEM.sink(finalPath.toPath()).buffer()
                 
+                var totalBytesDownloaded = 0L
+                var lastMeasureTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                var bytesSinceLastMeasure = 0L
+
                 try {
                     segments.forEachIndexed { index, segmentUrl ->
-                        // Check for pause/cancel
                         while (tasks.value.find { it.id == taskId }?.isPaused == true) {
                             kotlinx.coroutines.delay(1000)
+                            lastMeasureTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                         }
 
                         val segmentBytes = httpClient.get(segmentUrl).readBytes()
                         sink.write(segmentBytes)
                         
+                        totalBytesDownloaded += segmentBytes.size
+                        bytesSinceLastMeasure += segmentBytes.size
+                        
+                        val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                        val diff = now - lastMeasureTime
+                        
+                        var speedText = ""
+                        var etaText = ""
+                        
+                        if (diff >= 1000) {
+                            val speed = (bytesSinceLastMeasure.toDouble() / (diff / 1000.0)) // bytes/sec
+                            speedText = formatSpeed(speed)
+                            val avgSegSize = totalBytesDownloaded.toDouble() / (index + 1)
+                            val remainingSegs = segments.size - (index + 1)
+                            val remainingBytes = remainingSegs * avgSegSize
+                            val etaSecs = if (speed > 0) (remainingBytes / speed).toInt() else 0
+                            etaText = formatEta(etaSecs)
+                            
+                            lastMeasureTime = now
+                            bytesSinceLastMeasure = 0
+                        }
+
                         val progress = (index + 1).toFloat() / segments.size
                         updateTask(taskId) { it.copy(
                             status = "Downloading stream: ${(progress * 100).toInt()}%",
-                            progress = progress
+                            progress = progress,
+                            downloadSpeed = speedText.ifEmpty { it.downloadSpeed },
+                            eta = etaText.ifEmpty { it.eta }
                         ) }
                     }
-                    updateTask(taskId) { it.copy(status = "Finalizing MKV container...", progress = 1f) }
+                    updateTask(taskId) { it.copy(status = "Finalizing MKV container...", progress = 1f, downloadSpeed = "", eta = "") }
                 } finally {
                     sink.close()
                 }
@@ -178,6 +203,22 @@ object DownloadManager {
             }
         }
         updateTask(taskId) { it.copy(job = job) }
+    }
+
+    private fun formatSpeed(bytesPerSec: Double): String {
+        return when {
+            bytesPerSec >= 1024 * 1024 -> String.format("%.1f MB/s", bytesPerSec / (1024 * 1024))
+            bytesPerSec >= 1024 -> String.format("%.1f KB/s", bytesPerSec / 1024)
+            else -> String.format("%.0f B/s", bytesPerSec)
+        }
+    }
+
+    private fun formatEta(seconds: Int): String {
+        return when {
+            seconds >= 3600 -> String.format("%dh %dm left", seconds / 3600, (seconds % 3600) / 60)
+            seconds >= 60 -> String.format("%dm %ds left", seconds / 60, seconds % 60)
+            else -> String.format("%ds left", seconds)
+        }
     }
 
     fun pauseDownload(id: String) {
