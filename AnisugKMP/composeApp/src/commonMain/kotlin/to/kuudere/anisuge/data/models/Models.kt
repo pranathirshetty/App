@@ -24,6 +24,31 @@ data class RegisterRequest(
 )
 
 @Serializable
+data class ForgotPasswordRequest(
+    val email: String,
+)
+
+@Serializable
+data class VerifyResetCodeRequest(
+    val email: String,
+    val code: String,
+)
+
+@Serializable
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val password: String,
+    val confirmPassword: String,
+)
+
+@Serializable
+data class BasicApiResponse(
+    val success: Boolean,
+    val message: String? = null,
+)
+
+@Serializable
 data class AuthResponse(
     val success: Boolean,
     val message: String? = null,

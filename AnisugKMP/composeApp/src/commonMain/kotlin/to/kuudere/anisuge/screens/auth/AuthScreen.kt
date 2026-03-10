@@ -121,6 +121,13 @@ fun AuthScreen(
         }
     }
 
+    LaunchedEffect(state.infoMessage) {
+        state.infoMessage?.let {
+            snackbar.showSnackbar(it)
+            viewModel.clearInfo()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints {
             val isDesktop = maxWidth > 800.dp
@@ -301,15 +308,22 @@ private fun MobileAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
 @Composable
 private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boolean) {
     val passwordFocus = remember { FocusRequester() }
+    val resetCodeFocus = remember { FocusRequester() }
 
     Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
         AnimatedContent(
-            targetState = state.isLogin,
+            targetState = state.mode,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
             label = "auth_title",
-        ) { isLogin ->
+        ) { mode ->
             Text(
-                text = if (isLogin) "Welcome back" else "Create account",
+                text = when (mode) {
+                    AuthMode.LOGIN -> "Welcome back"
+                    AuthMode.REGISTER -> "Create account"
+                    AuthMode.FORGOT_PASSWORD -> "Forgot password"
+                    AuthMode.VERIFY_CODE -> "Verify code"
+                    AuthMode.RESET_PASSWORD -> "Reset password"
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
                 fontSize = 26.sp,
@@ -319,12 +333,18 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boo
         }
         Spacer(Modifier.height(6.dp))
         AnimatedContent(
-            targetState = state.isLogin,
+            targetState = state.mode,
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
             label = "auth_subtitle",
-        ) { isLogin ->
+        ) { mode ->
             Text(
-                text = if (isLogin) "Sign in to continue watching" else "Join our streaming platform",
+                text = when (mode) {
+                    AuthMode.LOGIN -> "Sign in to continue watching"
+                    AuthMode.REGISTER -> "Join our streaming platform"
+                    AuthMode.FORGOT_PASSWORD -> "Enter your email to reset your password"
+                    AuthMode.VERIFY_CODE -> "Enter the 6-digit code sent to your email"
+                    AuthMode.RESET_PASSWORD -> "Enter your new password"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF999999),
                 fontSize = 14.sp,
@@ -335,58 +355,89 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boo
 
     Spacer(Modifier.height(28.dp))
 
-    AnimatedVisibility(
-        visible = !state.isLogin,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut(),
-    ) {
-        Column {
-            AnisugTextField(
-                value = state.displayName,
-                onValueChange = viewModel::onDisplayNameChange,
-                label = "Full name",
-                placeholder = "Enter your full name",
-                imeAction = ImeAction.Next,
-                onImeAction = { passwordFocus.requestFocus() },
-            )
-            Spacer(Modifier.height(16.dp))
+    // REGISTER mode fields
+    if (state.mode == AuthMode.REGISTER) {
+        AnisugTextField(
+            value = state.displayName,
+            onValueChange = viewModel::onDisplayNameChange,
+            label = "Full name",
+            placeholder = "Enter your full name",
+            imeAction = ImeAction.Next,
+            onImeAction = { /* Focus next */ },
+        )
+        Spacer(Modifier.height(16.dp))
+    }
+
+    // Email field
+    if (state.mode != AuthMode.RESET_PASSWORD && state.mode != AuthMode.VERIFY_CODE) {
+        AnisugTextField(
+            value = state.email,
+            onValueChange = viewModel::onEmailChange,
+            label = "Email",
+            placeholder = "Enter your email address",
+            keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next,
+            onImeAction = { passwordFocus.requestFocus() },
+        )
+        Spacer(Modifier.height(16.dp))
+    }
+
+    // VERIFY_CODE mode fields
+    if (state.mode == AuthMode.VERIFY_CODE) {
+        AnisugTextField(
+            value = state.resetCode,
+            onValueChange = viewModel::onResetCodeChange,
+            label = "Reset Code",
+            placeholder = "Enter 6-digit code",
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done,
+            onImeAction = { viewModel.submit() },
+            focusRequester = resetCodeFocus,
+        )
+        Spacer(Modifier.height(16.dp))
+        
+        LaunchedEffect(Unit) {
+            resetCodeFocus.requestFocus()
         }
     }
 
-    AnisugTextField(
-        value = state.email,
-        onValueChange = viewModel::onEmailChange,
-        label = "Email",
-        placeholder = "Enter your email address",
-        keyboardType = KeyboardType.Email,
-        imeAction = ImeAction.Next,
-        onImeAction = { passwordFocus.requestFocus() },
-    )
+    // Password field
+    if (state.mode == AuthMode.LOGIN || state.mode == AuthMode.REGISTER || state.mode == AuthMode.RESET_PASSWORD) {
+        AnisugTextField(
+            value = state.password,
+            onValueChange = viewModel::onPasswordChange,
+            label = if (state.mode == AuthMode.RESET_PASSWORD) "New Password" else "Password",
+            placeholder = "Enter your password",
+            isPassword = true,
+            keyboardType = KeyboardType.Password,
+            imeAction = if (state.mode == AuthMode.RESET_PASSWORD) ImeAction.Next else ImeAction.Done,
+            onImeAction = { if (state.mode == AuthMode.RESET_PASSWORD) { /* focus confirm */ } else viewModel.submit() },
+            focusRequester = passwordFocus,
+        )
+        Spacer(Modifier.height(16.dp))
+    }
 
-    Spacer(Modifier.height(16.dp))
+    // Confirm Password field
+    if (state.mode == AuthMode.RESET_PASSWORD) {
+        AnisugTextField(
+            value = state.confirmPassword,
+            onValueChange = viewModel::onConfirmPasswordChange,
+            label = "Confirm Password",
+            placeholder = "Confirm your new password",
+            isPassword = true,
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done,
+            onImeAction = { viewModel.submit() },
+        )
+        Spacer(Modifier.height(16.dp))
+    }
 
-    AnisugTextField(
-        value = state.password,
-        onValueChange = viewModel::onPasswordChange,
-        label = "Password",
-        placeholder = "Enter your password",
-        isPassword = true,
-        keyboardType = KeyboardType.Password,
-        imeAction = ImeAction.Done,
-        onImeAction = { viewModel.submit() },
-        focusRequester = passwordFocus,
-    )
-
-    AnimatedVisibility(
-        visible = state.isLogin,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut(),
-    ) {
+    // Forgot password link
+    if (state.mode == AuthMode.LOGIN) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Spacer(Modifier.height(8.dp))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 TextButton(
-                    onClick = { /* Handle forgot password */ },
+                    onClick = { viewModel.setMode(AuthMode.FORGOT_PASSWORD) },
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text(
@@ -397,10 +448,11 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boo
                     )
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 
-    Spacer(Modifier.height(24.dp))
+    Spacer(Modifier.height(8.dp))
 
     Button(
         onClick = viewModel::submit,
@@ -417,45 +469,55 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boo
         if (state.isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.Black, strokeWidth = 2.dp)
         } else {
-            AnimatedContent(
-                targetState = state.isLogin,
-                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-            ) { isLogin ->
-                Text(
-                    text = if (isLogin) "Sign in" else "Create account",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
-                    letterSpacing = 0.5.sp,
-                )
-            }
+            Text(
+                text = when (state.mode) {
+                    AuthMode.LOGIN -> "Sign in"
+                    AuthMode.REGISTER -> "Create account"
+                    AuthMode.FORGOT_PASSWORD -> "Send Reset Code"
+                    AuthMode.VERIFY_CODE -> "Verify Code"
+                    AuthMode.RESET_PASSWORD -> "Reset Password"
+                },
+                fontSize = 15.sp,
+                fontWeight = FontWeight.W700,
+                letterSpacing = 0.5.sp,
+            )
         }
     }
 
     Spacer(Modifier.height(20.dp))
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        AnimatedContent(
-            targetState = state.isLogin,
-            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-        ) { isLogin ->
+        val text = when (state.mode) {
+            AuthMode.LOGIN -> "Don't have an account? "
+            AuthMode.REGISTER -> "Already have an account? "
+            else -> ""
+        }
+        val actionText = when (state.mode) {
+            AuthMode.LOGIN -> "Sign up"
+            AuthMode.REGISTER -> "Sign in"
+            else -> "Back to sign in"
+        }
+        
+        if (text.isNotEmpty()) {
             Text(
-                text = if (isLogin) "Don't have an account? " else "Already have an account? ",
+                text = text,
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 13.sp,
             )
         }
-        TextButton(onClick = viewModel::toggleMode, contentPadding = PaddingValues(horizontal = 4.dp)) {
-            AnimatedContent(
-                targetState = state.isLogin,
-                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
-            ) { isLogin ->
-                Text(
-                    text = if (isLogin) "Sign up" else "Sign in",
-                    fontWeight = FontWeight.W600,
-                    fontSize = 13.sp,
-                    color = Color.White,
-                )
-            }
+        TextButton(
+            onClick = {
+                if (state.mode == AuthMode.LOGIN || state.mode == AuthMode.REGISTER) viewModel.toggleMode()
+                else viewModel.setMode(AuthMode.LOGIN)
+            },
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            Text(
+                text = actionText,
+                fontWeight = FontWeight.W600,
+                fontSize = 13.sp,
+                color = Color.White,
+            )
         }
     }
 }

@@ -15,11 +15,15 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import to.kuudere.anisuge.data.models.AuthResponse
+import to.kuudere.anisuge.data.models.BasicApiResponse
 import to.kuudere.anisuge.data.models.CurrentUserResponse
+import to.kuudere.anisuge.data.models.ForgotPasswordRequest
 import to.kuudere.anisuge.data.models.LoginRequest
 import to.kuudere.anisuge.data.models.RegisterRequest
+import to.kuudere.anisuge.data.models.ResetPasswordRequest
 import to.kuudere.anisuge.data.models.SessionCheckResult
 import to.kuudere.anisuge.data.models.SessionInfo
+import to.kuudere.anisuge.data.models.VerifyResetCodeRequest
 
 class AuthService(
     private val sessionStore: SessionStore,
@@ -57,6 +61,35 @@ class AuthService(
         if (!body.success || body.session == null)
             throw Exception(body.message ?: "Registration failed")
         return body.session.toSessionInfo().also { sessionStore.save(it) }
+    }
+
+    suspend fun forgotPassword(email: String): String {
+        val response = httpClient.post("$BASE_URL/api/auth/forgot-password") {
+            contentType(ContentType.Application.Json)
+            setBody(ForgotPasswordRequest(email))
+        }
+        val body: BasicApiResponse = response.body()
+        if (!body.success) throw Exception(body.message ?: "Failed to send reset code")
+        return body.message ?: "Reset code sent successfully"
+    }
+
+    suspend fun verifyResetCode(email: String, code: String): Boolean {
+        val response = httpClient.post("$BASE_URL/api/auth/verify-reset-code") {
+            contentType(ContentType.Application.Json)
+            setBody(VerifyResetCodeRequest(email, code))
+        }
+        val body: BasicApiResponse = response.body()
+        return body.success
+    }
+
+    suspend fun resetPassword(email: String, code: String, password: String): String {
+        val response = httpClient.post("$BASE_URL/api/auth/reset-password") {
+            contentType(ContentType.Application.Json)
+            setBody(ResetPasswordRequest(email, code, password, password))
+        }
+        val body: BasicApiResponse = response.body()
+        if (!body.success) throw Exception(body.message ?: "Failed to reset password")
+        return body.message ?: "Password reset successfully"
     }
 
     /** Returns true if there is a valid, non-expired stored session. */
