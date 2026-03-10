@@ -1881,15 +1881,19 @@ private fun DownloadTaskCard(
     ) {
         // ── Top section: poster + metadata ───────────────────────────
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
             // Poster
             Box(
                 modifier = Modifier
-                    .size(width = 72.dp, height = 100.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .fillMaxHeight()
+                    .aspectRatio(0.72f)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(Color.White.copy(alpha = 0.05f))
             ) {
                 if (task.coverImage != null) {
@@ -1904,36 +1908,49 @@ private fun DownloadTaskCard(
             }
 
             // Metadata
+            val isActive = task.status != "Finished"
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = if (isActive) Arrangement.SpaceBetween else Arrangement.spacedBy(5.dp),
             ) {
-                Text(
-                    text = task.title,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 20.sp,
-                )
-                Text(
-                    text = "Episode ${task.episodeNumber}",
-                    color = Color.White.copy(alpha = 0.48f),
-                    fontSize = 12.sp,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = task.title,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 17.sp,
+                    )
+                    Text(
+                        text = "Episode ${task.episodeNumber}",
+                        color = Color.White.copy(alpha = 0.45f),
+                        fontSize = 11.sp,
+                    )
+                    if (!isActive) {
+                        Text(
+                            text = detailText,
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontSize = 11.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                    if (isActive) {
+                        Text(
+                            text = detailText,
+                            color = Color.White.copy(alpha = 0.50f),
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
 
-                Text(
-                    text = detailText,
-                    color = Color.White.copy(alpha = 0.62f),
-                    fontSize = 12.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 18.sp,
-                )
-
-                if (task.status != "Finished") {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                if (isActive) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1942,7 +1959,7 @@ private fun DownloadTaskCard(
                             Text(
                                 text = task.status,
                                 color = accentColor,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1950,14 +1967,14 @@ private fun DownloadTaskCard(
                             )
                             Text(
                                 text = "${(progressValue * 100).toInt()}%",
-                                color = Color.White.copy(alpha = 0.48f),
-                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
                             )
                         }
                         LinearProgressIndicator(
                             progress = { progressValue },
-                            modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
+                            modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
                             color = accentColor,
                             trackColor = Color.White.copy(alpha = 0.08f),
                         )
