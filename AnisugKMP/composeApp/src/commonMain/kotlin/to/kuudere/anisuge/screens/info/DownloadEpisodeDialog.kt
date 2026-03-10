@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.WatchServerResponse
 import to.kuudere.anisuge.data.services.InfoService
@@ -262,31 +263,37 @@ fun DownloadEpisodeDialog(
 
             Spacer(Modifier.height(8.dp))
 
+            val isFinished = currentTask?.status == "Finished"
+            val deleteWeight by animateFloatAsState(
+                targetValue = if (isFinished) 1f else 0f,
+                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+            )
+            val buttonSpacing by animateDpAsState(
+                targetValue = if (isFinished) 12.dp else 0.dp,
+                animationSpec = tween(durationMillis = 400)
+            )
+
             Row(
-                modifier = Modifier.fillMaxWidth().animateContentSize(), 
-                horizontalArrangement = Arrangement.spacedBy(if (currentTask?.status == "Finished") 12.dp else 0.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AnimatedVisibility(
-                    visible = currentTask?.status == "Finished",
-                    enter = fadeIn() + expandHorizontally(),
-                    exit = fadeOut() + shrinkHorizontally(),
-                    modifier = Modifier.weight(if (currentTask?.status == "Finished") 1f else 0.0001f)
-                ) {
-                    Button(
-                        onClick = {
-                            if (currentTask != null) {
-                                to.kuudere.anisuge.utils.DownloadManager.removeTask(currentTask.id)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                if (deleteWeight > 0.01f) {
+                    Box(Modifier.weight(deleteWeight).padding(end = buttonSpacing)) {
+                        Button(
+                            onClick = {
+                                if (currentTask != null) {
+                                    to.kuudere.anisuge.utils.DownloadManager.removeTask(currentTask.id)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                        }
                     }
                 }
 
-                val isFinished = currentTask?.status == "Finished"
                 Button(
                     onClick = {
                         if (currentTask == null || currentTask.status.startsWith("Failed")) {
@@ -315,7 +322,8 @@ fun DownloadEpisodeDialog(
                         },
                         color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 15.sp,
+                        maxLines = 1
                     )
                 }
             }
