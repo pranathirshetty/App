@@ -64,6 +64,7 @@ fun PlayerControls(
     onWatchlistClick: () -> Unit = {},
     isInWatchlist: Boolean = false,
     currentFolder: String? = null,
+    isOffline: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -504,11 +505,11 @@ fun PlayerControls(
                                     IconButton(onClick = { playerState.isMuted = !playerState.isMuted; scheduleHide() }, modifier = Modifier.size(38.dp)) {
                                         Icon(if (playerState.isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, null, tint = Color.White, modifier = Modifier.size(24.dp))
                                     }
-                                    IconButton(onClick = { onWatchlistClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
+                                    IconButton(onClick = { if (!isOffline) onWatchlistClick(); scheduleHide() }, modifier = Modifier.size(38.dp), enabled = !isOffline) {
                                         Icon(
                                             if (isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, 
                                             null, 
-                                            tint = Color.White, 
+                                            tint = if (isOffline) Color.Gray else Color.White, 
                                             modifier = Modifier.size(22.dp)
                                         )
                                     }
@@ -567,14 +568,14 @@ fun PlayerControls(
 
                                 // Right actions: Info, Episodes, Comments, [Fullscreen on Desktop]
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = { onInfoClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
-                                        Icon(Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    IconButton(onClick = { if (!isOffline) onInfoClick(); scheduleHide() }, modifier = Modifier.size(38.dp), enabled = !isOffline) {
+                                        Icon(Icons.Default.Info, null, tint = if (isOffline) Color.Gray else Color.White, modifier = Modifier.size(22.dp))
                                     }
-                                    IconButton(onClick = { onEpisodesClick(); scheduleHide() }, modifier = Modifier.size(38.dp)) {
-                                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    IconButton(onClick = { if (!isOffline) onEpisodesClick(); scheduleHide() }, modifier = Modifier.size(38.dp), enabled = !isOffline) {
+                                        Icon(Icons.AutoMirrored.Filled.FormatListBulleted, null, tint = if (isOffline) Color.Gray else Color.White, modifier = Modifier.size(22.dp))
                                     }
-                                    IconButton(onClick = { onCommentsClick(); scheduleHide() }, modifier = Modifier.size(40.dp)) {
-                                        Icon(Icons.Default.ChatBubbleOutline, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    IconButton(onClick = { if (!isOffline) onCommentsClick(); scheduleHide() }, modifier = Modifier.size(40.dp), enabled = !isOffline) {
+                                        Icon(Icons.Default.ChatBubbleOutline, null, tint = if (isOffline) Color.Gray else Color.White, modifier = Modifier.size(22.dp))
                                     }
                                     if (to.kuudere.anisuge.platform.isDesktopPlatform) {
                                         IconButton(onClick = { onFullscreenToggle(); scheduleHide() }, modifier = Modifier.size(40.dp)) {

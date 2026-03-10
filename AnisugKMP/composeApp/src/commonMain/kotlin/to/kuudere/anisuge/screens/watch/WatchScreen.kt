@@ -977,6 +977,7 @@ fun WatchVideoPlayer(
                     onWatchlistClick = { if (!isOffline) viewModel.toggleSettingsOverlay(SettingsMenuPage.WATCHLIST) },
                     isInWatchlist = uiState.episodeData?.inWatchlist ?: false,
                     currentFolder = uiState.episodeData?.folder,
+                    isOffline = isOffline,
                     modifier = Modifier.fillMaxSize()
                 )
             }
