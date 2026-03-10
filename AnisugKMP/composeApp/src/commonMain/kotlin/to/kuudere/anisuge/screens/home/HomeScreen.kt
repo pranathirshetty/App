@@ -8,8 +8,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInHorizontally
@@ -43,6 +48,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -83,8 +89,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Info
@@ -2090,54 +2096,121 @@ fun ConfirmDialog(
     onDismiss: () -> Unit,
     isDanger: Boolean = true,
 ) {
-    val confirmColor = if (isDanger) Color(0xFFFF6B6B) else Color.White
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF1A1A1A),
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 0.dp,
-        title = {
-            Text(
-                text = title,
-                color = Color.White,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        },
-        text = {
-            Text(
-                text = message,
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDanger) Color(0xFFFF6B6B).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.10f),
-                    contentColor = confirmColor,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(220)) + scaleIn(
+                    initialScale = 0.88f,
+                    animationSpec = tween(260, easing = FastOutSlowInEasing),
                 ),
-                shape = RoundedCornerShape(10.dp),
-            ) {
-                Text(confirmLabel, fontWeight = FontWeight.SemiBold)
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.07f),
-                    contentColor = Color.White.copy(alpha = 0.75f),
+                exit = fadeOut(tween(180)) + scaleOut(
+                    targetScale = 0.88f,
+                    animationSpec = tween(180, easing = FastOutSlowInEasing),
                 ),
-                shape = RoundedCornerShape(10.dp),
             ) {
-                Text(dismissLabel)
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 380.dp)
+                        .padding(horizontal = 28.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.03f))
+                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                        .clickable(onClick = {}),
+                ) {
+                    // Title + message
+                    Column(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = title,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = message,
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                        )
+                    }
+
+                    // Divider
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.07f)))
+
+                    // Action row — same style as CardActionCell
+                    Row(modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        DialogActionCell(
+                            label = dismissLabel,
+                            icon = Icons.Default.Close,
+                            modifier = Modifier.weight(1f),
+                            onClick = onDismiss,
+                        )
+                        Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.07f)))
+                        DialogActionCell(
+                            label = confirmLabel,
+                            icon = Icons.Default.Delete,
+                            modifier = Modifier.weight(1f),
+                            isPrimary = true,
+                            onClick = onConfirm,
+                        )
+                    }
+                }
             }
-        },
+        }
+    }
+}
+
+@Composable
+private fun DialogActionCell(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    isPrimary: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val inter = remember { MutableInteractionSource() }
+    val hovered by inter.collectIsHoveredAsState()
+
+    val bg by animateColorAsState(
+        targetValue = if (hovered) Color.White.copy(alpha = if (isPrimary) 0.10f else 0.05f) else Color.Transparent,
+        animationSpec = tween(200),
     )
+    val tint by animateColorAsState(
+        targetValue = if (isPrimary) Color.White else Color.White.copy(alpha = 0.65f),
+        animationSpec = tween(200),
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bg)
+            .hoverable(inter)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(15.dp))
+            Text(text = label, color = tint, fontSize = 13.sp, fontWeight = if (isPrimary) FontWeight.SemiBold else FontWeight.Normal)
+        }
+    }
 }
 
 
