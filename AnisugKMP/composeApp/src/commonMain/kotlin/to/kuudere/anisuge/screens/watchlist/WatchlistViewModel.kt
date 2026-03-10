@@ -40,6 +40,11 @@ class WatchlistViewModel : ViewModel() {
         fetchWatchlist()
     }
 
+    fun refresh() {
+        _uiState.update { it.copy(items = emptyList(), currentPage = 1, totalPages = 1) }
+        fetchWatchlist(1)
+    }
+
     fun onFolderChange(folder: String) {
         _uiState.update { it.copy(selectedFolder = folder, items = emptyList(), currentPage = 1, totalPages = 1) }
         fetchWatchlist(1)

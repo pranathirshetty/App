@@ -181,6 +181,9 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         homeViewModel.refresh()
+        searchViewModel.search()
+        watchlistViewModel.refresh()
+        scheduleViewModel.refresh()
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
