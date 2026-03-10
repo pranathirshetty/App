@@ -37,7 +37,10 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.TabletAndroid
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -136,7 +139,8 @@ fun SettingsScreen(
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
-        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock)
+        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock),
+        SettingsNavItem(SettingsTab.About, "About", Icons.Default.Info)
     )
 
     Scaffold(
@@ -191,43 +195,39 @@ fun SettingsScreen(
                     }
                 }
             } else {
-                // Mobile: Tab layout
-                Column(modifier = Modifier.fillMaxSize()) {
-                    TabRow(
-                        selectedTabIndex = navItems.indexOfFirst { it.tab == selectedTab },
-                        containerColor = BG,
-                        contentColor = Color.White,
-                        indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[navItems.indexOfFirst { it.tab == selectedTab }]),
-                                color = Color.White
-                            )
-                        }
-                    ) {
-                        navItems.forEach { item ->
-                            val isSelected = selectedTab == item.tab
-                            Tab(
-                                selected = isSelected,
-                                onClick = { selectedTab = item.tab },
-                                text = { Text(item.label) },
-                                icon = { Icon(item.icon, contentDescription = null, tint = if (isSelected) Color.White else MUTED) }
-                            )
-                        }
-                    }
+                // Mobile: List menu with navigation to detail screens
+                var showDetail by remember { mutableStateOf<SettingsTab?>(null) }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
-                    ) {
-                        SettingsContent(
-                            selectedTab = selectedTab,
-                            uiState = uiState,
+                AnimatedContent(
+                    targetState = showDetail,
+                    transitionSpec = {
+                        fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                    },
+                    label = "mobile_settings"
+                ) { detailTab ->
+                    if (detailTab == null) {
+                        // Main settings list
+                        MobileSettingsList(
                             navItems = navItems,
+                            onItemClick = {
+                                showDetail = it
+                                // Load data when opening detail
+                                when (it) {
+                                    is SettingsTab.Sessions -> viewModel.loadSessions()
+                                    is SettingsTab.Security -> viewModel.loadMfaStatus()
+                                    else -> {}
+                                }
+                            }
+                        )
+                    } else {
+                        // Detail screen
+                        MobileSettingsDetail(
+                            tab = detailTab,
+                            navItems = navItems,
+                            uiState = uiState,
+                            onBack = { showDetail = null },
                             onLogout = onLogout,
-                            viewModel = viewModel,
-                            modifier = Modifier.fillMaxWidth()
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -294,26 +294,6 @@ private fun Sidebar(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 16.dp))
-
-        // App Stats Section
-        Text(
-            "APP STATS",
-            color = MUTED,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.sp,
-            modifier = Modifier.padding(start = 12.dp, bottom = 12.dp)
-        )
-
-        Column(modifier = Modifier.padding(start = 12.dp)) {
-            AppStatItem("Hostname", "kuudere.to")
-            AppStatItem("Backend", "Kuudere API")
-            AppStatItem("Version", "1.0.0")
-        }
     }
 }
 
@@ -322,6 +302,158 @@ private fun AppStatItem(label: String, value: String) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Text(label, color = MUTED, fontSize = 11.sp)
         Text(value, color = TEXT.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Mobile Settings List ───────────────────────────────────────────────────────
+@Composable
+private fun MobileSettingsList(
+    navItems: List<SettingsNavItem>,
+    onItemClick: (SettingsTab) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BG)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        // Header - just title, no back (it's a tab)
+        Text(
+            "Settings",
+            color = TEXT,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        // Menu Items
+        navItems.forEach { item ->
+            MobileSettingsItem(
+                icon = item.icon,
+                label = item.label,
+                onClick = { onItemClick(item.tab) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MobileSettingsItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = TEXT,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                label,
+                color = TEXT,
+                fontSize = 16.sp
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MUTED,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+// ── Mobile Settings Detail ─────────────────────────────────────────────────────
+@Composable
+private fun MobileSettingsDetail(
+    tab: SettingsTab,
+    navItems: List<SettingsNavItem>,
+    uiState: SettingsUiState,
+    onBack: () -> Unit,
+    onLogout: () -> Unit,
+    viewModel: SettingsViewModel
+) {
+    val navItem = navItems.find { it.tab == tab }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BG)
+    ) {
+        // Header with back
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = TEXT
+                )
+            }
+            Text(
+                navItem?.label ?: "",
+                color = TEXT,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER)
+
+        // Content
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            when (tab) {
+                is SettingsTab.Preferences -> MobilePreferencesContent(
+                    uiState = uiState,
+                    onAutoPlayChange = viewModel::setAutoPlay,
+                    onAutoNextChange = viewModel::setAutoNext,
+                    onSkipIntroChange = viewModel::setSkipIntro,
+                    onSkipOutroChange = viewModel::setSkipOutro,
+                    onDefaultLangChange = viewModel::setDefaultLang,
+                    onSyncPercentageChange = viewModel::setSyncPercentage,
+                    onSave = viewModel::savePreferences
+                )
+                is SettingsTab.Sessions -> MobileSessionsContent(
+                    uiState = uiState,
+                    onDeleteSession = viewModel::deleteSession,
+                    onDeleteAllSessions = viewModel::deleteAllSessions,
+                    onLogout = onLogout
+                )
+                is SettingsTab.Security -> MobileSecurityContent(
+                    uiState = uiState,
+                    onToggleMfa = viewModel::toggleMfa,
+                    onSetupTotp = viewModel::setupTotp,
+                    onVerifyTotp = viewModel::verifyTotp,
+                    onLoadRecoveryCodes = viewModel::loadRecoveryCodes,
+                    onDismissRecoveryCodes = viewModel::dismissRecoveryCodes,
+                    onDismissTotpSetup = viewModel::dismissTotpSetup,
+                    onPasswordChange = viewModel::changePassword,
+                    onCurrentPasswordChange = viewModel::setCurrentPassword,
+                    onNewPasswordChange = viewModel::setNewPassword,
+                    onConfirmPasswordChange = viewModel::setConfirmPassword
+                )
+                is SettingsTab.About -> MobileAboutContent()
+            }
+        }
     }
 }
 
@@ -371,6 +503,7 @@ private fun SettingsContent(
                 onNewPasswordChange = viewModel::setNewPassword,
                 onConfirmPasswordChange = viewModel::setConfirmPassword
             )
+            is SettingsTab.About -> AboutTab()
         }
     }
 }
@@ -504,23 +637,23 @@ private fun PreferencesTab(
         }
 
         // Save Button
-        if (uiState.hasPreferencesChanges) {
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onSave,
-                enabled = !uiState.isSaving,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
-                } else {
-                    Text("Save Changes", fontWeight = FontWeight.Medium)
-                }
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onSave,
+            enabled = uiState.hasPreferencesChanges && !uiState.isSaving,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (uiState.hasPreferencesChanges) Color.White else BG_CARD,
+                contentColor = if (uiState.hasPreferencesChanges) Color.Black else MUTED,
+                disabledContainerColor = BG_CARD,
+                disabledContentColor = MUTED
+            ),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            if (uiState.isSaving) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+            } else {
+                Text("Save Changes", fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -833,6 +966,460 @@ private fun SecurityTab(
             )
         }
 
+    }
+}
+
+// ── About Tab (Desktop) ─────────────────────────────────────────────────────────
+@Composable
+private fun AboutTab() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Large Title
+        Text(
+            "About",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // App Info Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(BG_CARD)
+                .padding(24.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Anisuge", color = TEXT, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("v1.0.0", color = MUTED, fontSize = 14.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(thickness = 1.dp, color = BORDER)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    "Anisuge is a Kuudere client for streaming anime content.",
+                    color = TEXT,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // App Stats Section
+        Text(
+            "App Stats",
+            color = TEXT,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(BG_CARD)
+                .padding(16.dp)
+        ) {
+            Column {
+                DesktopAboutStatRow("Hostname", "kuudere.to")
+                HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
+                DesktopAboutStatRow("Backend", "Kuudere API")
+                HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
+                DesktopAboutStatRow("Version", "1.0.0")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesktopAboutStatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = MUTED, fontSize = 14.sp)
+        Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Mobile Content Composables ──────────────────────────────────────────────────
+@Composable
+private fun MobilePreferencesContent(
+    uiState: SettingsUiState,
+    onAutoPlayChange: (Boolean) -> Unit,
+    onAutoNextChange: (Boolean) -> Unit,
+    onSkipIntroChange: (Boolean) -> Unit,
+    onSkipOutroChange: (Boolean) -> Unit,
+    onDefaultLangChange: (Boolean) -> Unit,
+    onSyncPercentageChange: (Int) -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        MobileSettingRow(
+            title = "Auto Play",
+            description = "Automatically start playing videos",
+            checked = uiState.preferences.autoPlay,
+            onCheckedChange = onAutoPlayChange
+        )
+        MobileSettingRow(
+            title = "Auto Next",
+            description = "Automatically play next episode",
+            checked = uiState.preferences.autoNext,
+            onCheckedChange = onAutoNextChange
+        )
+        MobileSettingRow(
+            title = "Skip Intro",
+            description = "Automatically skip anime intros",
+            checked = uiState.preferences.skipIntro,
+            onCheckedChange = onSkipIntroChange
+        )
+        MobileSettingRow(
+            title = "Skip Outro",
+            description = "Automatically skip anime outros",
+            checked = uiState.preferences.skipOutro,
+            onCheckedChange = onSkipOutroChange
+        )
+        MobileSettingRow(
+            title = "Default to English Dub",
+            description = "Use English dubbed audio when available",
+            checked = uiState.preferences.defaultLang,
+            onCheckedChange = onDefaultLangChange
+        )
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 16.dp))
+
+        Text(
+            "Watch Progress Sync",
+            color = TEXT,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            "The watch percentage required to mark an episode as watched",
+            color = MUTED,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Slider(
+                value = uiState.preferences.syncPercentage.toFloat(),
+                onValueChange = { onSyncPercentageChange(it.toInt()) },
+                valueRange = 50f..100f,
+                steps = 49,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color.White,
+                    inactiveTrackColor = BORDER
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text("${uiState.preferences.syncPercentage}%", color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+
+        if (uiState.hasPreferencesChanges) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onSave,
+                enabled = !uiState.isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                } else {
+                    Text("Save Changes", fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileSettingRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = TEXT, fontSize = 16.sp)
+            Text(description, color = MUTED, fontSize = 13.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color.White.copy(alpha = 0.5f),
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = BORDER
+            )
+        )
+    }
+}
+
+@Composable
+private fun MobileSessionsContent(
+    uiState: SettingsUiState,
+    onDeleteSession: (String) -> Unit,
+    onDeleteAllSessions: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else {
+            uiState.currentSession?.let { session ->
+                Text("Current Session", color = MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                SessionCard(session = session, isCurrent = true, onDelete = null)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            if (uiState.sessions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Other Sessions", color = MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    TextButton(
+                        onClick = { onDeleteAllSessions() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                    ) {
+                        Text("End All", fontSize = 13.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                uiState.sessions.forEach { session ->
+                    SessionCard(
+                        session = session,
+                        isCurrent = false,
+                        onDelete = { onDeleteSession(session.id) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            } else {
+                Text("No other active sessions", color = MUTED, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileSecurityContent(
+    uiState: SettingsUiState,
+    onToggleMfa: (Boolean) -> Unit,
+    onSetupTotp: () -> Unit,
+    onVerifyTotp: (String) -> Unit,
+    onLoadRecoveryCodes: () -> Unit,
+    onDismissRecoveryCodes: () -> Unit,
+    onDismissTotpSetup: () -> Unit,
+    onPasswordChange: () -> Unit,
+    onCurrentPasswordChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
+) {
+    var showTotpDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // MFA Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Two-Factor Authentication", color = TEXT, fontSize = 16.sp)
+                Text(
+                    if (uiState.mfaStatus?.totpEnabled == true) "Enabled" else "Disabled",
+                    color = MUTED,
+                    fontSize = 13.sp
+                )
+            }
+            Switch(
+                checked = uiState.mfaStatus?.totpEnabled == true,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        onSetupTotp()
+                        showTotpDialog = true
+                    } else {
+                        onToggleMfa(false)
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color.White.copy(alpha = 0.5f),
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = BORDER
+                )
+            )
+        }
+
+        if (uiState.mfaStatus?.totpEnabled == true) {
+            OutlinedButton(
+                onClick = onLoadRecoveryCodes,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                modifier = Modifier.padding(vertical = 8.dp)
+            ) {
+                Text("View Recovery Codes")
+            }
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 16.dp))
+
+        // Password Section
+        Text("Change Password", color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Text("Update your account password", color = MUTED, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+
+        PasswordChangeForm(
+            currentPassword = uiState.currentPassword,
+            newPassword = uiState.newPassword,
+            confirmPassword = uiState.confirmPassword,
+            isLoading = uiState.isChangingPassword,
+            onCurrentPasswordChange = onCurrentPasswordChange,
+            onNewPasswordChange = onNewPasswordChange,
+            onConfirmPasswordChange = onConfirmPasswordChange,
+            onSubmit = onPasswordChange
+        )
+
+        // TOTP Setup Dialog
+        if (showTotpDialog && uiState.totpSetupData != null) {
+            TotpSetupDialog(
+                totpData = uiState.totpSetupData!!,
+                onDismiss = {
+                    showTotpDialog = false
+                    onDismissTotpSetup()
+                },
+                onVerify = { code ->
+                    onVerifyTotp(code)
+                    showTotpDialog = false
+                }
+            )
+        }
+
+        // Recovery Codes Dialog
+        if (uiState.showRecoveryCodes) {
+            RecoveryCodesDialog(
+                codes = uiState.recoveryCodes,
+                onDismiss = onDismissRecoveryCodes
+            )
+        }
+    }
+}
+
+// ── About Content ───────────────────────────────────────────────────────────────
+@Composable
+private fun MobileAboutContent() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // App Icon / Logo area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // App name/logo placeholder
+                Text(
+                    "Anisuge",
+                    color = TEXT,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "v1.0.0",
+                    color = MUTED,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER)
+
+        // App Stats Section
+        Text(
+            "APP STATS",
+            color = MUTED,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(vertical = 16.dp)
+        )
+
+        AboutStatItem("Hostname", "kuudere.to")
+        AboutStatItem("Backend", "Kuudere API")
+        AboutStatItem("Version", "1.0.0")
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER)
+
+        // Credits / Info
+        Text(
+            "ABOUT",
+            color = MUTED,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(vertical = 16.dp)
+        )
+
+        Text(
+            "Anisuge is a Kuudere client for streaming anime content.",
+            color = TEXT,
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun AboutStatItem(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = MUTED, fontSize = 14.sp)
+        Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
