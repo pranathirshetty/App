@@ -1610,7 +1610,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
         }
     } else {
         androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxSize().background(Color.Black).padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0B)).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
