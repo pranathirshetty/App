@@ -73,7 +73,11 @@ fun SearchScreen(
             val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 180.dp)
             val hPadding = if (isSmall) 12.dp else 24.dp
             val itemSpacing = if (isSmall) 8.dp else 16.dp
+            val showOffline = state.isOffline && state.results.isEmpty()
 
+            if (showOffline) {
+                HomeOfflineState(onRetry = { viewModel.search() })
+            } else {
             LazyVerticalGrid(
                 columns = columns,
                 state = scrollState,
@@ -82,35 +86,24 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {
-                val showOffline = state.isOffline && state.results.isEmpty()
-
-                // Always show search/filter bar so user can search
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     FilterSection(state, viewModel)
                 }
 
-                if (!showOffline) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = "Results: ${state.results.size}",
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                    }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = "Results: ${state.results.size}",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
                 }
 
                 if (state.isLoading && state.results.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Color.White)
-                        }
-                    }
-                } else if (showOffline) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().height(maxHeight - 120.dp)) {
-                            HomeOfflineState(onRetry = { viewModel.search() })
                         }
                     }
                 } else if (!state.isLoading && state.results.isEmpty()) {
@@ -164,6 +157,7 @@ fun SearchScreen(
                     }
                 }
             }
+            } // else (not offline)
         }
     }
 }

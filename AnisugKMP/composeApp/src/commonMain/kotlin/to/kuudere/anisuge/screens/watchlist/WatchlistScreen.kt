@@ -403,54 +403,53 @@ fun WatchlistScreen(
                 }
             }
 
-            if (isDesktop && !(state.isOffline && state.items.isEmpty())) {
-                searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
-            }
+            val showOffline = state.isOffline && state.items.isEmpty()
 
-            // Lists content
-            val gridColumns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
-            val listState = rememberLazyGridState()
-
-            val endReached by remember {
-                derivedStateOf {
-                    val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                    lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
+            if (showOffline) {
+                HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) })
+            } else {
+                if (isDesktop) {
+                    searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
                 }
-            }
 
-            LaunchedEffect(endReached) {
-                if (endReached) {
-                    viewModel.loadNextPage()
-                }
-            }
+                // Lists content
+                val gridColumns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
+                val listState = rememberLazyGridState()
 
-            LazyVerticalGrid(
-                columns = gridColumns,
-                state = listState,
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = if (isDesktop) 8.dp else 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                if (!isDesktop && !(state.isOffline && state.items.isEmpty())) {
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        searchOptionsBlock(Modifier.fillMaxWidth().padding(bottom = 8.dp))
+                val endReached by remember {
+                    derivedStateOf {
+                        val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                        lastVisibleItem?.index != 0 && lastVisibleItem?.index == listState.layoutInfo.totalItemsCount - 1
                     }
                 }
 
-                if (state.isLoading && state.items.isEmpty()) {
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
-                            CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                LaunchedEffect(endReached) {
+                    if (endReached) {
+                        viewModel.loadNextPage()
+                    }
+                }
+
+                LazyVerticalGrid(
+                    columns = gridColumns,
+                    state = listState,
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = if (isDesktop) 8.dp else 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (!isDesktop) {
+                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            searchOptionsBlock(Modifier.fillMaxWidth().padding(bottom = 8.dp))
                         }
                     }
-                } else if (state.isOffline && state.items.isEmpty()) {
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().height(screenHeight - 80.dp)) {
-                            HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) })
+
+                    if (state.isLoading && state.items.isEmpty()) {
+                        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
+                                CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                            }
                         }
-                    }
-                } else {
+                    } else {
                     val showAll = selectedList == "All lists"
                     var hasAnyItems = false
 
@@ -520,6 +519,7 @@ fun WatchlistScreen(
                     }
                 }
             }
+            } // else (not offline)
         }
     }
 }
