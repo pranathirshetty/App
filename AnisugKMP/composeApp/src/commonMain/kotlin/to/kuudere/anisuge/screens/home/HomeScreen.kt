@@ -2,6 +2,7 @@ package to.kuudere.anisuge.screens.home
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
@@ -109,9 +110,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -140,6 +143,7 @@ import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.models.ContinueWatchingItem
 import to.kuudere.anisuge.utils.DownloadManager
+import to.kuudere.anisuge.utils.DownloadTask
 import to.kuudere.anisuge.platform.DraggableWindowArea
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
@@ -1558,7 +1562,21 @@ fun HomeOfflineState(onRetry: () -> Unit) {
 
 @Composable
 fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> }) {
-    val tasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
+    val tasks by DownloadManager.tasks.collectAsState()
+    val sortedTasks = remember(tasks) {
+        tasks.sortedWith(
+            compareBy<DownloadTask> { downloadTaskPriority(it) }
+                .thenByDescending { if (it.status == "Finished") 1 else 0 }
+                .thenByDescending { it.progress }
+                .thenBy { it.title.lowercase() }
+        )
+    }
+    val animatedKeys = remember { mutableStateSetOf<String>() }
+    val listState = rememberLazyListState()
+
+    val finishedCount = tasks.count { it.status == "Finished" }
+    val activeCount = tasks.count { it.status != "Finished" && !it.status.startsWith("Failed") }
+    val failedCount = tasks.count { it.status.startsWith("Failed") }
 
     if (tasks.isEmpty()) {
         Box(
@@ -1570,7 +1588,12 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(horizontal = 40.dp)
+                modifier = Modifier
+                    .padding(horizontal = 40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.White.copy(alpha = 0.025f))
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 32.dp, vertical = 28.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -1606,134 +1629,432 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
                     lineHeight = 22.sp,
                     textAlign = TextAlign.Center
                 )
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(999.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Downloaded episodes become instantly playable here.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     } else {
         androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0B)).padding(horizontal = 24.dp),
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B0B0B))
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
         ) {
-            item {
-                Text(
-                    "Downloads",
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp, top = 32.dp)
-                )
-            }
-            items(tasks, key = { it.id }) { task ->
-                val manager = to.kuudere.anisuge.utils.DownloadManager
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF111111))
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            item(key = "downloads-header") {
+                DownloadsAnimatedEntry(
+                    itemKey = "downloads-header",
+                    animatedKeys = animatedKeys,
                 ) {
-                    // Anime Cover
-                    Box(
-                        modifier = Modifier
-                            .size(width = 60.dp, height = 84.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF222222))
-                    ) {
-                        if (task.coverImage != null) {
-                            AsyncImage(
-                                model = task.coverImage,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column {
                         Text(
-                            text = task.title,
+                            "Downloads",
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Episode ${task.episodeNumber}",
-                            color = Color.Gray,
-                            fontSize = 14.sp
                         )
                         Spacer(Modifier.height(8.dp))
-                        
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val statusText = if (task.status.startsWith("Downloading") && task.downloadSpeed.isNotEmpty()) {
-                                "${task.downloadSpeed} • ${task.eta}"
-                            } else {
-                                task.status
-                            }
-                            Text(
-                                text = statusText,
-                                color = if (task.status == "Finished") Color.Green else if (task.status.startsWith("Failed")) Color.Red else Color.White.copy(alpha = 0.7f),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (task.status != "Finished" && !task.status.startsWith("Failed")) {
-                                LinearProgressIndicator(
-                                    progress = { task.progress },
-                                    modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
-                                    color = Color.White,
-                                    trackColor = Color.White.copy(alpha = 0.1f)
-                                )
-                            }
-                        }
-                    }
-
-                    // Actions
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (task.status == "Finished") {
-                            // Show in Folder
-                            IconButton(
-                                onClick = { if (task.localPath != null) to.kuudere.anisuge.utils.openDirectory(task.localPath) },
-                                modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
-                            ) {
-                                Icon(Icons.Default.Folder, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                            // Play
-                            IconButton(
-                                onClick = { if (task.localPath != null) onWatchOffline(task.animeId, task.episodeNumber, task.localPath) },
-                                modifier = Modifier.size(36.dp).background(Color.White, CircleShape)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(20.dp))
-                            }
-                        } else {
-                            // Pause / Resume
-                            IconButton(
-                                onClick = { 
-                                    if (task.isPaused) manager.resumeDownload(task.id) 
-                                    else manager.pauseDownload(task.id) 
-                                },
-                                modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
-                            ) {
-                                Icon(
-                                    if (task.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                    null, tint = Color.White, modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        
-                        // Cancel / Remove
-                        IconButton(
-                            onClick = { manager.removeTask(task.id) },
-                            modifier = Modifier.size(36.dp).background(Color(0xFF222222), CircleShape)
+                        Text(
+                            text = "Offline-ready episodes, live progress, and quick actions in one place.",
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            DownloadsStatChip(
+                                label = "Active",
+                                value = activeCount.toString(),
+                                accent = Color.White
+                            )
+                            DownloadsStatChip(
+                                label = "Finished",
+                                value = finishedCount.toString(),
+                                accent = Color(0xFF48E27A)
+                            )
+                            if (failedCount > 0) {
+                                DownloadsStatChip(
+                                    label = "Failed",
+                                    value = failedCount.toString(),
+                                    accent = Color(0xFFFF6B6B)
+                                )
+                            }
                         }
+                        Spacer(Modifier.height(18.dp))
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color.White.copy(alpha = 0.08f))
+                        )
+                    }
+                }
+            }
+            itemsIndexed(sortedTasks, key = { _, task -> task.id }) { index, task ->
+                DownloadsAnimatedEntry(
+                    itemKey = task.id,
+                    animatedKeys = animatedKeys,
+                    delayMs = (index * 45).coerceAtMost(320)
+                ) {
+                    DownloadTaskCard(
+                        task = task,
+                        onWatchOffline = onWatchOffline,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    }
+                }
+
+            item(key = "downloads-bottom-spacer") {
+                Spacer(Modifier.height(48.dp))
+            }
+            }
+        }
+    }
+
+private fun downloadTaskPriority(task: DownloadTask): Int = when {
+    task.status.startsWith("Downloading") -> 0
+    task.status == "Fetching stream..." -> 0
+    task.isPaused -> 1
+    task.status.startsWith("Failed") -> 2
+    task.status == "Finished" -> 3
+    else -> 1
+}
+
+@Composable
+private fun DownloadsAnimatedEntry(
+    itemKey: String,
+    animatedKeys: MutableSet<String>,
+    delayMs: Int = 0,
+    content: @Composable () -> Unit,
+) {
+    val alreadySeen = itemKey in animatedKeys
+    var visible by remember(itemKey) { mutableStateOf(alreadySeen) }
+
+    LaunchedEffect(itemKey) {
+        if (!alreadySeen) {
+            delay(delayMs.toLong())
+            visible = true
+            animatedKeys.add(itemKey)
+        }
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(320, easing = FastOutSlowInEasing)
+    )
+    val offsetY by animateDpAsState(
+        targetValue = if (visible) 0.dp else 18.dp,
+        animationSpec = tween(320, easing = FastOutSlowInEasing)
+    )
+
+    Box(
+        modifier = Modifier
+            .graphicsLayer {
+                this.alpha = alpha
+                translationY = offsetY.toPx()
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun DownloadsStatChip(
+    label: String,
+    value: String,
+    accent: Color,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color.White.copy(alpha = 0.035f))
+            .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(accent)
+        )
+        Text(label, color = Color.White.copy(alpha = 0.68f), fontSize = 12.sp)
+        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun DownloadTaskCard(
+    task: DownloadTask,
+    onWatchOffline: (String, Int, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val manager = DownloadManager
+    val inter = remember { MutableInteractionSource() }
+    val hovered by inter.collectIsHoveredAsState()
+
+    val backgroundColor by animateColorAsState(
+        targetValue = if (hovered) Color.White.copy(alpha = 0.055f) else Color.White.copy(alpha = 0.03f),
+        animationSpec = tween(260, easing = FastOutSlowInEasing)
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (hovered) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.10f),
+        animationSpec = tween(260, easing = FastOutSlowInEasing)
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (hovered) 1.012f else 1f,
+        animationSpec = tween(260, easing = FastOutSlowInEasing)
+    )
+    val progressValue by animateFloatAsState(
+        targetValue = task.progress.coerceIn(0f, 1f),
+        animationSpec = tween(280, easing = FastOutSlowInEasing)
+    )
+
+    val accentColor = when {
+        task.status == "Finished" -> Color(0xFF48E27A)
+        task.status.startsWith("Failed") -> Color(0xFFFF6B6B)
+        task.isPaused -> Color.White.copy(alpha = 0.65f)
+        else -> Color.White
+    }
+    val statusLabel = when {
+        task.status == "Finished" -> "Ready offline"
+        task.status.startsWith("Failed") -> "Needs attention"
+        task.isPaused -> "Paused"
+        task.status.startsWith("Downloading") -> "Downloading"
+        else -> task.status
+    }
+    val detailText = when {
+        task.status.startsWith("Downloading") && task.downloadSpeed.isNotEmpty() -> buildString {
+            append(task.downloadSpeed)
+            if (task.eta.isNotEmpty()) append(" • ${task.eta}")
+        }
+        task.status == "Finished" -> "Stored locally and ready to watch offline."
+        task.status.startsWith("Failed") -> task.status
+        task.isPaused -> "Resume anytime without losing progress."
+        else -> task.status
+    }
+
+    Column(
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(14.dp))
+            .background(backgroundColor)
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .hoverable(inter)
+    ) {
+        // ── Top section: poster + metadata ───────────────────────────
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            // Poster
+            Box(
+                modifier = Modifier
+                    .size(width = 72.dp, height = 100.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+            ) {
+                if (task.coverImage != null) {
+                    AsyncImage(
+                        model = task.coverImage,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+            }
+
+            // Metadata
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = task.title,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 20.sp,
+                )
+                Text(
+                    text = "Episode ${task.episodeNumber}",
+                    color = Color.White.copy(alpha = 0.48f),
+                    fontSize = 12.sp,
+                )
+
+                Text(
+                    text = detailText,
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp,
+                )
+
+                if (task.status != "Finished") {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = task.status,
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Text(
+                                text = "${(progressValue * 100).toInt()}%",
+                                color = Color.White.copy(alpha = 0.48f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progressValue },
+                            modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
+                            color = accentColor,
+                            trackColor = Color.White.copy(alpha = 0.08f),
+                        )
                     }
                 }
             }
         }
+
+        // ── Divider ───────────────────────────────────────────────────
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.07f)))
+
+        // ── Bottom action bar: 3 equal columns ────────────────────────
+        Row(modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            if (task.status == "Finished") {
+                // Folder button
+                CardActionCell(
+                    icon = Icons.Default.Folder,
+                    label = "Folder",
+                    modifier = Modifier.weight(1f),
+                    onClick = { task.localPath?.let { to.kuudere.anisuge.utils.openDirectory(it) } },
+                )
+                Box(Modifier.width(1.dp).fillMaxSize().background(Color.White.copy(alpha = 0.07f)))
+                // Play button (primary)
+                CardActionCell(
+                    icon = Icons.Default.PlayArrow,
+                    label = "Play",
+                    isPrimary = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = { task.localPath?.let { onWatchOffline(task.animeId, task.episodeNumber, it) } },
+                )
+            } else {
+                // Pause / Resume button
+                CardActionCell(
+                    icon = if (task.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    label = if (task.isPaused) "Resume" else "Pause",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        if (task.isPaused) manager.resumeDownload(task.id) else manager.pauseDownload(task.id)
+                    },
+                )
+                Box(Modifier.width(1.dp).fillMaxSize().background(Color.White.copy(alpha = 0.07f)))
+                // Spacer column (placeholder to keep 3-column structure)
+                Box(Modifier.weight(1f))
+            }
+            Box(Modifier.width(1.dp).fillMaxSize().background(Color.White.copy(alpha = 0.07f)))
+            // Remove button — always last
+            CardActionCell(
+                icon = Icons.Default.Close,
+                label = "Remove",
+                isDanger = true,
+                modifier = Modifier.weight(1f),
+                onClick = { manager.removeTask(task.id) },
+            )
+        }
     }
 }
+
+@Composable
+private fun CardActionCell(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    isPrimary: Boolean = false,
+    isDanger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val inter = remember { MutableInteractionSource() }
+    val hovered by inter.collectIsHoveredAsState()
+
+    val bg by animateColorAsState(
+        targetValue = when {
+            isPrimary && hovered -> Color.White.copy(alpha = 0.14f)
+            isPrimary -> Color.Transparent
+            isDanger && hovered -> Color(0xFFFF6B6B).copy(alpha = 0.12f)
+            hovered -> Color.White.copy(alpha = 0.07f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(200, easing = FastOutSlowInEasing)
+    )
+    val tint by animateColorAsState(
+        targetValue = when {
+            isPrimary -> Color(0xFF48E27A)
+            isDanger -> Color(0xFFFF6B6B).copy(alpha = 0.85f)
+            else -> Color.White.copy(alpha = 0.75f)
+        },
+        animationSpec = tween(200, easing = FastOutSlowInEasing)
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bg)
+            .hoverable(inter)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = tint,
+                modifier = Modifier.size(16.dp),
+            )
+            Text(
+                text = label,
+                color = tint,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+
 
