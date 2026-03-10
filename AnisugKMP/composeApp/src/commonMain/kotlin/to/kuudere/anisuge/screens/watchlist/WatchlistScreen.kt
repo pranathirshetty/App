@@ -59,6 +59,7 @@ fun WatchlistScreen(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val isDesktop = maxWidth >= 800.dp
         val isSmall = maxWidth < 600.dp
+        val screenHeight = maxHeight
 
         Column(
             Modifier
@@ -445,7 +446,7 @@ fun WatchlistScreen(
                     }
                 } else if (state.isOffline && state.items.isEmpty()) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().height(400.dp)) {
+                        Box(Modifier.fillMaxWidth().height(screenHeight - 80.dp)) {
                             HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) })
                         }
                     }

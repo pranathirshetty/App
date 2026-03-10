@@ -109,7 +109,7 @@ fun SearchScreen(
                     }
                 } else if (showOffline) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().height(400.dp)) {
+                        Box(Modifier.fillMaxWidth().height(maxHeight - 120.dp)) {
                             HomeOfflineState(onRetry = { viewModel.search() })
                         }
                     }
