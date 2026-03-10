@@ -1119,15 +1119,36 @@ private fun SyncTab(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(100.dp)
-                            .background(
-                                brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF3B82F6).copy(alpha = 0.3f),
-                                        Color(0xFF8B5CF6).copy(alpha = 0.3f)
-                                    )
-                                )
+                    ) {
+                        // Show banner image if available, otherwise gradient
+                        if (uiState.anilistProfile?.bannerImage != null) {
+                            AsyncImage(
+                                model = uiState.anilistProfile.bannerImage,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
-                    )
+                            // Dark overlay for better text contrast
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.3f))
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color(0xFF2A2A2A),
+                                                Color(0xFF1E1E1E)
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    }
 
                     // Profile section
                     Row(
@@ -1343,15 +1364,36 @@ private fun MobileSyncContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(80.dp)
-                            .background(
-                                brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF3B82F6).copy(alpha = 0.3f),
-                                        Color(0xFF8B5CF6).copy(alpha = 0.3f)
-                                    )
-                                )
+                    ) {
+                        // Show banner image if available, otherwise gradient
+                        if (uiState.anilistProfile?.bannerImage != null) {
+                            AsyncImage(
+                                model = uiState.anilistProfile.bannerImage,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
-                    )
+                            // Dark overlay for better text contrast
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.3f))
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color(0xFF2A2A2A),
+                                                Color(0xFF1E1E1E)
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    }
 
                     // Profile info
                     Row(
