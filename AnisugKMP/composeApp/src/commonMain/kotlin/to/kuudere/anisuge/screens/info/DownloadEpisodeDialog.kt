@@ -236,7 +236,7 @@ fun DownloadEpisodeDialog(
             // Options
             /* Removed Download Fonts Switch as it is now strictly automatic in DownloadManager */
 
-            if (currentTask != null) {
+            if (currentTask != null && currentTask.status != "Finished") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = if (currentTask.status.startsWith("Downloading") && currentTask.downloadSpeed.isNotEmpty()) {
@@ -244,11 +244,11 @@ fun DownloadEpisodeDialog(
                         } else {
                             currentTask.status
                         },
-                        color = if (currentTask.status == "Finished") Color.Green else Color.White,
+                        color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    if (currentTask.status != "Finished" && !currentTask.status.startsWith("Failed")) {
+                    if (!currentTask.status.startsWith("Failed")) {
                         LinearProgressIndicator(
                             progress = { currentTask.progress },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
@@ -276,6 +276,7 @@ fun DownloadEpisodeDialog(
                     }
                 }
 
+                val isFinished = currentTask?.status == "Finished"
                 Button(
                     onClick = {
                         if (currentTask == null || currentTask.status.startsWith("Failed")) {
@@ -284,11 +285,13 @@ fun DownloadEpisodeDialog(
                             onDismiss()
                         }
                     },
+                    enabled = !isFinished,
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White
+                        containerColor = if (isFinished) Color.White.copy(alpha = 0.4f) else Color.White,
+                        disabledContainerColor = Color.White.copy(alpha = 0.4f)
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -296,11 +299,11 @@ fun DownloadEpisodeDialog(
                     Text(
                         text = when {
                             currentTask == null -> "Start Download$sizeText"
-                            currentTask.status == "Finished" -> "Close"
+                            isFinished -> "Downloaded"
                             currentTask.status.startsWith("Failed") -> "Retry Download"
                             else -> "Keep Downloading in Background"
                         },
-                        color = Color.Black,
+                        color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )
