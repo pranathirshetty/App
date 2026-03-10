@@ -1647,87 +1647,111 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
             }
         }
     } else {
-        androidx.compose.foundation.lazy.LazyColumn(
-            state = listState,
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF0B0B0B))
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
         ) {
-            item(key = "downloads-header") {
-                DownloadsAnimatedEntry(
-                    itemKey = "downloads-header",
-                    animatedKeys = animatedKeys,
-                ) {
-                    Column {
-                        Text(
-                            "Downloads",
-                            color = Color.White,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Offline-ready episodes, live progress, and quick actions in one place.",
-                            color = Color.White.copy(alpha = 0.55f),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            DownloadsStatChip(
-                                label = "Active",
-                                value = activeCount.toString(),
-                                accent = Color.White
-                            )
-                            DownloadsStatChip(
-                                label = "Finished",
-                                value = finishedCount.toString(),
-                                accent = Color(0xFF48E27A)
-                            )
-                            if (failedCount > 0) {
-                                DownloadsStatChip(
-                                    label = "Failed",
-                                    value = failedCount.toString(),
-                                    accent = Color(0xFFFF6B6B)
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Color.White.copy(alpha = 0.08f))
-                        )
-                    }
-                }
+            val cols = when {
+                maxWidth >= 900.dp -> 3
+                maxWidth >= 580.dp -> 2
+                else               -> 1
             }
-            itemsIndexed(sortedTasks, key = { _, task -> task.id }) { index, task ->
-                DownloadsAnimatedEntry(
-                    itemKey = task.id,
-                    animatedKeys = animatedKeys,
-                    delayMs = (index * 45).coerceAtMost(320)
-                ) {
-                    DownloadTaskCard(
-                        task = task,
-                        onWatchOffline = onWatchOffline,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
+            ) {
+                item(key = "downloads-header") {
+                    DownloadsAnimatedEntry(
+                        itemKey = "downloads-header",
+                        animatedKeys = animatedKeys,
+                    ) {
+                        Column {
+                            Text(
+                                "Downloads",
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Offline-ready episodes, live progress, and quick actions in one place.",
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                DownloadsStatChip(
+                                    label = "Active",
+                                    value = activeCount.toString(),
+                                    accent = Color.White
+                                )
+                                DownloadsStatChip(
+                                    label = "Finished",
+                                    value = finishedCount.toString(),
+                                    accent = Color(0xFF48E27A)
+                                )
+                                if (failedCount > 0) {
+                                    DownloadsStatChip(
+                                        label = "Failed",
+                                        value = failedCount.toString(),
+                                        accent = Color(0xFFFF6B6B)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(18.dp))
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(Color.White.copy(alpha = 0.08f))
+                            )
+                        }
                     }
                 }
 
-            item(key = "downloads-bottom-spacer") {
-                Spacer(Modifier.height(48.dp))
-            }
+                val rows = sortedTasks.chunked(cols)
+                itemsIndexed(rows, key = { rowIdx, _ -> "row-$rowIdx" }) { rowIdx, rowTasks ->
+                    DownloadsAnimatedEntry(
+                        itemKey = "row-$rowIdx",
+                        animatedKeys = animatedKeys,
+                        delayMs = (rowIdx * 45).coerceAtMost(320)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            rowTasks.forEach { task ->
+                                DownloadTaskCard(
+                                    task = task,
+                                    onWatchOffline = onWatchOffline,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            // fill remaining columns with invisible spacers
+                            repeat(cols - rowTasks.size) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+
+                item(key = "downloads-bottom-spacer") {
+                    Spacer(Modifier.height(48.dp))
+                }
             }
         }
     }
+}
 
 private fun downloadTaskPriority(task: DownloadTask): Int = when {
     task.status.startsWith("Downloading") -> 0
