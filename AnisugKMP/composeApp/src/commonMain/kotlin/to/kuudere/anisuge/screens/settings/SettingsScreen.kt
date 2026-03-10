@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -171,7 +172,8 @@ fun SettingsScreen(
                 )
             }
         },
-        containerColor = BG
+        containerColor = BG,
+        contentWindowInsets = WindowInsets(0)
     ) { padding ->
         BoxWithConstraints(
             modifier = Modifier
@@ -335,7 +337,8 @@ private fun MobileSettingsList(
             .fillMaxSize()
             .background(BG)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp)
+            .padding(top = 8.dp, bottom = 16.dp)
     ) {
         // Header - just title, no back (it's a tab)
         Text(
@@ -343,7 +346,7 @@ private fun MobileSettingsList(
             color = TEXT,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 24.dp)
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
         // Menu Items
@@ -418,7 +421,7 @@ private fun MobileSettingsDetail(
         // Header with back
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)
         ) {
             IconButton(onClick = onBack) {
                 Icon(
@@ -442,7 +445,8 @@ private fun MobileSettingsDetail(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 8.dp, bottom = 16.dp)
         ) {
             when (tab) {
                 is SettingsTab.Preferences -> MobilePreferencesContent(
