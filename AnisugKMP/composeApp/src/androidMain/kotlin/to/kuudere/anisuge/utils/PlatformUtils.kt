@@ -20,16 +20,24 @@ actual fun openDirectory(path: String) {
     try {
         val file = File(path)
         val dir = if (file.isDirectory) file else file.parentFile ?: file
-        val uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FAnisug")
+
+        // Build the content URI relative to external storage root
+        val extRoot = Environment.getExternalStorageDirectory().absolutePath
+        val relativePath = dir.absolutePath.removePrefix(extRoot).removePrefix("/")
+        val encodedPath = relativePath.replace("/", "%2F")
+        val documentUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3A$encodedPath")
+
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
+            setDataAndType(documentUri, DocumentsContract.Document.MIME_TYPE_DIR)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         androidAppContext.startActivity(intent)
     } catch (e: Exception) {
         try {
+            // Fallback: open the root Anisug folder
+            val uri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FAnisug")
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(Uri.parse(getDownloadsDirectory()), DocumentsContract.Document.MIME_TYPE_DIR)
+                setDataAndType(uri, DocumentsContract.Document.MIME_TYPE_DIR)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             androidAppContext.startActivity(intent)
