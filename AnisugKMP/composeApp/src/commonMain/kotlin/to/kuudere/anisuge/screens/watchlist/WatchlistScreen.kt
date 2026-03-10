@@ -402,7 +402,7 @@ fun WatchlistScreen(
                 }
             }
 
-            if (isDesktop) {
+            if (isDesktop && !(state.isOffline && state.items.isEmpty())) {
                 searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
             }
 
@@ -431,7 +431,7 @@ fun WatchlistScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (!isDesktop) {
+                if (!isDesktop && !(state.isOffline && state.items.isEmpty())) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                         searchOptionsBlock(Modifier.fillMaxWidth().padding(bottom = 8.dp))
                     }

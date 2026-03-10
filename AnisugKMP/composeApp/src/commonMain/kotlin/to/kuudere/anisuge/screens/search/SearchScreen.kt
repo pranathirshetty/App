@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.screens.home.HomeOfflineState
@@ -81,18 +82,23 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {
+                val showOffline = state.isOffline && state.results.isEmpty()
+
+                // Always show search/filter bar so user can search
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     FilterSection(state, viewModel)
                 }
 
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        text = "Results: ${state.results.size}",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
+                if (!showOffline) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = "Results: ${state.results.size}",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
                 }
 
                 if (state.isLoading && state.results.isEmpty()) {
@@ -101,10 +107,43 @@ fun SearchScreen(
                             CircularProgressIndicator(color = Color.White)
                         }
                     }
-                } else if (state.isOffline && state.results.isEmpty()) {
+                } else if (showOffline) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(Modifier.fillMaxWidth().height(400.dp)) {
                             HomeOfflineState(onRetry = { viewModel.search() })
+                        }
+                    }
+                } else if (!state.isLoading && state.results.isEmpty()) {
+                    // No results found state
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.25f),
+                                    modifier = Modifier.size(56.dp),
+                                )
+                                Text(
+                                    text = "No results found",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = "Try adjusting your filters or search for something else.",
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    fontSize = 13.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 32.dp),
+                                )
+                            }
                         }
                     }
                 } else {
