@@ -74,6 +74,7 @@ fun AnimeInfoScreen(
             episodeId = ep.id,
             episodeNumber = ep.number,
             anilistId = anilistId,
+            durationMins = state.details!!.duration ?: 24,
             infoService = to.kuudere.anisuge.AppComponent.infoService,
             onDismiss = { selectedEpisodeForDownload = null },
             onStartDownload = { server, subLang, audioLang, downloadFonts ->

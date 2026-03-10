@@ -219,6 +219,7 @@ internal class MpvPlayer(
             var pendingSub: String? = null
             var pendingAllSubs: List<Triple<String, String, Boolean>>? = null
             var lastSentAudioTrack: Int? = null
+            var lastSentSubTrack: Int? = null
             var lastSentVolume: Double? = null
             var lastSentBrightness: Double? = null
             var lastSentMute: Boolean? = null
@@ -243,40 +244,43 @@ internal class MpvPlayer(
                                 }
                             }
 
-                            // Extract Audio Tracks
+                            // Extract Tracks
                             try {
                                 val countPtr = mpv.mpv_get_property_string(handle, "track-list/count")
                                 if (countPtr != null) {
                                     val count = countPtr.getString(0).toIntOrNull() ?: 0
                                     mpv.mpv_free(countPtr)
-                                    val tracks = mutableListOf<Pair<Int, String>>()
+                                    val aTracks = mutableListOf<Pair<Int, String>>()
+                                    val sTracks = mutableListOf<Pair<Int, String>>()
                                     for (i in 0 until count) {
                                         val typePtr = mpv.mpv_get_property_string(handle, "track-list/$i/type")
                                         if (typePtr != null) {
                                             val type = typePtr.getString(0)
                                             mpv.mpv_free(typePtr)
-                                            if (type == "audio") {
-                                                val idPtr = mpv.mpv_get_property_string(handle, "track-list/$i/id")
-                                                if (idPtr != null) {
-                                                    val id = idPtr.getString(0).toIntOrNull() ?: -1
-                                                    mpv.mpv_free(idPtr)
-                                                    if (id != -1) {
-                                                        val langPtr = mpv.mpv_get_property_string(handle, "track-list/$i/lang")
-                                                        val lang = langPtr?.getString(0) ?: "Audio $id"
-                                                        if (langPtr != null) mpv.mpv_free(langPtr)
-                                                        
-                                                        val titlePtr = mpv.mpv_get_property_string(handle, "track-list/$i/title")
-                                                        val title = titlePtr?.getString(0)
-                                                        if (titlePtr != null) mpv.mpv_free(titlePtr)
-                                                        
-                                                        val label = if (title != null) "$lang - $title" else lang
-                                                        tracks.add(id to label)
-                                                    }
-                                                }
-                                            }
+                                            
+                                            val idPtr = mpv.mpv_get_property_string(handle, "track-list/$i/id")
+                                            val id = idPtr?.getString(0)?.toIntOrNull() ?: -1
+                                            if (idPtr != null) mpv.mpv_free(idPtr)
+                                            if (id == -1) continue
+
+                                            val langPtr = mpv.mpv_get_property_string(handle, "track-list/$i/lang")
+                                            val lang = langPtr?.getString(0) ?: (if (type == "audio") "Audio $id" else "Subtitle $id")
+                                            if (langPtr != null) mpv.mpv_free(langPtr)
+                                            
+                                            val titlePtr = mpv.mpv_get_property_string(handle, "track-list/$i/title")
+                                            val title = titlePtr?.getString(0)
+                                            if (titlePtr != null) mpv.mpv_free(titlePtr)
+                                            
+                                            val label = if (title != null) "$lang - $title" else lang
+                                            
+                                            if (type == "audio") aTracks.add(id to label)
+                                            else if (type == "sub") sTracks.add(id to label)
                                         }
                                     }
-                                    withContext(Dispatchers.Main) { state.audioTracks = tracks }
+                                    withContext(Dispatchers.Main) { 
+                                        state.audioTracks = aTracks 
+                                        state.subtitleTracks = sTracks
+                                    }
                                 }
                             } catch (e: Exception) {
                                 println("[MpvPlayer] Error extracting tracks: ${e.message}")
@@ -370,6 +374,13 @@ internal class MpvPlayer(
                     if (aid != lastSentAudioTrack) {
                         mpv.mpv_set_option_string(handle, "aid", aid.toString())
                         lastSentAudioTrack = aid
+                    }
+                }
+
+                state.selectedSubtitleTrack?.let { sid ->
+                    if (sid != lastSentSubTrack) {
+                        mpv.mpv_set_option_string(handle, "sid", sid.toString())
+                        lastSentSubTrack = sid
                     }
                 }
 

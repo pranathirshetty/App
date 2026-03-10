@@ -29,6 +29,7 @@ fun DownloadEpisodeDialog(
     episodeId: String,
     episodeNumber: Int,
     anilistId: Int,
+    durationMins: Int,
     infoService: InfoService,
     onDismiss: () -> Unit,
     onStartDownload: (server: String, subLang: String?, audioLang: String?, downloadFonts: Boolean) -> Unit
@@ -40,12 +41,14 @@ fun DownloadEpisodeDialog(
     var availableSubtitles by remember { mutableStateOf<List<String>>(listOf("All", "English")) }
     var availableAudioTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var isLoadingSubs by remember { mutableStateOf(false) }
+    var estimatedSizeBytes by remember { mutableStateOf(0L) }
 
     val downloadTasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
     val currentTask = downloadTasks.find { it.animeId == animeId && it.episodeNumber == episodeNumber }
 
     LaunchedEffect(selectedServer) {
         isLoadingSubs = true
+        estimatedSizeBytes = 0L
         try {
             val apiServer = if (selectedServer == "zen2") "zen-2" else selectedServer
             val response = infoService.getVideoStream(anilistId, episodeNumber, apiServer)
@@ -58,18 +61,34 @@ fun DownloadEpisodeDialog(
                 selectedSubLang = if ("English" in availableSubtitles) "English" else availableSubtitles.getOrNull(1) ?: "All"
             }
 
-            // 2. Audio Tracks from M3U8
+            // 2. Audio Tracks and Size Estimation from M3U8
             val m3u8Url = streamData?.m3u8_url
             if (m3u8Url != null) {
                 val masterContent = to.kuudere.anisuge.AppComponent.httpClient.get(m3u8Url).bodyAsText()
                 val tracks = mutableListOf<Pair<String, String>>()
+                var maxBandwidth = 0L
+
                 masterContent.lines().forEach { line ->
                     if (line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
                         val lang = Regex("LANGUAGE=\"([^\"]+)\"").find(line)?.groupValues?.get(1) ?: "unknown"
                         val name = Regex("NAME=\"([^\"]+)\"").find(line)?.groupValues?.get(1) ?: lang
                         tracks.add(lang to name)
                     }
+                    if (line.startsWith("#EXT-X-STREAM-INF:")) {
+                        val bwMatch = Regex("BANDWIDTH=(\\d+)").find(line)
+                        val bw = bwMatch?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                        if (bw > maxBandwidth) maxBandwidth = bw
+                    }
                 }
+                
+                // Estimate size: Bandwidth is bits/sec. 
+                // Formula: (bits/sec / 8) * duration_seconds
+                // If bandwidth is weirdly low (like 5184 from the curl), it might be kbps.
+                val adjustedBps = if (maxBandwidth > 0 && maxBandwidth < 100000) maxBandwidth * 1000 else maxBandwidth
+                if (adjustedBps > 0) {
+                    estimatedSizeBytes = (adjustedBps / 8) * (durationMins * 60)
+                }
+
                 availableAudioTracks = tracks.distinctBy { it.first }
                 
                 // Set default audio lang
@@ -240,34 +259,59 @@ fun DownloadEpisodeDialog(
 
             Spacer(Modifier.height(8.dp))
 
-            Button(
-                onClick = {
-                    if (currentTask == null || currentTask.status.startsWith("Failed")) {
-                        onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
-                    } else {
-                        onDismiss()
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (currentTask?.status == "Finished") {
+                    Button(
+                        onClick = {
+                            to.kuudere.anisuge.utils.DownloadManager.removeTask(currentTask.id)
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = when {
-                        currentTask == null -> "Start Download"
-                        currentTask.status == "Finished" -> "Close"
-                        currentTask.status.startsWith("Failed") -> "Retry Download"
-                        else -> "Keep Downloading in Background"
+                }
+
+                Button(
+                    onClick = {
+                        if (currentTask == null || currentTask.status.startsWith("Failed")) {
+                            onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                        } else {
+                            onDismiss()
+                        }
                     },
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    val sizeText = if (estimatedSizeBytes > 0) " (~${formatFileSize(estimatedSizeBytes)})" else ""
+                    Text(
+                        text = when {
+                            currentTask == null -> "Start Download$sizeText"
+                            currentTask.status == "Finished" -> "Close"
+                            currentTask.status.startsWith("Failed") -> "Retry Download"
+                            else -> "Keep Downloading in Background"
+                        },
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
             }
         }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes >= 1024 * 1024 * 1024 -> String.format("%.1f GB", bytes.toDouble() / (1024 * 1024 * 1024))
+        bytes >= 1024 * 1024 -> String.format("%.0f MB", bytes.toDouble() / (1024 * 1024))
+        else -> String.format("%.0f KB", bytes.toDouble() / 1024)
     }
 }

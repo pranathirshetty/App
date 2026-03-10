@@ -47,6 +47,8 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     
     // Extracted tracks (populated by player)
     var audioTracks     by mutableStateOf<List<Pair<Int, String>>>(emptyList())
+    var subtitleTracks  by mutableStateOf<List<Pair<Int, String>>>(emptyList())
+    var selectedSubtitleTrack by mutableStateOf<Int?>(null)
     
     // Signal from AWT canvas → Compose UI
     var canvasClicked   by mutableStateOf(0)

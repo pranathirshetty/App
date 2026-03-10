@@ -163,21 +163,26 @@ actual fun VideoPlayerSurface(
                     MPVLib.MPV_EVENT_FILE_LOADED -> {
                         state.isPlaying = true
                         
-                        // Extract Audio Tracks
+                        // Extract Tracks
                         try {
-                            val count = MPVLib.getPropertyInt("track-list/count")
-                            val tracks = mutableListOf<Pair<Int, String>>()
-                            for (i in 0 until (count ?: 0)) {
+                            val count = MPVLib.getPropertyInt("track-list/count") ?: 0
+                            val aTracks = mutableListOf<Pair<Int, String>>()
+                            val sTracks = mutableListOf<Pair<Int, String>>()
+                            for (i in 0 until count) {
                                 val type = MPVLib.getPropertyString("track-list/$i/type")
-                                if (type == "audio") {
-                                    val id = MPVLib.getPropertyInt("track-list/$i/id") ?: continue
-                                    val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: "Audio $id"
-                                    val title = MPVLib.getPropertyString("track-list/$i/title")
-                                    val label = if (title != null) "$lang - $title" else lang
-                                    tracks.add(id to label)
-                                }
+                                val id = MPVLib.getPropertyInt("track-list/$i/id") ?: continue
+                                val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: (if (type == "audio") "Audio $id" else "Subtitle $id")
+                                val title = MPVLib.getPropertyString("track-list/$i/title")
+                                val label = if (title != null) "$lang - $title" else lang
+                                
+                                if (type == "audio") aTracks.add(id to label)
+                                else if (type == "sub") sTracks.add(id to label)
                             }
-                            state.audioTracks = tracks
+                            state.audioTracks = aTracks
+                            state.subtitleTracks = sTracks
+                            if (state.selectedSubtitleTrack == null && sTracks.isNotEmpty()) {
+                                state.selectedSubtitleTrack = sTracks.first().first
+                            }
                         } catch (e: Exception) {
                             println("[VideoPlayerSurface] Error extracting tracks: ${e.message}")
                         }
@@ -377,6 +382,14 @@ actual fun VideoPlayerSurface(
         state.selectedAudioTrack?.let { aid ->
             withContext(Dispatchers.IO) {
                 MPVLib.setPropertyInt("aid", aid)
+            }
+        }
+    }
+
+    LaunchedEffect(state.selectedSubtitleTrack) {
+        state.selectedSubtitleTrack?.let { sid ->
+            withContext(Dispatchers.IO) {
+                MPVLib.setPropertyInt("sid", sid)
             }
         }
     }

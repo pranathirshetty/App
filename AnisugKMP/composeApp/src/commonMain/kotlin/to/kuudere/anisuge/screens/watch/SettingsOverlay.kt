@@ -45,6 +45,9 @@ fun SettingsOverlay(
     audioTracks: List<Pair<Int, String>> = emptyList(),
     selectedAudioTrack: Int? = null,
     onAudioTrackSelected: (Int) -> Unit = {},
+    subtitleTracks: List<Pair<Int, String>> = emptyList(),
+    selectedSubtitleTrack: Int? = null,
+    onSubtitleTrackSelected: (Int?) -> Unit = {},
     onWatchlistStatusSelected: (String) -> Unit = {},
     onAutoPlayToggle: (Boolean) -> Unit = {},
     onAutoNextToggle: (Boolean) -> Unit = {},
@@ -143,9 +146,13 @@ fun SettingsOverlay(
                                 }
                                 
                                 // 5. Captions
-                                if (uiState.availableSubtitles.isNotEmpty()) {
-                                    val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
-                                    val currentLabel = selectedSub?.title ?: selectedSub?.resolvedLang ?: "Off"
+                                if (uiState.availableSubtitles.isNotEmpty() || subtitleTracks.isNotEmpty()) {
+                                    val currentLabel = if (subtitleTracks.isNotEmpty()) {
+                                        subtitleTracks.find { it.first == selectedSubtitleTrack }?.second ?: "Off"
+                                    } else {
+                                        val selectedSub = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }
+                                        selectedSub?.title ?: selectedSub?.resolvedLang ?: "Off"
+                                    }
                                     SettingsMenuItem(
                                         icon = { Icon(getClosedCaptionIcon(), contentDescription = null, tint = Color.White) },
                                         title = "Captions",
@@ -249,18 +256,32 @@ fun SettingsOverlay(
                                 item {
                                     SubMenuItem(
                                         title = "Off",
-                                        isSelected = uiState.currentSubtitleUrl == null,
-                                        onClick = { onSubtitleSelected(null); onDismiss() }
+                                        isSelected = if (subtitleTracks.isNotEmpty()) selectedSubtitleTrack == null else uiState.currentSubtitleUrl == null,
+                                        onClick = { 
+                                            if (subtitleTracks.isNotEmpty()) onSubtitleTrackSelected(null)
+                                            else onSubtitleSelected(null)
+                                            onDismiss() 
+                                        }
                                     )
                                 }
-                                items(uiState.availableSubtitles) { subData ->
-                                    val url = subData.url
-                                    val label = subData.title ?: subData.resolvedLang ?: "Unknown"
-                                    SubMenuItem(
-                                        title = label,
-                                        isSelected = url == uiState.currentSubtitleUrl,
-                                        onClick = { onSubtitleSelected(url); onDismiss() }
-                                    )
+                                if (subtitleTracks.isNotEmpty()) {
+                                    items(subtitleTracks) { (id, label) ->
+                                        SubMenuItem(
+                                            title = label,
+                                            isSelected = id == selectedSubtitleTrack,
+                                            onClick = { onSubtitleTrackSelected(id); onDismiss() }
+                                        )
+                                    }
+                                } else {
+                                    items(uiState.availableSubtitles) { subData ->
+                                        val url = subData.url
+                                        val label = subData.title ?: subData.resolvedLang ?: "Unknown"
+                                        SubMenuItem(
+                                            title = label,
+                                            isSelected = url == uiState.currentSubtitleUrl,
+                                            onClick = { onSubtitleSelected(url); onDismiss() }
+                                        )
+                                    }
                                 }
                             }
                         }
