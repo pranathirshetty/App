@@ -241,7 +241,7 @@ fun HomeScreen(
                                             CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
                                         }
                                     homeState.isOffline && homeState.topAiring.isEmpty() ->
-                                        HomeOfflineState(onRetry = { homeViewModel.refresh() })
+                                        HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
                                     homeState.error != null && homeState.topAiring.isEmpty() ->
                                         Box(Modifier.fillMaxSize(), Alignment.Center) {
                                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -255,7 +255,7 @@ fun HomeScreen(
                                     // Catch-all: finished loading, no data, no explicit flag set
                                     // (Ktor may wrap the exception differently on some devices)
                                     !homeState.isLoading && homeState.topAiring.isEmpty() ->
-                                        HomeOfflineState(onRetry = { homeViewModel.refresh() })
+                                        HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
                                     else -> HomeContent(
                                         state = homeState,
                                         onAnimeClick = onAnimeClick,
@@ -1502,7 +1502,7 @@ private object Uri {
 // ── Offline State ─────────────────────────────────────────────────────────
 
 @Composable
-fun HomeOfflineState(onRetry: () -> Unit) {
+fun HomeOfflineState(onRetry: () -> Unit, isLoading: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1552,14 +1552,27 @@ fun HomeOfflineState(onRetry: () -> Unit) {
 
             Button(
                 onClick = onRetry,
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
-                    contentColor   = Color.Black
+                    contentColor   = Color.Black,
+                    disabledContainerColor = Color.White.copy(alpha = 0.7f),
+                    disabledContentColor   = Color.Black.copy(alpha = 0.5f)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp)
             ) {
-                Text("Retry", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("Retrying…", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                } else {
+                    Text("Retry", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
             }
         }
     }

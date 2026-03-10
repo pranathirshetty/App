@@ -76,7 +76,7 @@ fun SearchScreen(
             val showOffline = state.isOffline && state.results.isEmpty()
 
             if (showOffline) {
-                HomeOfflineState(onRetry = { viewModel.search() })
+                HomeOfflineState(onRetry = { viewModel.search() }, isLoading = state.isLoading)
             } else {
             LazyVerticalGrid(
                 columns = columns,

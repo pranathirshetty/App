@@ -139,7 +139,7 @@ fun ScheduleScreen(
             }
 
             state.isOffline && state.schedule.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                HomeOfflineState(onRetry = { viewModel.refresh() })
+                HomeOfflineState(onRetry = { viewModel.refresh() }, isLoading = state.isLoading)
             }
 
             state.error != null && state.schedule.isEmpty() -> Column(

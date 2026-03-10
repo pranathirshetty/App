@@ -406,7 +406,7 @@ fun WatchlistScreen(
             val showOffline = state.isOffline && state.items.isEmpty()
 
             if (showOffline) {
-                HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) })
+                HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) }, isLoading = state.isLoading)
             } else {
                 if (isDesktop) {
                     searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
