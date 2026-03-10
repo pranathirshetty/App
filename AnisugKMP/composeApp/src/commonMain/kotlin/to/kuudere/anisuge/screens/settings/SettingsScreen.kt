@@ -470,7 +470,8 @@ private fun MobileSettingsDetail(
                     onConnect = { viewModel.getAniListAuthUrl() },
                     onDisconnect = viewModel::disconnectAniList,
                     onImport = viewModel::importFromAniList,
-                    onExport = viewModel::exportToAniList
+                    onExport = viewModel::exportToAniList,
+                    onCancel = viewModel::cancelSyncOperation
                 )
             }
         }
@@ -529,7 +530,8 @@ private fun SettingsContent(
                 onConnect = { viewModel.getAniListAuthUrl() },
                 onDisconnect = viewModel::disconnectAniList,
                 onImport = viewModel::importFromAniList,
-                onExport = viewModel::exportToAniList
+                onExport = viewModel::exportToAniList,
+                onCancel = viewModel::cancelSyncOperation
             )
         }
     }
@@ -1091,6 +1093,7 @@ private fun SyncTab(
     onDisconnect: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1365,6 +1368,18 @@ private fun SyncTab(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
+                if (uiState.isImportingFromAniList || uiState.isExportingToAniList) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Cancel", fontWeight = FontWeight.Medium)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 // Import/Export Buttons
                 if (!uiState.isImportingFromAniList && !uiState.isExportingToAniList) {
                     Row(
@@ -1498,6 +1513,7 @@ private fun MobileSyncContent(
     onDisconnect: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1738,6 +1754,19 @@ private fun MobileSyncContent(
                                 modifier = Modifier.padding(vertical = 1.dp)
                             )
                         }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (uiState.isImportingFromAniList || uiState.isExportingToAniList) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Cancel", fontWeight = FontWeight.Medium)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                 }

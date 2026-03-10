@@ -2,6 +2,8 @@ package to.kuudere.anisuge.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,6 +81,8 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     private var originalPreferences: UserPreferences = UserPreferences()
+    private var importJob: Job? = null
+    private var exportJob: Job? = null
 
     init {
         loadPreferences()
@@ -497,6 +501,36 @@ class SettingsViewModel(
         }
     }
 
+    fun cancelSyncOperation() {
+        val wasImporting = _uiState.value.isImportingFromAniList
+        val wasExporting = _uiState.value.isExportingToAniList
+
+        if (!wasImporting && !wasExporting) return
+
+        if (wasImporting) {
+            appendLog("[Import] Cancel requested by user")
+        }
+        if (wasExporting) {
+            appendLog("[Export] Cancel requested by user")
+        }
+
+        importJob?.cancel()
+        exportJob?.cancel()
+        importJob = null
+        exportJob = null
+
+        _uiState.update {
+            it.copy(
+                isImportingFromAniList = false,
+                isExportingToAniList = false,
+                importStatus = if (wasImporting) "Import cancelled" else it.importStatus,
+                exportStatus = if (wasExporting) "Export cancelled" else it.exportStatus,
+                importResult = if (wasImporting) "Cancelled" else it.importResult,
+                exportResult = if (wasExporting) "Cancelled" else it.exportResult
+            )
+        }
+    }
+
     // ==================== AniList Import/Export ====================
 
     private fun appendLog(message: String) {
@@ -504,7 +538,9 @@ class SettingsViewModel(
     }
 
     fun importFromAniList() {
-        viewModelScope.launch {
+        if (importJob?.isActive == true || exportJob?.isActive == true) return
+
+        importJob = viewModelScope.launch {
             try {
                 _uiState.update {
                     it.copy(
@@ -606,6 +642,17 @@ class SettingsViewModel(
                 kotlinx.coroutines.delay(5000)
                 clearImportExportState()
 
+            } catch (_: CancellationException) {
+                if (_uiState.value.isImportingFromAniList) {
+                    appendLog("[Import] Cancelled")
+                    _uiState.update {
+                        it.copy(
+                            isImportingFromAniList = false,
+                            importStatus = "Import cancelled",
+                            importResult = "Cancelled"
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 appendLog("[Import] ✗ Exception: ${e.message}")
                 _uiState.update {
@@ -614,12 +661,16 @@ class SettingsViewModel(
                         errorMessage = "Import failed: ${e.message}"
                     )
                 }
+            } finally {
+                importJob = null
             }
         }
     }
 
     fun exportToAniList() {
-        viewModelScope.launch {
+        if (exportJob?.isActive == true || importJob?.isActive == true) return
+
+        exportJob = viewModelScope.launch {
             try {
                 _uiState.update {
                     it.copy(
@@ -726,6 +777,17 @@ class SettingsViewModel(
                 kotlinx.coroutines.delay(5000)
                 clearImportExportState()
 
+            } catch (_: CancellationException) {
+                if (_uiState.value.isExportingToAniList) {
+                    appendLog("[Export] Cancelled")
+                    _uiState.update {
+                        it.copy(
+                            isExportingToAniList = false,
+                            exportStatus = "Export cancelled",
+                            exportResult = "Cancelled"
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 appendLog("[Export] ✗ Exception: ${e.message}")
                 _uiState.update {
@@ -734,6 +796,8 @@ class SettingsViewModel(
                         errorMessage = "Export failed: ${e.message}"
                     )
                 }
+            } finally {
+                exportJob = null
             }
         }
     }
