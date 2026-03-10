@@ -644,11 +644,25 @@ private fun SessionCard(
     isCurrent: Boolean,
     onDelete: (() -> Unit)?
 ) {
+    // Better device detection from multiple fields
+    val clientName = session.clientName?.takeIf { it.isNotBlank() && it != "---" }
+        ?: session.deviceModel?.takeIf { it.isNotBlank() }
+        ?: "Unknown Device"
+
     val deviceIcon = when {
-        session.clientName?.contains("Mobile", true) == true -> Icons.Default.PhoneAndroid
-        session.clientName?.contains("Tablet", true) == true -> Icons.Default.TabletAndroid
+        clientName.contains("Mobile", true) -> Icons.Default.PhoneAndroid
+        clientName.contains("Tablet", true) -> Icons.Default.TabletAndroid
+        session.deviceName?.contains("Phone", true) == true -> Icons.Default.PhoneAndroid
+        session.deviceName?.contains("Tablet", true) == true -> Icons.Default.TabletAndroid
         else -> Icons.Default.Computer
     }
+
+    // Build location info from available fields
+    val locationInfo = buildList {
+        session.osName?.takeIf { it.isNotBlank() && it != "---" }?.let { add(it) }
+        session.countryName?.takeIf { it.isNotBlank() && it != "---" }?.let { add(it) }
+        session.ip?.takeIf { it.isNotBlank() }?.let { add(it) }
+    }.joinToString(" • ").takeIf { it.isNotEmpty() } ?: "Unknown location"
 
     Box(
         modifier = Modifier
@@ -667,14 +681,13 @@ private fun SessionCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        session.clientName ?: "Unknown Device",
+                        clientName,
                         color = TEXT,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        listOfNotNull(session.osName, session.countryName).joinToString(" • ").takeIf { it.isNotEmpty() }
-                            ?: "Unknown location",
+                        locationInfo,
                         color = MUTED,
                         fontSize = 12.sp
                     )
@@ -713,7 +726,6 @@ private fun SecurityTab(
     onConfirmPasswordChange: (String) -> Unit,
 ) {
     var showTotpDialog by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -780,22 +792,22 @@ private fun SecurityTab(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Password Section
+        // Password Section - Inline Form
         SettingCard(
-            title = "Password",
-            description = "Change your account password",
+            title = "Change Password",
+            description = "Update your account password. Must be at least 8 characters.",
             modifier = Modifier.fillMaxWidth()
         ) {
-            Button(
-                onClick = { showPasswordDialog = true },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BG_HOVER,
-                    contentColor = TEXT
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Change Password")
-            }
+            PasswordChangeForm(
+                currentPassword = uiState.currentPassword,
+                newPassword = uiState.newPassword,
+                confirmPassword = uiState.confirmPassword,
+                isLoading = uiState.isChangingPassword,
+                onCurrentPasswordChange = onCurrentPasswordChange,
+                onNewPasswordChange = onNewPasswordChange,
+                onConfirmPasswordChange = onConfirmPasswordChange,
+                onSubmit = onPasswordChange
+            )
         }
 
         // TOTP Setup Dialog
@@ -821,23 +833,6 @@ private fun SecurityTab(
             )
         }
 
-        // Password Change Dialog
-        if (showPasswordDialog) {
-            PasswordChangeDialog(
-                currentPassword = uiState.currentPassword,
-                newPassword = uiState.newPassword,
-                confirmPassword = uiState.confirmPassword,
-                isLoading = uiState.isChangingPassword,
-                onCurrentPasswordChange = onCurrentPasswordChange,
-                onNewPasswordChange = onNewPasswordChange,
-                onConfirmPasswordChange = onConfirmPasswordChange,
-                onConfirm = {
-                    onPasswordChange()
-                    showPasswordDialog = false
-                },
-                onDismiss = { showPasswordDialog = false }
-            )
-        }
     }
 }
 
@@ -957,7 +952,7 @@ private fun RecoveryCodesDialog(
 }
 
 @Composable
-private fun PasswordChangeDialog(
+private fun PasswordChangeForm(
     currentPassword: String,
     newPassword: String,
     confirmPassword: String,
@@ -965,118 +960,111 @@ private fun PasswordChangeDialog(
     onCurrentPasswordChange: (String) -> Unit,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
+    onSubmit: () -> Unit,
 ) {
     var showCurrent by remember { mutableStateOf(false) }
     var showNew by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
+    val isValid = newPassword == confirmPassword && newPassword.length >= 8
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = BG_CARD,
-        title = { Text("Change Password", color = TEXT) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = currentPassword,
-                    onValueChange = onCurrentPasswordChange,
-                    label = { Text("Current Password") },
-                    singleLine = true,
-                    visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showCurrent = !showCurrent }) {
-                            Icon(
-                                if (showCurrent) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = MUTED
-                            )
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TEXT,
-                        unfocusedTextColor = TEXT,
-                        focusedLabelColor = MUTED,
-                        unfocusedLabelColor = MUTED,
-                        focusedBorderColor = TEXT,
-                        unfocusedBorderColor = BORDER
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = onNewPasswordChange,
-                    label = { Text("New Password") },
-                    singleLine = true,
-                    visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showNew = !showNew }) {
-                            Icon(
-                                if (showNew) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = MUTED
-                            )
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TEXT,
-                        unfocusedTextColor = TEXT,
-                        focusedLabelColor = MUTED,
-                        unfocusedLabelColor = MUTED,
-                        focusedBorderColor = TEXT,
-                        unfocusedBorderColor = BORDER
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = onConfirmPasswordChange,
-                    label = { Text("Confirm Password") },
-                    singleLine = true,
-                    isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
-                    visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showConfirm = !showConfirm }) {
-                            Icon(
-                                if (showConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = MUTED
-                            )
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TEXT,
-                        unfocusedTextColor = TEXT,
-                        focusedLabelColor = MUTED,
-                        unfocusedLabelColor = MUTED,
-                        focusedBorderColor = TEXT,
-                        unfocusedBorderColor = BORDER
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isLoading && newPassword == confirmPassword && newPassword.length >= 8,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
-                } else {
-                    Text("Change")
+    Column {
+        OutlinedTextField(
+            value = currentPassword,
+            onValueChange = onCurrentPasswordChange,
+            label = { Text("Current Password") },
+            singleLine = true,
+            visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showCurrent = !showCurrent }) {
+                    Icon(
+                        if (showCurrent) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = MUTED
+                    )
                 }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = MUTED)
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = TEXT,
+                unfocusedTextColor = TEXT,
+                focusedLabelColor = MUTED,
+                unfocusedLabelColor = MUTED,
+                focusedBorderColor = TEXT,
+                unfocusedBorderColor = BORDER
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = newPassword,
+            onValueChange = onNewPasswordChange,
+            label = { Text("New Password") },
+            singleLine = true,
+            visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showNew = !showNew }) {
+                    Icon(
+                        if (showNew) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = MUTED
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = TEXT,
+                unfocusedTextColor = TEXT,
+                focusedLabelColor = MUTED,
+                unfocusedLabelColor = MUTED,
+                focusedBorderColor = TEXT,
+                unfocusedBorderColor = BORDER
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = confirmPassword,
+            onValueChange = onConfirmPasswordChange,
+            label = { Text("Confirm Password") },
+            singleLine = true,
+            isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
+            visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { showConfirm = !showConfirm }) {
+                    Icon(
+                        if (showConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = MUTED
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = TEXT,
+                unfocusedTextColor = TEXT,
+                focusedLabelColor = MUTED,
+                unfocusedLabelColor = MUTED,
+                focusedBorderColor = TEXT,
+                unfocusedBorderColor = BORDER
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = onSubmit,
+            enabled = !isLoading && isValid,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White,
+                contentColor = Color.Black
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Changing...")
+            } else {
+                Text("Change Password")
             }
         }
-    )
+    }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
