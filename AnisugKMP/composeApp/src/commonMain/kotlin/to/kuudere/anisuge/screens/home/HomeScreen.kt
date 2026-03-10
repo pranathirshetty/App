@@ -179,6 +179,10 @@ fun HomeScreen(
     var prevTabIndex by remember { mutableStateOf(0) }
     var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
 
+    LaunchedEffect(Unit) {
+        homeViewModel.refresh()
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
         val isDesktop = maxWidth >= 800.dp
 
