@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.*
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.WatchServerResponse
 import to.kuudere.anisuge.data.services.InfoService
@@ -261,14 +262,23 @@ fun DownloadEpisodeDialog(
 
             Spacer(Modifier.height(8.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (currentTask?.status == "Finished") {
+            Row(
+                modifier = Modifier.fillMaxWidth().animateContentSize(), 
+                horizontalArrangement = Arrangement.spacedBy(if (currentTask?.status == "Finished") 12.dp else 0.dp)
+            ) {
+                AnimatedVisibility(
+                    visible = currentTask?.status == "Finished",
+                    enter = fadeIn() + expandHorizontally(),
+                    exit = fadeOut() + shrinkHorizontally(),
+                    modifier = Modifier.weight(if (currentTask?.status == "Finished") 1f else 0.0001f)
+                ) {
                     Button(
                         onClick = {
-                            to.kuudere.anisuge.utils.DownloadManager.removeTask(currentTask.id)
-                            onDismiss()
+                            if (currentTask != null) {
+                                to.kuudere.anisuge.utils.DownloadManager.removeTask(currentTask.id)
+                            }
                         },
-                        modifier = Modifier.weight(1f).height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -300,7 +310,7 @@ fun DownloadEpisodeDialog(
                         text = when {
                             currentTask == null -> "Start Download$sizeText"
                             isFinished -> "Downloaded"
-                            currentTask.status.startsWith("Failed") -> "Retry Download"
+                            currentTask?.status?.startsWith("Failed") == true -> "Retry Download"
                             else -> "Keep Downloading in Background"
                         },
                         color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
