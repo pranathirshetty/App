@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -95,6 +96,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import anisugkmp.composeapp.generated.resources.Res
+import anisugkmp.composeapp.generated.resources.anilist
+import org.jetbrains.compose.resources.painterResource
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.SessionInfoResponse
 
@@ -1429,21 +1433,12 @@ private fun SyncTab(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // AniList logo/icon placeholder
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(BG_CARD),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "A",
-                            color = Color(0xFF3B82F6),
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    // AniList logo
+                    Image(
+                        painter = painterResource(Res.drawable.anilist),
+                        contentDescription = "AniList",
+                        modifier = Modifier.size(80.dp)
+                    )
 
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -1820,20 +1815,11 @@ private fun MobileSyncContent(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(BG_CARD),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "A",
-                            color = Color(0xFF3B82F6),
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Image(
+                        painter = painterResource(Res.drawable.anilist),
+                        contentDescription = "AniList",
+                        modifier = Modifier.size(72.dp)
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "Connect to AniList",
