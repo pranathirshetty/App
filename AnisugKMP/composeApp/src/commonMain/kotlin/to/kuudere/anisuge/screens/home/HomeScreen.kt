@@ -93,6 +93,7 @@ import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.WatchLater
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -1571,7 +1572,6 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
                 .thenBy { it.title.lowercase() }
         )
     }
-    val animatedKeys = remember { mutableStateSetOf<String>() }
     val listState = rememberLazyListState()
 
     val finishedCount = tasks.count { it.status == "Finished" }
@@ -1667,10 +1667,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
                 contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
             ) {
                 item(key = "downloads-header") {
-                    DownloadsAnimatedEntry(
-                        itemKey = "downloads-header",
-                        animatedKeys = animatedKeys,
-                    ) {
+                    DownloadsAnimatedEntry(delayMs = 0) {
                         Column {
                             Text(
                                 "Downloads",
@@ -1721,11 +1718,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> })
 
                 val rows = sortedTasks.chunked(cols)
                 itemsIndexed(rows, key = { rowIdx, _ -> "row-$rowIdx" }) { rowIdx, rowTasks ->
-                    DownloadsAnimatedEntry(
-                        itemKey = "row-$rowIdx",
-                        animatedKeys = animatedKeys,
-                        delayMs = (rowIdx * 45).coerceAtMost(320)
-                    ) {
+                    DownloadsAnimatedEntry(delayMs = (rowIdx * 40).coerceAtMost(400)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -1764,36 +1757,30 @@ private fun downloadTaskPriority(task: DownloadTask): Int = when {
 
 @Composable
 private fun DownloadsAnimatedEntry(
-    itemKey: String,
-    animatedKeys: MutableSet<String>,
     delayMs: Int = 0,
     content: @Composable () -> Unit,
 ) {
-    val alreadySeen = itemKey in animatedKeys
-    var visible by remember(itemKey) { mutableStateOf(alreadySeen) }
+    var visible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(itemKey) {
-        if (!alreadySeen) {
-            delay(delayMs.toLong())
-            visible = true
-            animatedKeys.add(itemKey)
-        }
+    LaunchedEffect(Unit) {
+        if (delayMs > 0) delay(delayMs.toLong())
+        visible = true
     }
 
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(320, easing = FastOutSlowInEasing)
+        animationSpec = tween(320)
     )
-    val offsetY by animateDpAsState(
-        targetValue = if (visible) 0.dp else 18.dp,
-        animationSpec = tween(320, easing = FastOutSlowInEasing)
+    val offsetY by animateFloatAsState(
+        targetValue = if (visible) 0f else 20f,
+        animationSpec = tween(320)
     )
 
     Box(
         modifier = Modifier
             .graphicsLayer {
                 this.alpha = alpha
-                translationY = offsetY.toPx()
+                translationY = offsetY.dp.toPx()
             }
     ) {
         content()
@@ -1835,6 +1822,7 @@ private fun DownloadTaskCard(
     val manager = DownloadManager
     val inter = remember { MutableInteractionSource() }
     val hovered by inter.collectIsHoveredAsState()
+    var showConfirmRemove by remember { mutableStateOf(false) }
 
     val backgroundColor by animateColorAsState(
         targetValue = if (hovered) Color.White.copy(alpha = 0.055f) else Color.White.copy(alpha = 0.03f),
@@ -2015,7 +2003,17 @@ private fun DownloadTaskCard(
                 label = "Remove",
                 isDanger = true,
                 modifier = Modifier.weight(1f),
-                onClick = { manager.removeTask(task.id) },
+                onClick = { showConfirmRemove = true },
+            )
+        }
+
+        if (showConfirmRemove) {
+            ConfirmDialog(
+                title = "Remove download?",
+                message = "\"${task.title}\" Episode ${task.episodeNumber} will be removed from your downloads list.",
+                confirmLabel = "Remove",
+                onConfirm = { manager.removeTask(task.id); showConfirmRemove = false },
+                onDismiss = { showConfirmRemove = false },
             )
         }
     }
@@ -2080,5 +2078,66 @@ private fun CardActionCell(
     }
 }
 
+// ── Reusable confirm dialog ───────────────────────────────────────────────────
+
+@Composable
+fun ConfirmDialog(
+    title: String,
+    message: String,
+    confirmLabel: String = "Confirm",
+    dismissLabel: String = "Cancel",
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    isDanger: Boolean = true,
+) {
+    val confirmColor = if (isDanger) Color(0xFFFF6B6B) else Color.White
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1A1A),
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Text(
+                text = message,
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isDanger) Color(0xFFFF6B6B).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.10f),
+                    contentColor = confirmColor,
+                ),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text(confirmLabel, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.07f),
+                    contentColor = Color.White.copy(alpha = 0.75f),
+                ),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Text(dismissLabel)
+            }
+        },
+    )
+}
 
 
