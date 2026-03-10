@@ -18,9 +18,9 @@ sealed class Screen(val route: String) {
         }
     }
     data class Watch(
-        val animeId: String, 
-        val episodeNumber: Int, 
-        val server: String? = null, 
+        val animeId: String,
+        val episodeNumber: Int,
+        val server: String? = null,
         val lang: String? = null,
         val offlinePath: String? = null
     ) : Screen(
@@ -37,4 +37,6 @@ sealed class Screen(val route: String) {
             const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}&offlinePath={offlinePath}"
         }
     }
+
+    data object Settings : Screen("settings")
 }

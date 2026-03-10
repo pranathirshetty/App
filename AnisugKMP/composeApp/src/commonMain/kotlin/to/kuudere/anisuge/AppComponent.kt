@@ -69,4 +69,8 @@ object AppComponent {
     val settingsStore: to.kuudere.anisuge.data.services.SettingsStore by lazy {
         to.kuudere.anisuge.data.services.SettingsStore(dataStore)
     }
+
+    val settingsService: to.kuudere.anisuge.data.services.SettingsService by lazy {
+        to.kuudere.anisuge.data.services.SettingsService(sessionStore, httpClient)
+    }
 }

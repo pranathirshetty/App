@@ -32,6 +32,8 @@ import to.kuudere.anisuge.screens.watch.WatchScreen
 import to.kuudere.anisuge.screens.watch.WatchViewModel
 import to.kuudere.anisuge.screens.watchlist.WatchlistViewModel
 import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
+import to.kuudere.anisuge.screens.settings.SettingsScreen
+import to.kuudere.anisuge.screens.settings.SettingsViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
@@ -50,6 +52,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val watchVm  = remember { WatchViewModel(AppComponent.infoService, AppComponent.settingsStore) }
         val watchlistVm = remember { WatchlistViewModel() }
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
+        val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -99,6 +102,7 @@ fun App(onAppExit: () -> Unit = {}) {
                         searchViewModel = searchVm,
                         watchlistViewModel = watchlistVm,
                         scheduleViewModel = scheduleVm,
+                        settingsViewModel = settingsVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
                         onWatchOffline = { id, ep, path -> 

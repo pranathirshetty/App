@@ -158,6 +158,8 @@ import to.kuudere.anisuge.screens.watchlist.WatchlistScreen
 import to.kuudere.anisuge.screens.watchlist.WatchlistViewModel
 import to.kuudere.anisuge.screens.schedule.ScheduleScreen
 import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
+import to.kuudere.anisuge.screens.settings.SettingsScreen
+import to.kuudere.anisuge.screens.settings.SettingsViewModel
 
 enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 
@@ -167,6 +169,7 @@ fun HomeScreen(
     searchViewModel: SearchViewModel,
     watchlistViewModel: WatchlistViewModel,
     scheduleViewModel: ScheduleViewModel,
+    settingsViewModel: SettingsViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
     onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> },
@@ -276,6 +279,10 @@ fun HomeScreen(
                             AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
                             AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
                             AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
+                            AnisugTab.Settings -> SettingsScreen(
+                                viewModel = settingsViewModel,
+                                onLogout = onLogout
+                            )
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
                             }
