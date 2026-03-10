@@ -693,7 +693,7 @@ class SettingsViewModel(
                         continue
                     }
 
-                    val success = settingsService.updateAniListEntry(
+                    val error = settingsService.updateAniListEntry(
                         accessToken,
                         entry.anilistId,
                         anilistStatus,
@@ -701,11 +701,11 @@ class SettingsViewModel(
                         entry.episodesWatched ?: 0
                     )
 
-                    if (success) {
-                        appendLog("[Export] ✓ $title → $anilistStatus (ep=${entry.episodesWatched ?: 0})")
+                    if (error == null) {
+                        appendLog("[Export] ✓ $title → status=$anilistStatus, progress=${entry.episodesWatched ?: 0}, score=${entry.score}, mediaId=${entry.anilistId}")
                         exported++
                     } else {
-                        appendLog("[Export] ✗ FAILED: $title (mediaId=${entry.anilistId})")
+                        appendLog("[Export] ✗ FAILED: $title — status=$anilistStatus, progress=${entry.episodesWatched ?: 0}, score=${entry.score}, mediaId=${entry.anilistId} — $error")
                         errors++
                     }
 

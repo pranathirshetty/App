@@ -10,11 +10,12 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import to.kuudere.anisuge.data.models.AniListDisconnectResponse
@@ -46,6 +47,8 @@ class SettingsService(
     private val sessionStore: SessionStore,
     private val httpClient: HttpClient,
 ) {
+    private val json = Json { ignoreUnknownKeys = true }
+
     companion object {
         const val BASE_URL = "https://kuudere.to"
     }
@@ -407,29 +410,39 @@ class SettingsService(
         }
     }
 
-    /** Update AniList entry via GraphQL mutation */
+    /** Update AniList entry via GraphQL mutation. Returns null on success, error message on failure. */
     suspend fun updateAniListEntry(
         accessToken: String,
         mediaId: String,
         status: String,
         score: Double?,
         progress: Int
-    ): Boolean {
+    ): String? {
         return try {
-            val mutation = """
-                mutation (${'$'}mediaId: Int, ${'$'}status: MediaListStatus, ${'$'}score: Float, ${'$'}progress: Int) {
-                    SaveMediaListEntry(mediaId: ${'$'}mediaId, status: ${'$'}status, score: ${'$'}score, progress: ${'$'}progress) {
-                        id
+            val mutation = if (score != null) {
+                """
+                    mutation (${'$'}mediaId: Int, ${'$'}status: MediaListStatus, ${'$'}score: Float, ${'$'}progress: Int) {
+                        SaveMediaListEntry(mediaId: ${'$'}mediaId, status: ${'$'}status, score: ${'$'}score, progress: ${'$'}progress) {
+                            id
+                        }
                     }
-                }
-            """.trimIndent()
+                """.trimIndent()
+            } else {
+                """
+                    mutation (${'$'}mediaId: Int, ${'$'}status: MediaListStatus, ${'$'}progress: Int) {
+                        SaveMediaListEntry(mediaId: ${'$'}mediaId, status: ${'$'}status, progress: ${'$'}progress) {
+                            id
+                        }
+                    }
+                """.trimIndent()
+            }
 
             val body = buildJsonObject {
                 put("query", mutation)
                 put("variables", buildJsonObject {
                     put("mediaId", mediaId.toInt())
                     put("status", status)
-                    if (score != null) put("score", score) else put("score", JsonPrimitive(null as Double?))
+                    if (score != null) put("score", score)
                     put("progress", progress)
                 })
             }
@@ -441,11 +454,24 @@ class SettingsService(
                 setBody(body)
             }
 
-            val result = response.body<AniListGraphQLResponse>()
-            result.errors == null || result.errors.isEmpty()
+            val responseText = response.bodyAsText()
+            val result = runCatching { json.decodeFromString<AniListGraphQLResponse>(responseText) }.getOrNull()
+
+            if (response.status.value !in 200..299) {
+                return "HTTP ${response.status.value}: ${responseText.take(500)}"
+            }
+
+            if (result?.errors != null && result.errors.isNotEmpty()) {
+                val graphQlErrors = result.errors.joinToString("; ") { it.message ?: "unknown error" }
+                "$graphQlErrors | raw=${responseText.take(500)}"
+            } else if (result == null) {
+                "Could not parse AniList response | raw=${responseText.take(500)}"
+            } else {
+                null // success
+            }
         } catch (e: Exception) {
             println("[SettingsService] updateAniListEntry error: ${e.message}")
-            false
+            e.message ?: "exception"
         }
     }
 }
