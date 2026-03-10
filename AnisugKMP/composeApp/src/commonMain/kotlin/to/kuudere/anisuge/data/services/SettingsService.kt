@@ -6,12 +6,15 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.utils.io.readUTF8Line
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -23,6 +26,7 @@ import to.kuudere.anisuge.data.models.AniListStatusResponse
 import to.kuudere.anisuge.data.models.AniListTokenResponse
 import to.kuudere.anisuge.data.models.ImportApiResponse
 import to.kuudere.anisuge.data.models.ImportResult
+import to.kuudere.anisuge.data.models.ImportStreamEvent
 import to.kuudere.anisuge.data.models.WatchlistExportEntry
 import to.kuudere.anisuge.data.models.WatchlistExportResponse
 import to.kuudere.anisuge.data.models.MfaStatusResponse
@@ -337,7 +341,10 @@ class SettingsService(
     }
 
     /** Import watchlist to Kuudere */
-    suspend fun importWatchlistToKuudere(data: Map<String, List<Map<String, Any?>>>): ImportResult? {
+    suspend fun importWatchlistToKuudere(
+        data: Map<String, List<Map<String, Any?>>>,
+        onProgress: (suspend (ImportStreamEvent) -> Unit)? = null
+    ): ImportResult? {
         return try {
             val stored = sessionStore.get() ?: return null
 
@@ -378,26 +385,74 @@ class SettingsService(
             multipartBody.append(crlf)
             multipartBody.append("--$boundary--$crlf")
 
-            val response = httpClient.post("$BASE_URL/api/import/json") {
+            // Use streaming endpoint for progress updates
+            val streamUrl = "$BASE_URL/api/import/json?stream=true"
+
+            httpClient.preparePost(streamUrl) {
                 header("Cookie", sessionToCookie(stored))
                 header(HttpHeaders.Origin, BASE_URL)
                 header(HttpHeaders.Referrer, "$BASE_URL/user/settings/sync")
                 header("X-Requested-With", "XMLHttpRequest")
-                header(HttpHeaders.Accept, ContentType.Application.Json.toString())
+                header(HttpHeaders.Accept, "text/event-stream")
                 header(HttpHeaders.ContentType, "multipart/form-data; boundary=$boundary")
                 setBody(multipartBody.toString().encodeToByteArray())
+            }.execute { response ->
+                println("[SettingsService] Import SSE response status: ${response.status}")
+                val contentType = response.headers[HttpHeaders.ContentType] ?: ""
+
+                if (response.status.value in 200..299 && contentType.contains("text/event-stream")) {
+                    // Read SSE stream line by line
+                    val channel = response.bodyAsChannel()
+                    var lastEvent: ImportStreamEvent? = null
+
+                    while (!channel.isClosedForRead) {
+                        val line = try {
+                            channel.readUTF8Line()
+                        } catch (_: Exception) {
+                            null
+                        } ?: break
+
+                        if (line.startsWith("data: ")) {
+                            val eventJson = line.removePrefix("data: ").trim()
+                            try {
+                                val event = json.decodeFromString<ImportStreamEvent>(eventJson)
+                                lastEvent = event
+                                onProgress?.invoke(event)
+                            } catch (e: Exception) {
+                                println("[SettingsService] Failed to parse SSE event: $eventJson — ${e.message}")
+                            }
+                        }
+                    }
+
+                    // Return based on last event
+                    when (lastEvent?.type) {
+                        "complete" -> ImportResult(
+                            success = true,
+                            message = lastEvent.status,
+                            stats = lastEvent.stats
+                        )
+                        "error" -> ImportResult(
+                            success = false,
+                            message = lastEvent.error ?: "Import error"
+                        )
+                        else -> ImportResult(
+                            success = lastEvent != null,
+                            message = lastEvent?.status ?: "Stream ended unexpectedly",
+                            stats = lastEvent?.stats
+                        )
+                    }
+                } else {
+                    // Non-streaming fallback (regular JSON response)
+                    val responseBody = response.bodyAsText()
+                    println("[SettingsService] Import fallback response: $responseBody")
+                    val result = json.decodeFromString<ImportApiResponse>(responseBody)
+                    ImportResult(
+                        success = result.success,
+                        message = result.message,
+                        stats = result.stats
+                    )
+                }
             }
-
-            val responseBody = response.bodyAsText()
-            println("[SettingsService] Import response status: ${response.status}")
-            println("[SettingsService] Import response body: $responseBody")
-
-            val result = json.decodeFromString<ImportApiResponse>(responseBody)
-            ImportResult(
-                success = result.success,
-                message = result.message,
-                stats = result.stats
-            )
         } catch (e: Exception) {
             println("[SettingsService] importWatchlistToKuudere error: ${e.message}")
             null

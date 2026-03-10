@@ -224,6 +224,17 @@ data class ImportApiResponse(
     val stats: ImportProgressData? = null,
 )
 
+/** SSE progress event from the import stream */
+@Serializable
+data class ImportStreamEvent(
+    val type: String = "",               // "progress", "complete", "error", "item_error"
+    val progress: Int = 0,
+    val status: String? = null,
+    val currentItem: String? = null,
+    val error: String? = null,
+    val stats: ImportProgressData? = null,
+)
+
 // AniList GraphQL Models
 @Serializable
 data class AniListMediaListCollection(

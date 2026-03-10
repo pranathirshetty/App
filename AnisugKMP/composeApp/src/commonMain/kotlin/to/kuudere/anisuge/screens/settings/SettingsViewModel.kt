@@ -615,7 +615,30 @@ class SettingsViewModel(
                 appendLog("[Import] Sending to Kuudere /api/import/json...")
 
                 // Import to Kuudere using the JSON import endpoint
-                val result = settingsService.importWatchlistToKuudere(kuudereData)
+                val result = settingsService.importWatchlistToKuudere(kuudereData) { event ->
+                    // Real-time SSE progress updates
+                    when (event.type) {
+                        "progress" -> {
+                            val statusText = event.status ?: "Processing..."
+                            val currentItem = event.currentItem
+                            val logLine = if (currentItem != null) {
+                                "[Import] ${event.progress}% — $currentItem"
+                            } else {
+                                "[Import] ${event.progress}% — $statusText"
+                            }
+                            appendLog(logLine)
+                            _uiState.update {
+                                it.copy(
+                                    importProgress = event.progress,
+                                    importStatus = statusText
+                                )
+                            }
+                        }
+                        "item_error" -> {
+                            appendLog("[Import] ERROR: ${event.currentItem} — ${event.error}")
+                        }
+                    }
+                }
                 appendLog("[Import] API response: success=${result?.success}, message=${result?.message}")
                 appendLog("[Import] Stats: imported=${result?.stats?.imported}, skipped=${result?.stats?.skipped}, errors=${result?.stats?.errors}")
 
