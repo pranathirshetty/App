@@ -3,8 +3,6 @@ package to.kuudere.anisuge.data.services
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -12,7 +10,6 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
-import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
@@ -369,21 +366,33 @@ class SettingsService(
             jsonBuilder.append("}")
             val jsonData = jsonBuilder.toString()
 
-            // Create multipart form data
-            val formDataContent = MultiPartFormDataContent(
-                formData {
-                    append("file", jsonData, headers = Headers.build {
-                        append(HttpHeaders.ContentDisposition, "filename=anilist-import.json")
-                    })
-                }
-            )
+            // Build raw multipart body exactly like browser does
+            val boundary = "----KtorFormBoundary" + kotlin.random.Random.nextLong().toString(16)
+            val crlf = "\r\n"
+            val multipartBody = StringBuilder()
+            multipartBody.append("--$boundary$crlf")
+            multipartBody.append("Content-Disposition: form-data; name=\"file\"; filename=\"anilist-import.json\"$crlf")
+            multipartBody.append("Content-Type: application/json$crlf")
+            multipartBody.append(crlf)
+            multipartBody.append(jsonData)
+            multipartBody.append(crlf)
+            multipartBody.append("--$boundary--$crlf")
 
             val response = httpClient.post("$BASE_URL/api/import/json") {
                 header("Cookie", sessionToCookie(stored))
-                setBody(formDataContent)
+                header(HttpHeaders.Origin, BASE_URL)
+                header(HttpHeaders.Referrer, "$BASE_URL/user/settings/sync")
+                header("X-Requested-With", "XMLHttpRequest")
+                header(HttpHeaders.Accept, ContentType.Application.Json.toString())
+                header(HttpHeaders.ContentType, "multipart/form-data; boundary=$boundary")
+                setBody(multipartBody.toString().encodeToByteArray())
             }
 
-            val result = response.body<ImportApiResponse>()
+            val responseBody = response.bodyAsText()
+            println("[SettingsService] Import response status: ${response.status}")
+            println("[SettingsService] Import response body: $responseBody")
+
+            val result = json.decodeFromString<ImportApiResponse>(responseBody)
             ImportResult(
                 success = result.success,
                 message = result.message,
