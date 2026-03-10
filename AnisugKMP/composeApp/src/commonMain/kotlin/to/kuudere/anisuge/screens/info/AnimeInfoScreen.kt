@@ -49,6 +49,7 @@ fun AnimeInfoScreen(
     viewModel: AnimeInfoViewModel,
     onBack: () -> Unit,
     onWatchEpisode: (String, String, Int) -> Unit,
+    onDownloadsClick: () -> Unit = {},
     onGenreClick: (String) -> Unit = {}
 ) {
     LaunchedEffect(animeId) {
@@ -115,7 +116,8 @@ fun AnimeInfoScreen(
                         onWatchNow = { onWatchEpisode(anime.id, "sub", 1) },
                         onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
                         onGenreClick = onGenreClick,
-                        onDownloadEpisode = { selectedEpisodeForDownload = it }
+                        onDownloadEpisode = { selectedEpisodeForDownload = it },
+                        onDownloadsClick = onDownloadsClick
                     )
                     // Top Bar Back Button overlay
                     Box(
@@ -147,7 +149,8 @@ fun AnimeInfoScreen(
                         onWatchNow = { onWatchEpisode(anime.id, "sub", 1) },
                         onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
                         onGenreClick = onGenreClick,
-                        onDownloadEpisode = { selectedEpisodeForDownload = it }
+                        onDownloadEpisode = { selectedEpisodeForDownload = it },
+                        onDownloadsClick = onDownloadsClick
                     )
                 }
             }
@@ -170,7 +173,8 @@ private fun MobileLayout(
     onWatchNow: () -> Unit,
     onWatchEpisode: (Int) -> Unit,
     onGenreClick: (String) -> Unit,
-    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit
+    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit,
+    onDownloadsClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
 
@@ -223,7 +227,7 @@ private fun MobileLayout(
                             IconButton(onClick = { /* Share */ }) {
                                 Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
                             }
-                            IconButton(onClick = { /* Download */ }) {
+                            IconButton(onClick = onDownloadsClick) {
                                 Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                             }
                             WatchlistDropdownIcon(
@@ -409,7 +413,8 @@ private fun DesktopLayout(
     onWatchNow: () -> Unit,
     onWatchEpisode: (Int) -> Unit,
     onGenreClick: (String) -> Unit,
-    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit
+    onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit,
+    onDownloadsClick: () -> Unit
 ) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val baseWidth = 1400.dp

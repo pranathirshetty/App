@@ -4,7 +4,13 @@ package to.kuudere.anisuge.navigation
 sealed class Screen(val route: String) {
     data object Splash : Screen("splash")
     data object Auth   : Screen("auth")
-    data object Home   : Screen("home")
+    data class Home(val startOnDownloads: Boolean = false) : Screen(
+        if (startOnDownloads) "home?downloads=true" else "home"
+    ) {
+        companion object {
+            const val route = "home?downloads={downloads}"
+        }
+    }
     data object Search : Screen("search")
     data class Info(val animeId: String) : Screen("info/$animeId") {
         companion object {

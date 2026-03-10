@@ -35,6 +35,8 @@ import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 
 @Composable
 fun App(onAppExit: () -> Unit = {}) {
@@ -67,7 +69,7 @@ fun App(onAppExit: () -> Unit = {}) {
                             }
                         },
                         onNavigateToHome = {
-                            navController.navigate(Screen.Home.route) {
+                            navController.navigate(Screen.Home().route) {
                                 popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         },
@@ -78,14 +80,20 @@ fun App(onAppExit: () -> Unit = {}) {
                     AuthScreen(
                         viewModel      = authVm,
                         onLoginSuccess = {
-                            navController.navigate(Screen.Home.route) {
+                            navController.navigate(Screen.Home().route) {
                                 popUpTo(Screen.Auth.route) { inclusive = true }
                             }
                         },
                     )
                 }
 
-                composable(Screen.Home.route) {
+                composable(
+                    route = Screen.Home.route,
+                    arguments = listOf(
+                        navArgument("downloads") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
+                    )
+                ) { backStackEntry ->
+                    val downloadsArg = backStackEntry.arguments?.getString("downloads") == "true"
                     HomeScreen(
                         homeViewModel = homeVm,
                         searchViewModel = searchVm,
@@ -98,11 +106,11 @@ fun App(onAppExit: () -> Unit = {}) {
                         },
                         onLogout = {
                             navController.navigate(Screen.Auth.route) {
-                                popUpTo(Screen.Home.route) { inclusive = true }
+                                popUpTo(Screen.Home().route) { inclusive = true }
                             }
                         },
                         onExit = onAppExit,
-                        startOnDownloads = splashVm.destination.value == SplashDestination.GoHomeOffline
+                        startOnDownloads = downloadsArg || (splashVm.destination.value == SplashDestination.GoHomeOffline)
                     )
                 }
 
@@ -121,6 +129,11 @@ fun App(onAppExit: () -> Unit = {}) {
                         viewModel = infoVm,
                         onBack = { navController.popBackStack() },
                         onWatchEpisode = { id, lang, ep -> navController.navigate(Screen.Watch(id, ep, null, lang).route) },
+                        onDownloadsClick = {
+                            navController.navigate(Screen.Home(startOnDownloads = true).route) {
+                                popUpTo(Screen.Home().route) { inclusive = true }
+                            }
+                        },
                         onGenreClick = { genre ->
                             searchVm.clearFilters()
                             searchVm.onGenreToggle(genre)
