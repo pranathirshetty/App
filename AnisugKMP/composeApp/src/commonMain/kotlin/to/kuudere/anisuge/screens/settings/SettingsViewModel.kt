@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import to.kuudere.anisuge.data.models.AniListProfile
 import to.kuudere.anisuge.data.models.MfaStatusData
 import to.kuudere.anisuge.data.models.SessionInfoResponse
 import to.kuudere.anisuge.data.models.TotpSetupData
@@ -41,10 +42,16 @@ data class SettingsUiState(
     val newPassword: String = "",
     val confirmPassword: String = "",
     val isChangingPassword: Boolean = false,
+
+    // AniList
+    val anilistConnected: Boolean = false,
+    val anilistProfile: AniListProfile? = null,
+    val isLoadingAniList: Boolean = false,
 )
 
 sealed class SettingsTab {
     data object Preferences : SettingsTab()
+    data object Sync : SettingsTab()
     data object Sessions : SettingsTab()
     data object Security : SettingsTab()
     data object About : SettingsTab()
@@ -395,5 +402,69 @@ class SettingsViewModel(
                 }
             }
         }
+    }
+
+    // ==================== AniList ====================
+
+    fun loadAniListStatus() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingAniList = true) }
+            val response = settingsService.getAniListStatus()
+            if (response?.success == true) {
+                _uiState.update {
+                    it.copy(
+                        anilistConnected = response.connected,
+                        isLoadingAniList = false
+                    )
+                }
+                if (response.connected) {
+                    loadAniListProfile()
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoadingAniList = false,
+                        errorMessage = response?.message ?: "Failed to load AniList status"
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadAniListProfile() {
+        viewModelScope.launch {
+            val response = settingsService.getAniListProfile()
+            if (response?.success == true) {
+                _uiState.update {
+                    it.copy(
+                        anilistConnected = response.connected,
+                        anilistProfile = response.profile
+                    )
+                }
+            }
+        }
+    }
+
+    fun disconnectAniList() {
+        viewModelScope.launch {
+            val response = settingsService.disconnectAniList()
+            if (response?.success == true) {
+                _uiState.update {
+                    it.copy(
+                        anilistConnected = false,
+                        anilistProfile = null,
+                        successMessage = "AniList disconnected successfully"
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(errorMessage = response?.message ?: "Failed to disconnect AniList")
+                }
+            }
+        }
+    }
+
+    fun getAniListAuthUrl(): String {
+        return settingsService.getAniListAuthUrl()
     }
 }

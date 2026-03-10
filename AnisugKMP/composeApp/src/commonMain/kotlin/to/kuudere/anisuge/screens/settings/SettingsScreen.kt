@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,11 +21,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,6 +41,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TabletAndroid
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -77,6 +81,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,12 +137,14 @@ fun SettingsScreen(
         when (selectedTab) {
             is SettingsTab.Sessions -> viewModel.loadSessions()
             is SettingsTab.Security -> viewModel.loadMfaStatus()
+            is SettingsTab.Sync -> viewModel.loadAniListStatus()
             else -> {}
         }
     }
 
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
+        SettingsNavItem(SettingsTab.Sync, "Sync", Icons.Default.Sync),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
         SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock),
         SettingsNavItem(SettingsTab.About, "About", Icons.Default.Info)
@@ -215,6 +222,7 @@ fun SettingsScreen(
                                 when (it) {
                                     is SettingsTab.Sessions -> viewModel.loadSessions()
                                     is SettingsTab.Security -> viewModel.loadMfaStatus()
+                                    is SettingsTab.Sync -> viewModel.loadAniListStatus()
                                     else -> {}
                                 }
                             }
@@ -347,7 +355,11 @@ private fun MobileSettingsItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                onClick = onClick,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            )
             .padding(vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -452,6 +464,11 @@ private fun MobileSettingsDetail(
                     onConfirmPasswordChange = viewModel::setConfirmPassword
                 )
                 is SettingsTab.About -> MobileAboutContent()
+                is SettingsTab.Sync -> MobileSyncContent(
+                    uiState = uiState,
+                    onConnect = { viewModel.getAniListAuthUrl() },
+                    onDisconnect = viewModel::disconnectAniList
+                )
             }
         }
     }
@@ -504,6 +521,11 @@ private fun SettingsContent(
                 onConfirmPasswordChange = viewModel::setConfirmPassword
             )
             is SettingsTab.About -> AboutTab()
+            is SettingsTab.Sync -> SyncTab(
+                uiState = uiState,
+                onConnect = { viewModel.getAniListAuthUrl() },
+                onDisconnect = viewModel::disconnectAniList
+            )
         }
     }
 }
@@ -1053,6 +1075,434 @@ private fun DesktopAboutStatRow(label: String, value: String) {
     ) {
         Text(label, color = MUTED, fontSize = 14.sp)
         Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Sync Tab ────────────────────────────────────────────────────────────────────
+@Composable
+private fun SyncTab(
+    uiState: SettingsUiState,
+    onConnect: () -> String,
+    onDisconnect: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Large Title
+        Text(
+            "Sync",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            "Connect your AniList account to sync your watch progress",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        if (uiState.isLoadingAniList) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else if (uiState.anilistConnected && uiState.anilistProfile != null) {
+            // Connected Profile Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BG_CARD)
+            ) {
+                Column {
+                    // Banner image or gradient header
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF3B82F6).copy(alpha = 0.3f),
+                                        Color(0xFF8B5CF6).copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+
+                    // Profile section
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Avatar overlapping the banner
+                            uiState.anilistProfile?.avatar?.large?.let { avatarUrl ->
+                                AsyncImage(
+                                    model = avatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .offset(y = (-40).dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(4.dp, BG_CARD, RoundedCornerShape(12.dp))
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.offset(y = (-8).dp)) {
+                                Text(
+                                    uiState.anilistProfile?.name ?: "",
+                                    color = TEXT,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4CAF50))
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        "Connected",
+                                        color = Color(0xFF4CAF50),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        // Disconnect button
+                        OutlinedButton(
+                            onClick = onDisconnect,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Disconnect", fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Stats Section
+            uiState.anilistProfile?.statistics?.anime?.let { stats ->
+                Text(
+                    "Your Anime Stats",
+                    color = TEXT,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    StatCard(
+                        value = "${stats.count}",
+                        label = "Total Anime",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        value = "${stats.episodesWatched}",
+                        label = "Episodes",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        value = "${(stats.minutesWatched / 60 / 24).coerceAtLeast(1)}",
+                        label = "Days Watched",
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (stats.meanScore > 0) {
+                        StatCard(
+                            value = "${stats.meanScore}",
+                            label = "Mean Score",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        } else {
+            // Not connected state - centered
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // AniList logo/icon placeholder
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(BG_CARD),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "A",
+                            color = Color(0xFF3B82F6),
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        "Connect to AniList",
+                        color = TEXT,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Sync your watch progress and anime lists",
+                        color = MUTED,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { /* Open browser to AniList OAuth URL */ },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)
+                    ) {
+                        Text("Connect Account", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCard(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(BG_CARD)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            value,
+            color = TEXT,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            label,
+            color = MUTED,
+            fontSize = 12.sp
+        )
+    }
+}
+
+// ── Mobile Sync Content ─────────────────────────────────────────────────────────
+@Composable
+private fun MobileSyncContent(
+    uiState: SettingsUiState,
+    onConnect: () -> String,
+    onDisconnect: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (uiState.isLoadingAniList) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else if (uiState.anilistConnected && uiState.anilistProfile != null) {
+            // Profile Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BG_CARD)
+            ) {
+                Column {
+                    // Banner
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFF3B82F6).copy(alpha = 0.3f),
+                                        Color(0xFF8B5CF6).copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+
+                    // Profile info
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            uiState.anilistProfile?.avatar?.large?.let { avatarUrl ->
+                                AsyncImage(
+                                    model = avatarUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .offset(y = (-32).dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(3.dp, BG_CARD, RoundedCornerShape(12.dp))
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.offset(y = (-4).dp)) {
+                                Text(
+                                    uiState.anilistProfile?.name ?: "",
+                                    color = TEXT,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF4CAF50))
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        "Connected",
+                                        color = Color(0xFF4CAF50),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        TextButton(
+                            onClick = onDisconnect,
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                        ) {
+                            Text("Disconnect", fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Stats
+            uiState.anilistProfile?.statistics?.anime?.let { stats ->
+                Text(
+                    "Your Stats",
+                    color = TEXT,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BG_CARD)
+                        .padding(16.dp)
+                ) {
+                    MobileSyncStatRow("Total Anime", "${stats.count}")
+                    HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
+                    MobileSyncStatRow("Episodes Watched", "${stats.episodesWatched}")
+                    HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
+                    MobileSyncStatRow("Minutes Watched", "${stats.minutesWatched}")
+                    if (stats.meanScore > 0) {
+                        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
+                        MobileSyncStatRow("Mean Score", "${stats.meanScore}")
+                    }
+                }
+            }
+        } else {
+            // Not connected
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(BG_CARD),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "A",
+                            color = Color(0xFF3B82F6),
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "Connect to AniList",
+                        color = TEXT,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Sync your watch progress",
+                        color = MUTED,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { /* Open browser to AniList OAuth URL */ },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Connect", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileSyncStatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = MUTED, fontSize = 14.sp)
+        Text(value, color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
 }
 

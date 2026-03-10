@@ -10,6 +10,9 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import to.kuudere.anisuge.data.models.AniListDisconnectResponse
+import to.kuudere.anisuge.data.models.AniListProfileResponse
+import to.kuudere.anisuge.data.models.AniListStatusResponse
 import to.kuudere.anisuge.data.models.MfaStatusResponse
 import to.kuudere.anisuge.data.models.MfaToggleRequest
 import to.kuudere.anisuge.data.models.MfaToggleResponse
@@ -196,5 +199,52 @@ class SettingsService(
             println("[SettingsService] changePassword error: ${e.message}")
             null
         }
+    }
+
+    /** Get AniList connection status */
+    suspend fun getAniListStatus(): AniListStatusResponse? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.get("$BASE_URL/api/auth/anilist/status") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            response.body<AniListStatusResponse>()
+        } catch (e: Exception) {
+            println("[SettingsService] getAniListStatus error: ${e.message}")
+            null
+        }
+    }
+
+    /** Get AniList profile */
+    suspend fun getAniListProfile(): AniListProfileResponse? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.get("$BASE_URL/api/auth/anilist/profile") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            response.body<AniListProfileResponse>()
+        } catch (e: Exception) {
+            println("[SettingsService] getAniListProfile error: ${e.message}")
+            null
+        }
+    }
+
+    /** Disconnect AniList */
+    suspend fun disconnectAniList(): AniListDisconnectResponse? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.delete("$BASE_URL/api/auth/anilist/disconnect") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            response.body<AniListDisconnectResponse>()
+        } catch (e: Exception) {
+            println("[SettingsService] disconnectAniList error: ${e.message}")
+            null
+        }
+    }
+
+    /** Get AniList OAuth URL */
+    fun getAniListAuthUrl(): String {
+        return "$BASE_URL/api/auth/anilist/login"
     }
 }

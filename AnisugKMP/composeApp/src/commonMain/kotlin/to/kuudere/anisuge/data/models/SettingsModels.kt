@@ -133,3 +133,62 @@ data class PasswordChangeResponse(
     val success: Boolean,
     val message: String? = null,
 )
+
+// AniList Models
+@Serializable
+data class AniListStatusResponse(
+    val success: Boolean,
+    val connected: Boolean = false,
+    val expired: Boolean = false,
+    val message: String? = null,
+    val connectedAt: String? = null,
+    val lastUpdated: String? = null,
+    val expiresAt: String? = null,
+)
+
+@Serializable
+data class AniListProfileResponse(
+    val success: Boolean,
+    val connected: Boolean = false,
+    val expired: Boolean = false,
+    val message: String? = null,
+    val profile: AniListProfile? = null,
+)
+
+@Serializable
+data class AniListProfile(
+    val id: Int,
+    val name: String,
+    val avatar: AniListAvatar? = null,
+    val bannerImage: String? = null,
+    val about: String? = null,
+    val statistics: AniListStatistics? = null,
+    val scoreFormat: String? = null,
+    val connectedAt: String? = null,
+    val lastUpdated: String? = null,
+)
+
+@Serializable
+data class AniListAvatar(
+    val medium: String? = null,
+    val large: String? = null,
+)
+
+@Serializable
+data class AniListStatistics(
+    val anime: AniListAnimeStats? = null,
+)
+
+@Serializable
+data class AniListAnimeStats(
+    val count: Int = 0,
+    val episodesWatched: Int = 0,
+    val minutesWatched: Int = 0,
+    val meanScore: Double = 0.0,
+)
+
+@Serializable
+data class AniListDisconnectResponse(
+    val success: Boolean,
+    val message: String? = null,
+)
