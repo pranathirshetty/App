@@ -3,16 +3,30 @@ package to.kuudere.anisuge.data.services
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import to.kuudere.anisuge.data.models.AniListDisconnectResponse
+import to.kuudere.anisuge.data.models.AniListGraphQLResponse
+import to.kuudere.anisuge.data.models.AniListMediaListCollection
 import to.kuudere.anisuge.data.models.AniListProfileResponse
 import to.kuudere.anisuge.data.models.AniListStatusResponse
+import to.kuudere.anisuge.data.models.AniListTokenResponse
+import to.kuudere.anisuge.data.models.ImportApiResponse
+import to.kuudere.anisuge.data.models.ImportResult
+import to.kuudere.anisuge.data.models.WatchlistExportEntry
+import to.kuudere.anisuge.data.models.WatchlistExportResponse
 import to.kuudere.anisuge.data.models.MfaStatusResponse
 import to.kuudere.anisuge.data.models.MfaToggleRequest
 import to.kuudere.anisuge.data.models.MfaToggleResponse
@@ -246,5 +260,192 @@ class SettingsService(
     /** Get AniList OAuth URL */
     fun getAniListAuthUrl(): String {
         return "$BASE_URL/api/auth/anilist/login"
+    }
+
+    /** Get AniList access token for import/export */
+    suspend fun getAniListToken(): AniListTokenResponse? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.get("$BASE_URL/api/auth/anilist/token") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            response.body<AniListTokenResponse>()
+        } catch (e: Exception) {
+            println("[SettingsService] getAniListToken error: ${e.message}")
+            null
+        }
+    }
+
+    /** Fetch AniList watchlist via GraphQL */
+    suspend fun fetchAniListWatchlist(accessToken: String, userId: Int): AniListMediaListCollection? {
+        return try {
+            val query = """
+                query (${'$'}userId: Int, ${'$'}chunk: Int, ${'$'}perChunk: Int) {
+                    MediaListCollection(userId: ${'$'}userId, type: ANIME, perChunk: ${'$'}perChunk, chunk: ${'$'}chunk, forceSingleCompletedList: true) {
+                        lists {
+                            name
+                            isCustomList
+                            entries {
+                                id
+                                status
+                                score
+                                progress
+                                repeat
+                                notes
+                                startedAt { year month day }
+                                completedAt { year month day }
+                                media {
+                                    id
+                                    idMal
+                                    title { romaji english native }
+                                    episodes
+                                    status
+                                    type
+                                }
+                            }
+                        }
+                    }
+                }
+            """.trimIndent()
+
+            val body = buildJsonObject {
+                put("query", query)
+                put("variables", buildJsonObject {
+                    put("userId", userId)
+                    put("chunk", 1)
+                    put("perChunk", 500)
+                })
+            }
+
+            val response = httpClient.post("https://graphql.anilist.co") {
+                header("Authorization", "Bearer $accessToken")
+                header("Content-Type", "application/json")
+                header("Accept", "application/json")
+                setBody(body)
+            }
+
+            val result = response.body<AniListGraphQLResponse>()
+            if (result.errors != null && result.errors.isNotEmpty()) {
+                println("[SettingsService] AniList GraphQL errors: ${result.errors}")
+                return null
+            }
+            result.data?.MediaListCollection
+        } catch (e: Exception) {
+            println("[SettingsService] fetchAniListWatchlist error: ${e.message}")
+            null
+        }
+    }
+
+    /** Import watchlist to Kuudere */
+    suspend fun importWatchlistToKuudere(data: Map<String, List<Map<String, Any?>>>): ImportResult? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+
+            // Build JSON string manually for the HiAnime format
+            val jsonBuilder = StringBuilder()
+            jsonBuilder.append("{")
+            data.entries.forEachIndexed { index, (folder, items) ->
+                if (index > 0) jsonBuilder.append(",")
+                jsonBuilder.append("\"$folder\":[")
+                items.forEachIndexed { itemIndex, item ->
+                    if (itemIndex > 0) jsonBuilder.append(",")
+                    jsonBuilder.append("{")
+                    item.entries.forEachIndexed { fieldIndex, (key, value) ->
+                        if (fieldIndex > 0) jsonBuilder.append(",")
+                        jsonBuilder.append("\"$key\":")
+                        when (value) {
+                            is String -> jsonBuilder.append("\"$value\"")
+                            is Int -> jsonBuilder.append(value)
+                            else -> jsonBuilder.append("null")
+                        }
+                    }
+                    jsonBuilder.append("}")
+                }
+                jsonBuilder.append("]")
+            }
+            jsonBuilder.append("}")
+            val jsonData = jsonBuilder.toString()
+
+            // Create multipart form data
+            val formDataContent = MultiPartFormDataContent(
+                formData {
+                    append("file", jsonData, headers = Headers.build {
+                        append(HttpHeaders.ContentDisposition, "filename=anilist-import.json")
+                    })
+                }
+            )
+
+            val response = httpClient.post("$BASE_URL/api/import/json") {
+                header("Cookie", sessionToCookie(stored))
+                setBody(formDataContent)
+            }
+
+            val result = response.body<ImportApiResponse>()
+            ImportResult(
+                success = result.success,
+                message = result.message,
+                stats = result.stats
+            )
+        } catch (e: Exception) {
+            println("[SettingsService] importWatchlistToKuudere error: ${e.message}")
+            null
+        }
+    }
+
+    /** Get Kuudere watchlist for export */
+    suspend fun getKuudereWatchlistForExport(): List<WatchlistExportEntry>? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.get("$BASE_URL/api/anime/watchlist?perPage=9999") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            val result = response.body<WatchlistExportResponse>()
+            if (result.success) result.data else null
+        } catch (e: Exception) {
+            println("[SettingsService] getKuudereWatchlistForExport error: ${e.message}")
+            null
+        }
+    }
+
+    /** Update AniList entry via GraphQL mutation */
+    suspend fun updateAniListEntry(
+        accessToken: String,
+        mediaId: String,
+        status: String,
+        score: Double?,
+        progress: Int
+    ): Boolean {
+        return try {
+            val mutation = """
+                mutation (${'$'}mediaId: Int, ${'$'}status: MediaListStatus, ${'$'}score: Float, ${'$'}progress: Int) {
+                    SaveMediaListEntry(mediaId: ${'$'}mediaId, status: ${'$'}status, score: ${'$'}score, progress: ${'$'}progress) {
+                        id
+                    }
+                }
+            """.trimIndent()
+
+            val body = buildJsonObject {
+                put("query", mutation)
+                put("variables", buildJsonObject {
+                    put("mediaId", mediaId.toInt())
+                    put("status", status)
+                    if (score != null) put("score", score) else put("score", JsonPrimitive(null as Double?))
+                    put("progress", progress)
+                })
+            }
+
+            val response = httpClient.post("https://graphql.anilist.co") {
+                header("Authorization", "Bearer $accessToken")
+                header("Content-Type", "application/json")
+                header("Accept", "application/json")
+                setBody(body)
+            }
+
+            val result = response.body<AniListGraphQLResponse>()
+            result.errors == null || result.errors.isEmpty()
+        } catch (e: Exception) {
+            println("[SettingsService] updateAniListEntry error: ${e.message}")
+            false
+        }
     }
 }

@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import to.kuudere.anisuge.data.models.AniListMediaListCollection
 import to.kuudere.anisuge.data.models.AniListProfile
+import to.kuudere.anisuge.data.models.ImportResult
 import to.kuudere.anisuge.data.models.MfaStatusData
 import to.kuudere.anisuge.data.models.SessionInfoResponse
 import to.kuudere.anisuge.data.models.TotpSetupData
@@ -47,6 +49,17 @@ data class SettingsUiState(
     val anilistConnected: Boolean = false,
     val anilistProfile: AniListProfile? = null,
     val isLoadingAniList: Boolean = false,
+
+    // AniList Import/Export
+    val isImportingFromAniList: Boolean = false,
+    val isExportingToAniList: Boolean = false,
+    val importProgress: Int = 0,
+    val exportProgress: Int = 0,
+    val importStatus: String = "",
+    val exportStatus: String = "",
+    val importResult: String? = null,
+    val exportResult: String? = null,
+    val syncLog: List<String> = emptyList(),
 )
 
 sealed class SettingsTab {
@@ -466,5 +479,317 @@ class SettingsViewModel(
 
     fun getAniListAuthUrl(): String {
         return settingsService.getAniListAuthUrl()
+    }
+
+    fun clearImportExportState() {
+        _uiState.update {
+            it.copy(
+                isImportingFromAniList = false,
+                isExportingToAniList = false,
+                importProgress = 0,
+                exportProgress = 0,
+                importStatus = "",
+                exportStatus = "",
+                importResult = null,
+                exportResult = null,
+                syncLog = emptyList()
+            )
+        }
+    }
+
+    // ==================== AniList Import/Export ====================
+
+    private fun appendLog(message: String) {
+        _uiState.update { it.copy(syncLog = it.syncLog + message) }
+    }
+
+    fun importFromAniList() {
+        viewModelScope.launch {
+            try {
+                _uiState.update {
+                    it.copy(
+                        isImportingFromAniList = true,
+                        importProgress = 0,
+                        importStatus = "Getting AniList access token...",
+                        importResult = null,
+                        syncLog = emptyList()
+                    )
+                }
+                appendLog("[Import] Getting AniList access token...")
+
+                // Get AniList token from backend
+                val tokenResponse = settingsService.getAniListToken()
+                appendLog("[Import] Token response: success=${tokenResponse?.success}, hasToken=${tokenResponse?.access_token != null}")
+                if (tokenResponse?.success != true || tokenResponse.access_token == null) {
+                    appendLog("[Import] ERROR: ${tokenResponse?.message ?: "No token returned"}")
+                    _uiState.update {
+                        it.copy(
+                            isImportingFromAniList = false,
+                            errorMessage = tokenResponse?.message ?: "Failed to get AniList access token. Please reconnect."
+                        )
+                    }
+                    return@launch
+                }
+
+                val accessToken = tokenResponse.access_token
+                val userId = _uiState.value.anilistProfile?.id
+
+                if (userId == null) {
+                    appendLog("[Import] ERROR: No AniList user ID available")
+                    _uiState.update {
+                        it.copy(
+                            isImportingFromAniList = false,
+                            errorMessage = "Could not fetch AniList user ID. Cannot proceed with import."
+                        )
+                    }
+                    return@launch
+                }
+
+                appendLog("[Import] Fetching AniList watchlist for userId=$userId...")
+                _uiState.update { it.copy(importProgress = 25, importStatus = "Fetching your AniList watchlist...") }
+
+                // Fetch AniList watchlist via GraphQL
+                val aniListData = settingsService.fetchAniListWatchlist(accessToken, userId)
+                if (aniListData == null) {
+                    appendLog("[Import] ERROR: AniList returned null data")
+                    _uiState.update {
+                        it.copy(
+                            isImportingFromAniList = false,
+                            errorMessage = "Failed to fetch AniList watchlist"
+                        )
+                    }
+                    return@launch
+                }
+
+                val totalEntries = aniListData.lists?.sumOf { it.entries?.size ?: 0 } ?: 0
+                val listNames = aniListData.lists?.map { "${it.name}(${it.entries?.size ?: 0})" }?.joinToString(", ") ?: "none"
+                appendLog("[Import] AniList returned $totalEntries entries in lists: $listNames")
+
+                _uiState.update { it.copy(importProgress = 50, importStatus = "Converting AniList data...") }
+
+                // Convert to Kuudere format
+                val kuudereData = convertAniListToKuudereFormat(aniListData)
+                val convertedTotal = kuudereData.values.sumOf { it.size }
+                kuudereData.forEach { (folder, items) ->
+                    appendLog("[Import] Converted: $folder → ${items.size} entries")
+                }
+                appendLog("[Import] Total converted: $convertedTotal entries")
+
+                _uiState.update { it.copy(importProgress = 75, importStatus = "Importing to Kuudere...") }
+                appendLog("[Import] Sending to Kuudere /api/import/json...")
+
+                // Import to Kuudere using the JSON import endpoint
+                val result = settingsService.importWatchlistToKuudere(kuudereData)
+                appendLog("[Import] API response: success=${result?.success}, message=${result?.message}")
+                appendLog("[Import] Stats: imported=${result?.stats?.imported}, skipped=${result?.stats?.skipped}, errors=${result?.stats?.errors}")
+
+                if (result?.success == true) {
+                    _uiState.update {
+                        it.copy(
+                            importProgress = 100,
+                            importStatus = "Import completed!",
+                            importResult = "${result.stats?.imported ?: 0} imported, ${result.stats?.skipped ?: 0} skipped, ${result.stats?.errors ?: 0} errors"
+                        )
+                    }
+                    appendLog("[Import] ✓ Import completed successfully!")
+                } else {
+                    appendLog("[Import] ✗ Import failed: ${result?.message ?: "unknown error"}")
+                    _uiState.update {
+                        it.copy(
+                            isImportingFromAniList = false,
+                            errorMessage = result?.message ?: "Import failed"
+                        )
+                    }
+                }
+
+                // Auto-clear after 5 seconds
+                kotlinx.coroutines.delay(5000)
+                clearImportExportState()
+
+            } catch (e: Exception) {
+                appendLog("[Import] ✗ Exception: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isImportingFromAniList = false,
+                        errorMessage = "Import failed: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun exportToAniList() {
+        viewModelScope.launch {
+            try {
+                _uiState.update {
+                    it.copy(
+                        isExportingToAniList = true,
+                        exportProgress = 0,
+                        exportStatus = "Getting AniList access token...",
+                        exportResult = null,
+                        syncLog = emptyList()
+                    )
+                }
+                appendLog("[Export] Getting AniList access token...")
+
+                // Get AniList token from backend
+                val tokenResponse = settingsService.getAniListToken()
+                appendLog("[Export] Token response: success=${tokenResponse?.success}")
+                if (tokenResponse?.success != true || tokenResponse.access_token == null) {
+                    appendLog("[Export] ERROR: ${tokenResponse?.message ?: "No token returned"}")
+                    _uiState.update {
+                        it.copy(
+                            isExportingToAniList = false,
+                            errorMessage = tokenResponse?.message ?: "Failed to get AniList access token. Please reconnect."
+                        )
+                    }
+                    return@launch
+                }
+
+                val accessToken = tokenResponse.access_token
+
+                _uiState.update { it.copy(exportProgress = 25, exportStatus = "Fetching your Kuudere watchlist...") }
+                appendLog("[Export] Fetching Kuudere watchlist...")
+
+                // Get Kuudere watchlist
+                val watchlist = settingsService.getKuudereWatchlistForExport()
+                if (watchlist == null) {
+                    appendLog("[Export] ERROR: Failed to fetch Kuudere watchlist")
+                    _uiState.update {
+                        it.copy(
+                            isExportingToAniList = false,
+                            errorMessage = "Failed to fetch Kuudere watchlist"
+                        )
+                    }
+                    return@launch
+                }
+
+                appendLog("[Export] Got ${watchlist.size} entries from Kuudere")
+                _uiState.update { it.copy(exportProgress = 50, exportStatus = "Exporting to AniList...") }
+
+                // Export to AniList via GraphQL
+                var exported = 0
+                var skipped = 0
+                var errors = 0
+
+                for ((index, entry) in watchlist.withIndex()) {
+                    val progress = Math.round((index.toFloat() / watchlist.size) * 40) + 50
+                    val title = entry.english ?: entry.romaji ?: "Unknown"
+                    _uiState.update { it.copy(exportProgress = progress, exportStatus = "Exporting: $title (${index + 1}/${watchlist.size})") }
+
+                    // Convert Kuudere status to AniList status
+                    val anilistStatus = when (entry.folder) {
+                        "Watching" -> "CURRENT"
+                        "Completed" -> "COMPLETED"
+                        "On Hold" -> "PAUSED"
+                        "Dropped" -> "DROPPED"
+                        "Plan To Watch" -> "PLANNING"
+                        else -> null
+                    }
+
+                    if (anilistStatus == null || entry.anilistId == null) {
+                        appendLog("[Export] SKIP: $title (folder=${entry.folder}, anilistId=${entry.anilistId})")
+                        skipped++
+                        continue
+                    }
+
+                    val success = settingsService.updateAniListEntry(
+                        accessToken,
+                        entry.anilistId,
+                        anilistStatus,
+                        entry.score,
+                        entry.episodesWatched ?: 0
+                    )
+
+                    if (success) {
+                        appendLog("[Export] ✓ $title → $anilistStatus (ep=${entry.episodesWatched ?: 0})")
+                        exported++
+                    } else {
+                        appendLog("[Export] ✗ FAILED: $title (mediaId=${entry.anilistId})")
+                        errors++
+                    }
+
+                    // Rate limiting - randomized 2.5-3.5s delay to avoid AniList blocking
+                    kotlinx.coroutines.delay(2500L + (Math.random() * 1000).toLong())
+                }
+
+                appendLog("[Export] Done: $exported exported, $skipped skipped, $errors errors")
+                _uiState.update {
+                    it.copy(
+                        exportProgress = 100,
+                        exportStatus = "Export completed!",
+                        exportResult = "$exported exported, $skipped skipped, $errors errors"
+                    )
+                }
+
+                // Auto-clear after 5 seconds
+                kotlinx.coroutines.delay(5000)
+                clearImportExportState()
+
+            } catch (e: Exception) {
+                appendLog("[Export] ✗ Exception: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isExportingToAniList = false,
+                        errorMessage = "Export failed: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun convertAniListToKuudereFormat(aniListData: AniListMediaListCollection?): Map<String, List<Map<String, Any?>>> {
+        val folderMap = mutableMapOf<String, MutableList<Map<String, Any?>>>(
+            "Watching" to mutableListOf(),
+            "Completed" to mutableListOf(),
+            "On Hold" to mutableListOf(),
+            "Dropped" to mutableListOf(),
+            "Plan To Watch" to mutableListOf()
+        )
+
+        aniListData?.lists?.forEach { list ->
+            list.entries?.forEach { entry ->
+                if (entry.media?.type != "ANIME") return@forEach
+
+                // Derive folder from list.name first (how AniList groups them),
+                // fall back to entry.status enum
+                val folder = when (list.name) {
+                    "Watching" -> "Watching"
+                    "Completed" -> "Completed"
+                    "Paused" -> "On Hold"
+                    "Dropped" -> "Dropped"
+                    "Planning" -> "Plan To Watch"
+                    else -> when (entry.status) {
+                        "CURRENT" -> "Watching"
+                        "COMPLETED" -> "Completed"
+                        "PAUSED" -> "On Hold"
+                        "DROPPED" -> "Dropped"
+                        "PLANNING" -> "Plan To Watch"
+                        else -> "Plan To Watch"
+                    }
+                }
+
+                folderMap[folder]?.add(mapOf(
+                    "name" to (entry.media.title?.english ?: entry.media.title?.romaji ?: entry.media.title?.native ?: ""),
+                    "mal_id" to entry.media.idMal,
+                    "anilist_id" to entry.media.id,
+                    "link" to "https://anilist.co/anime/${entry.media.id}",
+                    "watchListType" to getFolderNumber(folder)
+                ))
+            }
+        }
+
+        return folderMap
+    }
+
+    private fun getFolderNumber(folder: String): Int {
+        return when (folder) {
+            "Watching" -> 1
+            "Completed" -> 2
+            "On Hold" -> 3
+            "Dropped" -> 4
+            "Plan To Watch" -> 5
+            else -> 5
+        }
     }
 }

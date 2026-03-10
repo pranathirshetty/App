@@ -82,6 +82,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -467,7 +468,9 @@ private fun MobileSettingsDetail(
                 is SettingsTab.Sync -> MobileSyncContent(
                     uiState = uiState,
                     onConnect = { viewModel.getAniListAuthUrl() },
-                    onDisconnect = viewModel::disconnectAniList
+                    onDisconnect = viewModel::disconnectAniList,
+                    onImport = viewModel::importFromAniList,
+                    onExport = viewModel::exportToAniList
                 )
             }
         }
@@ -524,7 +527,9 @@ private fun SettingsContent(
             is SettingsTab.Sync -> SyncTab(
                 uiState = uiState,
                 onConnect = { viewModel.getAniListAuthUrl() },
-                onDisconnect = viewModel::disconnectAniList
+                onDisconnect = viewModel::disconnectAniList,
+                onImport = viewModel::importFromAniList,
+                onExport = viewModel::exportToAniList
             )
         }
     }
@@ -1084,7 +1089,10 @@ private fun SyncTab(
     uiState: SettingsUiState,
     onConnect: () -> String,
     onDisconnect: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
         // Large Title
         Text(
@@ -1252,6 +1260,150 @@ private fun SyncTab(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Import/Export Section
+                Text(
+                    "Sync Actions",
+                    color = TEXT,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Import Progress
+                if (uiState.isImportingFromAniList) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Importing from AniList...",
+                            color = TEXT,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.importProgress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White,
+                            trackColor = BG_HOVER
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            uiState.importStatus,
+                            color = MUTED,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Export Progress
+                if (uiState.isExportingToAniList) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Exporting to AniList...",
+                            color = TEXT,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.exportProgress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White,
+                            trackColor = BG_HOVER
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            uiState.exportStatus,
+                            color = MUTED,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Sync Log
+                if (uiState.syncLog.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0D0D0D))
+                            .padding(8.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        uiState.syncLog.forEach { line ->
+                            Text(
+                                line,
+                                color = when {
+                                    "ERROR" in line || "✗" in line -> Color(0xFFEF4444)
+                                    "✓" in line -> Color(0xFF22C55E)
+                                    "SKIP" in line -> Color(0xFFEAB308)
+                                    else -> Color(0xFF9CA3AF)
+                                },
+                                fontSize = 11.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Import/Export Buttons
+                if (!uiState.isImportingFromAniList && !uiState.isExportingToAniList) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onImport,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Import from AniList")
+                        }
+
+                        OutlinedButton(
+                            onClick = onExport,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Export to AniList")
+                        }
+                    }
+                }
             }
         } else {
             // Not connected state - centered
@@ -1294,7 +1446,7 @@ private fun SyncTab(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
-                        onClick = { /* Open browser to AniList OAuth URL */ },
+                        onClick = { uriHandler.openUri(onConnect()) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black
@@ -1344,7 +1496,10 @@ private fun MobileSyncContent(
     uiState: SettingsUiState,
     onConnect: () -> String,
     onDisconnect: () -> Unit,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
         if (uiState.isLoadingAniList) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
@@ -1482,6 +1637,150 @@ private fun MobileSyncContent(
                         MobileSyncStatRow("Mean Score", "${stats.meanScore}")
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Import/Export Section
+                Text(
+                    "Sync Actions",
+                    color = TEXT,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Import Progress
+                if (uiState.isImportingFromAniList) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Importing from AniList...",
+                            color = TEXT,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.importProgress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White,
+                            trackColor = BG_HOVER
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            uiState.importStatus,
+                            color = MUTED,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Export Progress
+                if (uiState.isExportingToAniList) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Exporting to AniList...",
+                            color = TEXT,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.exportProgress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White,
+                            trackColor = BG_HOVER
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            uiState.exportStatus,
+                            color = MUTED,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Sync Log (mobile)
+                if (uiState.syncLog.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0D0D0D))
+                            .padding(8.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        uiState.syncLog.forEach { line ->
+                            Text(
+                                line,
+                                color = when {
+                                    "ERROR" in line || "\u2717" in line -> Color(0xFFEF4444)
+                                    "\u2713" in line -> Color(0xFF22C55E)
+                                    "SKIP" in line -> Color(0xFFEAB308)
+                                    else -> Color(0xFF9CA3AF)
+                                },
+                                fontSize = 11.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Import/Export Buttons
+                if (!uiState.isImportingFromAniList && !uiState.isExportingToAniList) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onImport,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Import from AniList")
+                        }
+
+                        OutlinedButton(
+                            onClick = onExport,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Export to AniList")
+                        }
+                    }
+                }
             }
         } else {
             // Not connected
@@ -1521,7 +1820,7 @@ private fun MobileSyncContent(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = { /* Open browser to AniList OAuth URL */ },
+                        onClick = { uriHandler.openUri(onConnect()) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black

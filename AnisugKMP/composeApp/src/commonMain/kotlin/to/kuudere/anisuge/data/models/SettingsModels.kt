@@ -192,3 +192,127 @@ data class AniListDisconnectResponse(
     val success: Boolean,
     val message: String? = null,
 )
+
+@Serializable
+data class AniListTokenResponse(
+    val success: Boolean,
+    val access_token: String? = null,
+    val message: String? = null,
+    val connected: Boolean = false,
+    val expired: Boolean = false,
+)
+
+@Serializable
+data class ImportProgressData(
+    val imported: Int = 0,
+    val skipped: Int = 0,
+    val errors: Int = 0,
+    val total: Int = 0,
+)
+
+@Serializable
+data class ImportResult(
+    val success: Boolean = false,
+    val stats: ImportProgressData? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class ImportApiResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val stats: ImportProgressData? = null,
+)
+
+// AniList GraphQL Models
+@Serializable
+data class AniListMediaListCollection(
+    val lists: List<AniListMediaListGroup>? = null
+)
+
+@Serializable
+data class AniListMediaListGroup(
+    val name: String? = null,
+    val isCustomList: Boolean? = null,
+    val entries: List<AniListMediaList>? = null
+)
+
+@Serializable
+data class AniListMediaList(
+    val id: Int? = null,
+    val status: String? = null,
+    val score: Double? = null,
+    val progress: Int? = null,
+    val repeat: Int? = null,
+    val notes: String? = null,
+    val startedAt: AniListFuzzyDate? = null,
+    val completedAt: AniListFuzzyDate? = null,
+    val media: AniListMedia? = null
+)
+
+@Serializable
+data class AniListFuzzyDate(
+    val year: Int? = null,
+    val month: Int? = null,
+    val day: Int? = null
+)
+
+@Serializable
+data class AniListMedia(
+    val id: Int? = null,
+    val idMal: Int? = null,
+    val title: AniListMediaTitle? = null,
+    val episodes: Int? = null,
+    val status: String? = null,
+    val type: String? = null
+)
+
+@Serializable
+data class AniListMediaTitle(
+    val romaji: String? = null,
+    val english: String? = null,
+    val native: String? = null
+)
+
+@Serializable
+data class AniListGraphQLResponse(
+    val data: AniListGraphQLData? = null,
+    val errors: List<AniListGraphQLError>? = null
+)
+
+@Serializable
+data class AniListGraphQLData(
+    val MediaListCollection: AniListMediaListCollection? = null,
+    val SaveMediaListEntry: AniListSavedEntry? = null
+)
+
+@Serializable
+data class AniListGraphQLError(
+    val message: String? = null
+)
+
+@Serializable
+data class AniListSavedEntry(
+    val id: Int? = null
+)
+
+// Watchlist export model
+@Serializable
+data class WatchlistExportEntry(
+    val itemId: String? = null,
+    val animeId: String? = null,
+    val romaji: String? = null,
+    val english: String? = null,
+    val folder: String? = null,
+    val score: Double? = null,
+    val episodesWatched: Int? = null,
+    val anilistId: String? = null,
+    val malId: Int? = null
+)
+
+@Serializable
+data class WatchlistExportResponse(
+    val success: Boolean = false,
+    val data: List<WatchlistExportEntry> = emptyList(),
+    val message: String? = null
+)
