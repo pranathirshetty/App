@@ -2143,26 +2143,31 @@ fun ConfirmDialog(
                         .widthIn(max = 380.dp)
                         .padding(horizontal = 28.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.03f))
+                        .background(Color(0xFF0D0D0D))
                         .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
                         .clickable(onClick = {}),
                 ) {
                     // Title + message
                     Column(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             text = title,
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
                         )
                         Text(
                             text = message,
                             color = Color.White.copy(alpha = 0.55f),
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
+                            textAlign = TextAlign.Center,
                         )
                     }
 
