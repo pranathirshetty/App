@@ -55,7 +55,9 @@ fun DownloadEpisodeDialog(
             val streamData = response?.directLink?.data ?: response?.data
             
             // 1. Subtitles
-            val subs = streamData?.subtitles?.mapNotNull { it.resolvedLang }?.distinct() ?: emptyList()
+            val subs = streamData?.subtitles?.mapNotNull { 
+                it.title ?: it.resolvedLang 
+            }?.distinct() ?: emptyList()
             availableSubtitles = listOf("All") + subs
             if (selectedSubLang !in availableSubtitles) {
                 selectedSubLang = if ("English" in availableSubtitles) "English" else availableSubtitles.getOrNull(1) ?: "All"

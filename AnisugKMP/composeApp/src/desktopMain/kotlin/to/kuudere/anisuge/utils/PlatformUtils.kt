@@ -1,6 +1,8 @@
 package to.kuudere.anisuge.utils
 
 import java.io.File
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 actual fun getDownloadsDirectory(): String {
     val home = System.getProperty("user.home")
@@ -26,8 +28,9 @@ actual suspend fun muxToMkv(
     audioPath: String?,
     subtitles: List<Pair<String, String>>,
     fonts: List<String>,
+    metadataPath: String?,
     outputPath: String
-): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+): Boolean = withContext(Dispatchers.IO) {
     try {
         val ffmpegPath = try {
             ws.schild.jave.process.ffmpeg.DefaultFFMPEGLocator().executablePath
@@ -43,6 +46,12 @@ actual suspend fun muxToMkv(
         subtitles.forEach { (path, _) ->
             args.add("-i"); args.add(path)
         }
+        
+        val metadataIndex = if (metadataPath != null) {
+            val index = 1 + (if (audioPath != null) 1 else 0) + subtitles.size
+            args.add("-i"); args.add(metadataPath)
+            index
+        } else -1
 
         args.add("-map"); args.add("0:v")
         if (audioPath != null) {
@@ -54,6 +63,10 @@ actual suspend fun muxToMkv(
         subtitles.forEachIndexed { i, _ ->
             val index = if (audioPath != null) i + 2 else i + 1
             args.add("-map"); args.add("$index:s")
+        }
+
+        if (metadataIndex != -1) {
+            args.add("-map_metadata"); args.add("$metadataIndex")
         }
 
         fonts.forEach { fontPath ->

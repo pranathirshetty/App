@@ -157,7 +157,10 @@ object DownloadManager {
                 val subsToDownload = if (subLang == "All") {
                     streamData.subtitles ?: emptyList()
                 } else {
-                    val target = streamData.subtitles?.find { it.resolvedLang?.contains(subLang ?: "English", true) == true }
+                    val target = streamData.subtitles?.find { 
+                        it.title?.equals(subLang, ignoreCase = true) == true || 
+                        it.resolvedLang?.equals(subLang, ignoreCase = true) == true 
+                    }
                     if (target != null) listOf(target) else emptyList()
                 }
 
@@ -168,12 +171,12 @@ object DownloadManager {
                         if (sub.url != null) {
                             try {
                                 val subBytes = httpClient.get(sub.url).readBytes()
-                                val label = sub.resolvedLang?.replace("[^A-Za-z0-9]".toRegex(), "_") ?: "unknown"
+                                val label = (sub.title ?: sub.resolvedLang)?.replace("[^A-Za-z0-9 ]".toRegex(), "_") ?: "unknown"
                                 val format = if (sub.url.contains(".vtt")) "vtt" else if (sub.url.contains(".srt")) "srt" else "ass"
                                 val fileName = "subtitle_$label.$format"
                                 val subFile = "$epDir/$fileName"
                                 FileSystem.SYSTEM.write(subFile.toPath()) { write(subBytes) }
-                                downloadedSubs.add(subFile to label)
+                                downloadedSubs.add(subFile to (sub.title ?: sub.resolvedLang ?: "Subtitle"))
                             } catch (e: Exception) { }
                         }
                     }
@@ -194,6 +197,23 @@ object DownloadManager {
                 if (videoSegments.isEmpty()) {
                     updateTask(taskId) { it.copy(status = "Failed: No video segments") }
                     return@launch
+                }
+
+                // Generate FFmetadata for chapters
+                val metadataPath = "$epDir/metadata.txt"
+                val chapters = streamData.chapters ?: emptyList()
+                if (chapters.isNotEmpty()) {
+                    val sb = StringBuilder(";FFMETADATA1\n")
+                    chapters.forEach { ch ->
+                        val startMs = ((ch.start_time ?: 0.0) * 1000).toLong()
+                        val endMs = ((ch.end_time ?: 0.0) * 1000).toLong()
+                        sb.append("\n[CHAPTER]\n")
+                        sb.append("TIMEBASE=1/1000\n")
+                        sb.append("START=$startMs\n")
+                        sb.append("END=$endMs\n")
+                        sb.append("title=${ch.title ?: "Chapter"}\n")
+                    }
+                    FileSystem.SYSTEM.write(metadataPath.toPath()) { writeUtf8(sb.toString()) }
                 }
 
                 val rawVideoPath = "$epDir/video_raw.ts"
@@ -268,17 +288,18 @@ object DownloadManager {
                     audioPath = if (audioSegments.isNotEmpty()) rawAudioPath else null,
                     subtitles = downloadedSubs,
                     fonts = downloadedFonts,
+                    metadataPath = if (chapters.isNotEmpty()) metadataPath else null,
                     outputPath = finalMkvPath
                 )
 
                 if (muxSuccess) {
-                    // Cleanup raw files
+                    // Cleanup
                     try {
                         FileSystem.SYSTEM.delete(rawVideoPath.toPath())
                         if (audioSegments.isNotEmpty()) FileSystem.SYSTEM.delete(rawAudioPath.toPath())
                         downloadedSubs.forEach { (path, _) -> FileSystem.SYSTEM.delete(path.toPath()) }
-                        // Don't delete fonts? Actually, fonts are muxed into MKV, so we can delete them.
                         downloadedFonts.forEach { FileSystem.SYSTEM.delete(it.toPath()) }
+                        if (chapters.isNotEmpty()) FileSystem.SYSTEM.delete(metadataPath.toPath())
                     } catch (e: Exception) { }
                     
                     updateTask(taskId) { it.copy(status = "Finished", progress = 1f, localPath = finalMkvPath) }

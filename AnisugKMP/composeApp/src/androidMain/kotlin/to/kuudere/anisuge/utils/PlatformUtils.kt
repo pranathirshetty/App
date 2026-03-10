@@ -44,6 +44,7 @@ actual suspend fun muxToMkv(
     audioPath: String?,
     subtitles: List<Pair<String, String>>,
     fonts: List<String>,
+    metadataPath: String?,
     outputPath: String
 ): Boolean = withContext(Dispatchers.IO) {
     val cmdArray = mutableListOf("ffmpeg", "-y")
@@ -54,7 +55,14 @@ actual suspend fun muxToMkv(
     subtitles.forEach { (path, _) ->
         cmdArray.add("-i"); cmdArray.add(path)
     }
+    
+    val metadataIndex = if (metadataPath != null) {
+        val index = 1 + (if (audioPath != null) 1 else 0) + subtitles.size
+        cmdArray.add("-i"); cmdArray.add(metadataPath)
+        index
+    } else -1
 
+    // Mapping
     cmdArray.add("-map"); cmdArray.add("0:v")
     if (audioPath != null) {
         cmdArray.add("-map"); cmdArray.add("1:a")
@@ -67,13 +75,19 @@ actual suspend fun muxToMkv(
         cmdArray.add("-map"); cmdArray.add("$index:s")
     }
 
+    if (metadataIndex != -1) {
+        cmdArray.add("-map_metadata"); cmdArray.add("$metadataIndex")
+    }
+
+    // Attach fonts
     fonts.forEach { fontPath ->
         cmdArray.add("-attach"); cmdArray.add(fontPath)
     }
     cmdArray.add("-metadata:s:t"); cmdArray.add("mimetype=application/x-truetype-font")
 
     subtitles.forEachIndexed { i, (_, label) ->
-        cmdArray.add("-metadata:s:s:$i"); cmdArray.add("title=$label")
+        cmdArray.add("-metadata:s:s:$i")
+        cmdArray.add("title=$label")
     }
 
     cmdArray.add("-c"); cmdArray.add("copy")

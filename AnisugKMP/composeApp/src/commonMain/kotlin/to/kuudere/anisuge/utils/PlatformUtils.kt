@@ -9,5 +9,6 @@ expect suspend fun muxToMkv(
     audioPath: String?,
     subtitles: List<Pair<String, String>>, // Path to Label
     fonts: List<String>,
+    metadataPath: String?,
     outputPath: String
 ): Boolean
