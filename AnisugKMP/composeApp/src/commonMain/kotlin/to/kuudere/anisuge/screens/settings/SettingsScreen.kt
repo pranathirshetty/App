@@ -1,22 +1,19 @@
 package to.kuudere.anisuge.screens.settings
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,10 +23,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -51,7 +46,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -95,20 +89,22 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.SessionInfoResponse
 
-// ── Colours ── Black & white only (matching ScheduleScreen) ─────────────────────
-private val BG     = Color(0xFF0B0B0B)
-private val BORDER = Color.White.copy(alpha = 0.10f)
-private val MUTED  = Color.White.copy(alpha = 0.50f)
-private val CARD   = Color.White.copy(alpha = 0.03f)
-private val CARD_H = Color.White.copy(alpha = 0.07f)
+// ── Colors ── Black & white theme ────────────────────────────────────────────────
+private val BG       = Color(0xFF0B0B0B)
+private val BG_CARD  = Color(0xFF141414)
+private val BG_HOVER = Color(0xFF1E1E1E)
+private val BORDER   = Color.White.copy(alpha = 0.08f)
+private val MUTED    = Color.White.copy(alpha = 0.5f)
+private val TEXT     = Color.White
 
+// ── Data ────────────────────────────────────────────────────────────────────────
 data class SettingsNavItem(
     val tab: SettingsTab,
     val label: String,
     val icon: ImageVector
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ── Main Screen ─────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -140,7 +136,7 @@ fun SettingsScreen(
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
-        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Security)
+        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock)
     )
 
     Scaffold(
@@ -160,84 +156,37 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            val isLargeScreen = maxWidth >= 840.dp
+            val isLargeScreen = maxWidth >= 900.dp
 
             if (isLargeScreen) {
-                // Desktop/Tablet: Sidebar layout
+                // Desktop: Sidebar + Centered Content
                 Row(modifier = Modifier.fillMaxSize()) {
                     // Sidebar
-                    Column(
-                        modifier = Modifier
-                            .width(280.dp)
-                            .fillMaxHeight()
-                            .padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 16.dp)
-                    ) {
-                        Text(
-                            "SETTINGS",
-                            color = MUTED,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.padding(start = 16.dp, bottom = 16.dp)
-                        )
-
-                        navItems.forEach { item ->
-                            val isSelected = selectedTab == item.tab
-                            val bgColor by animateColorAsState(
-                                targetValue = if (isSelected) CARD_H else Color.Transparent,
-                                animationSpec = tween(200)
-                            )
-                            val contentColor by animateColorAsState(
-                                targetValue = if (isSelected) Color.White else MUTED,
-                                animationSpec = tween(200)
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(bgColor)
-                                    .clickable { selectedTab = item.tab }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = null,
-                                    tint = contentColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    item.label,
-                                    color = contentColor,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-
-                    // Separator between sidebar and content
-                    VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
-                        thickness = 1.dp,
-                        color = BORDER
+                    Sidebar(
+                        navItems = navItems,
+                        selectedTab = selectedTab,
+                        onTabSelect = { selectedTab = it },
+                        modifier = Modifier.width(260.dp)
                     )
 
-                    // Content area
+                    VerticalDivider(thickness = 1.dp, color = BORDER)
+
+                    // Content Area - Centered with max width
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.TopCenter
                     ) {
                         SettingsContent(
                             selectedTab = selectedTab,
                             uiState = uiState,
                             navItems = navItems,
                             onLogout = onLogout,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            modifier = Modifier
+                                .widthIn(max = 900.dp)
+                                .padding(horizontal = 48.dp, vertical = 40.dp)
                         )
                     }
                 }
@@ -249,7 +198,7 @@ fun SettingsScreen(
                         containerColor = BG,
                         contentColor = Color.White,
                         indicator = { tabPositions ->
-                            TabRowDefaults.Indicator(
+                            TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier.tabIndicatorOffset(tabPositions[navItems.indexOfFirst { it.tab == selectedTab }]),
                                 color = Color.White
                             )
@@ -266,13 +215,19 @@ fun SettingsScreen(
                         }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp)
+                    ) {
                         SettingsContent(
                             selectedTab = selectedTab,
                             uiState = uiState,
                             navItems = navItems,
                             onLogout = onLogout,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -281,6 +236,96 @@ fun SettingsScreen(
     }
 }
 
+// ── Sidebar ─────────────────────────────────────────────────────────────────────
+@Composable
+private fun Sidebar(
+    navItems: List<SettingsNavItem>,
+    selectedTab: SettingsTab,
+    onTabSelect: (SettingsTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(BG)
+            .padding(horizontal = 16.dp, vertical = 24.dp)
+    ) {
+        // Header
+        Text(
+            "SETTINGS",
+            color = MUTED,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+            modifier = Modifier.padding(start = 12.dp, bottom = 16.dp)
+        )
+
+        // Nav Items
+        navItems.forEach { item ->
+            val isSelected = selectedTab == item.tab
+            val bgColor by animateColorAsState(
+                targetValue = if (isSelected) BG_CARD else Color.Transparent,
+                animationSpec = tween(200)
+            )
+            val textColor = if (isSelected) TEXT else MUTED
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(bgColor)
+                    .clickable { onTabSelect(item.tab) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    item.label,
+                    color = textColor,
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 16.dp))
+
+        // App Stats Section
+        Text(
+            "APP STATS",
+            color = MUTED,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(start = 12.dp, bottom = 12.dp)
+        )
+
+        Column(modifier = Modifier.padding(start = 12.dp)) {
+            AppStatItem("Hostname", "kuudere.to")
+            AppStatItem("Backend", "Kuudere API")
+            AppStatItem("Version", "1.0.0")
+        }
+    }
+}
+
+@Composable
+private fun AppStatItem(label: String, value: String) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(label, color = MUTED, fontSize = 11.sp)
+        Text(value, color = TEXT.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Content ─────────────────────────────────────────────────────────────────────
 @Composable
 private fun SettingsContent(
     selectedTab: SettingsTab,
@@ -288,13 +333,13 @@ private fun SettingsContent(
     navItems: List<SettingsNavItem>,
     onLogout: () -> Unit,
     viewModel: SettingsViewModel,
+    modifier: Modifier = Modifier
 ) {
     AnimatedContent(
         targetState = selectedTab,
-        transitionSpec = {
-            fadeIn(animationSpec = tween(200)) togetherWith fadeOut(animationSpec = tween(200))
-        },
-        label = "settings_content"
+        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+        label = "settings_content",
+        modifier = modifier
     ) { tab ->
         when (tab) {
             is SettingsTab.Preferences -> PreferencesTab(
@@ -330,6 +375,8 @@ private fun SettingsContent(
     }
 }
 
+// ── Preferences Tab ─────────────────────────────────────────────────────────────
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PreferencesTab(
     uiState: SettingsUiState,
@@ -341,199 +388,252 @@ private fun PreferencesTab(
     onSyncPercentageChange: (Int) -> Unit,
     onSave: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        SettingsSection(title = "Playback") {
-            SettingsSwitch(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Large Title
+        Text(
+            "Preferences",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // Two Column Layout
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            maxItemsInEachRow = 2,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Auto Play
+            SettingCard(
                 title = "Auto Play",
-                description = "Automatically start playing videos",
-                icon = Icons.Default.PlayArrow,
-                checked = uiState.preferences.autoPlay,
-                onCheckedChange = onAutoPlayChange
-            )
-            SettingsDivider()
-            SettingsSwitch(
-                title = "Auto Next",
-                description = "Automatically play next episode",
-                icon = Icons.Default.PlayArrow,
-                checked = uiState.preferences.autoNext,
-                onCheckedChange = onAutoNextChange
-            )
-            SettingsDivider()
-            SettingsSwitch(
-                title = "Skip Intro",
-                description = "Automatically skip anime intros",
-                icon = Icons.Default.Notifications,
-                checked = uiState.preferences.skipIntro,
-                onCheckedChange = onSkipIntroChange
-            )
-            SettingsDivider()
-            SettingsSwitch(
-                title = "Skip Outro",
-                description = "Automatically skip anime outros",
-                icon = Icons.Default.Notifications,
-                checked = uiState.preferences.skipOutro,
-                onCheckedChange = onSkipOutroChange
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SettingsSection(title = "Language") {
-            SettingsSwitch(
-                title = "Default to English Dub",
-                description = "Use English dubbed audio when available",
-                icon = Icons.Default.Settings,
-                checked = uiState.preferences.defaultLang,
-                onCheckedChange = onDefaultLangChange
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SettingsSection(title = "Sync") {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Watch Progress Sync", color = Color.White, fontWeight = FontWeight.Medium)
-                Text(
-                    "Progress will sync when ${uiState.preferences.syncPercentage}% watched",
-                    color = MUTED,
-                    fontSize = 12.sp
+                description = "Automatically start playing videos when page loads",
+                modifier = Modifier.weight(1f)
+            ) {
+                SettingToggle(
+                    checked = uiState.preferences.autoPlay,
+                    onCheckedChange = onAutoPlayChange,
+                    label = "Enable Auto Play"
                 )
+            }
+
+            // Auto Next
+            SettingCard(
+                title = "Auto Next",
+                description = "Automatically play next episode when current ends",
+                modifier = Modifier.weight(1f)
+            ) {
+                SettingToggle(
+                    checked = uiState.preferences.autoNext,
+                    onCheckedChange = onAutoNextChange,
+                    label = "Enable Auto Next"
+                )
+            }
+
+            // Skip Intro
+            SettingCard(
+                title = "Skip Intro",
+                description = "Automatically skip anime intro sequences",
+                modifier = Modifier.weight(1f)
+            ) {
+                SettingToggle(
+                    checked = uiState.preferences.skipIntro,
+                    onCheckedChange = onSkipIntroChange,
+                    label = "Skip intro automatically"
+                )
+            }
+
+            // Skip Outro
+            SettingCard(
+                title = "Skip Outro",
+                description = "Automatically skip anime outro/ending sequences",
+                modifier = Modifier.weight(1f)
+            ) {
+                SettingToggle(
+                    checked = uiState.preferences.skipOutro,
+                    onCheckedChange = onSkipOutroChange,
+                    label = "Skip outro automatically"
+                )
+            }
+
+            // Default Language
+            SettingCard(
+                title = "Default Language",
+                description = "Use English dubbed audio when available",
+                modifier = Modifier.weight(1f)
+            ) {
+                SettingToggle(
+                    checked = uiState.preferences.defaultLang,
+                    onCheckedChange = onDefaultLangChange,
+                    label = "Default to English Dub"
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Sync Section - Full Width
+        SettingCard(
+            title = "Watch Progress Sync",
+            description = "The watch percentage required to mark an episode as watched",
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${uiState.preferences.syncPercentage}%", color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Slider(
                     value = uiState.preferences.syncPercentage.toFloat(),
                     onValueChange = { onSyncPercentageChange(it.toInt()) },
                     valueRange = 50f..100f,
-                    steps = 9,
+                    steps = 49,
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
                         inactiveTrackColor = BORDER
                     ),
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = onSave,
-            enabled = uiState.hasPreferencesChanges && !uiState.isSaving,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black,
-                disabledContainerColor = CARD,
-                disabledContentColor = MUTED
-            )
-        ) {
-            if (uiState.isSaving) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
-            } else {
-                Text("Save Changes")
+        // Save Button
+        if (uiState.hasPreferencesChanges) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onSave,
+                enabled = !uiState.isSaving,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                } else {
+                    Text("Save Changes", fontWeight = FontWeight.Medium)
+                }
             }
         }
     }
 }
 
+// ── Setting Card Component ──────────────────────────────────────────────────────
+@Composable
+private fun SettingCard(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(modifier = modifier.padding(bottom = 8.dp)) {
+        Text(title, color = TEXT, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(description, color = MUTED, fontSize = 13.sp, lineHeight = 18.sp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(BG_CARD)
+                .padding(16.dp)
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = TEXT, fontSize = 14.sp)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color.White.copy(alpha = 0.5f),
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = BORDER
+            )
+        )
+    }
+}
+
+// ── Sessions Tab ─────────────────────────────────────────────────────────────────
 @Composable
 private fun SessionsTab(
     uiState: SettingsUiState,
-    onDeleteSession: (String, () -> Unit) -> Unit,
-    onDeleteAllSessions: (() -> Unit) -> Unit,
+    onDeleteSession: (String) -> Unit,
+    onDeleteAllSessions: () -> Unit,
     onLogout: () -> Unit,
 ) {
-    var showDeleteAllDialog by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Sessions",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            "Manage your active sessions across all devices",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (uiState.isLoading && uiState.sessions.isEmpty()) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White,
-                strokeWidth = 2.dp
-            )
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = CARD),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            SessionStat(count = uiState.sessions.size, label = "Active Sessions")
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+            uiState.currentSession?.let { session ->
+                Text("Current Session", color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 12.dp))
+                SessionCard(session = session, isCurrent = true, onDelete = null)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
-                items(uiState.sessions) { session ->
+            if (uiState.sessions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Other Sessions", color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    TextButton(
+                        onClick = { onDeleteAllSessions() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                    ) {
+                        Text("End All", fontSize = 13.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                uiState.sessions.forEach { session ->
                     SessionCard(
                         session = session,
-                        isCurrent = session.current,
-                        onDelete = {
-                            if (session.current) {
-                                onDeleteSession("current") { onLogout() }
-                            } else {
-                                onDeleteSession(session.id) {}
-                            }
-                        }
+                        isCurrent = false,
+                        onDelete = { onDeleteSession(session.id) }
                     )
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = { showDeleteAllDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444))
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("End All Sessions")
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
-        }
-
-        if (showDeleteAllDialog) {
-            AlertDialog(
-                onDismissRequest = { showDeleteAllDialog = false },
-                title = { Text("End All Sessions") },
-                text = { Text("This will log you out from all devices. Are you sure?") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showDeleteAllDialog = false
-                            onDeleteAllSessions { onLogout() }
-                        }
-                    ) {
-                        Text("Confirm", color = Color(0xFFEF4444))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteAllDialog = false }) {
-                        Text("Cancel")
-                    }
-                },
-                containerColor = BG,
-                titleContentColor = Color.White,
-                textContentColor = MUTED
-            )
         }
     }
 }
@@ -542,596 +642,444 @@ private fun SessionsTab(
 private fun SessionCard(
     session: SessionInfoResponse,
     isCurrent: Boolean,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)?
 ) {
-    val deviceDisplay = when {
-        !session.deviceName.isNullOrBlank() -> session.deviceName
-        !session.osName.isNullOrBlank() && session.osName != "Unknown" -> session.osName
-        else -> "Unknown Device"
+    val deviceIcon = when {
+        session.clientName?.contains("Mobile", true) == true -> Icons.Default.PhoneAndroid
+        session.clientName?.contains("Tablet", true) == true -> Icons.Default.TabletAndroid
+        else -> Icons.Default.Computer
     }
-    val browserDisplay = when {
-        !session.clientName.isNullOrBlank() && session.clientName != "Unknown" -> session.clientName
-        else -> "Unknown Browser"
-    }
-    val locationDisplay = session.countryName ?: session.countryCode ?: "Unknown Location"
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = if (isCurrent) CARD_H else CARD),
-        shape = RoundedCornerShape(12.dp),
-        border = if (isCurrent) androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)) else null
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(BG_CARD)
+            .padding(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .border(1.dp, BORDER, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = when {
-                        session.osName?.contains("Android", ignoreCase = true) == true -> Icons.Default.PhoneAndroid
-                        session.osName?.contains("iOS", ignoreCase = true) == true -> Icons.Default.PhoneAndroid
-                        session.osName?.contains("Tablet", ignoreCase = true) == true -> Icons.Default.TabletAndroid
-                        else -> Icons.Default.Computer
-                    },
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(deviceIcon, contentDescription = null, tint = MUTED, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
                     Text(
-                        deviceDisplay,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        session.clientName ?: "Unknown Device",
+                        color = TEXT,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
-                    if (isCurrent) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                "Current",
-                                color = Color.Black,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    Text(browserDisplay, color = MUTED, fontSize = 12.sp, maxLines = 1)
-                    if (locationDisplay != "Unknown Location") {
-                        Text(" • ", color = MUTED, fontSize = 12.sp)
-                        Text(locationDisplay, color = MUTED, fontSize = 12.sp, maxLines = 1)
-                    }
-                }
-
-                if (!session.ip.isNullOrBlank()) {
                     Text(
-                        "IP: ${session.ip}",
-                        color = MUTED.copy(alpha = 0.7f),
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 2.dp)
+                        listOfNotNull(session.osName, session.countryName).joinToString(" • ").takeIf { it.isNotEmpty() }
+                            ?: "Unknown location",
+                        color = MUTED,
+                        fontSize = 12.sp
                     )
                 }
-
-                Text(
-                    "Last active: ${formatRelativeTime(session.createdAt)}",
-                    color = MUTED.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
             }
 
-            TextButton(
-                onClick = onDelete,
-                colors = ButtonDefaults.textButtonColors(contentColor = if (isCurrent) MUTED else Color(0xFFEF4444))
-            ) {
-                Text(if (isCurrent) "Sign Out" else "End")
+            if (isCurrent) {
+                Text("Current", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            } else {
+                onDelete?.let {
+                    TextButton(
+                        onClick = it,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                    ) {
+                        Text("End", fontSize = 13.sp)
+                    }
+                }
             }
         }
     }
 }
 
-@Composable
-private fun SessionStat(count: Int, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(count.toString(), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = MUTED, fontSize = 12.sp)
-    }
-}
-
+// ── Security Tab ─────────────────────────────────────────────────────────────────
 @Composable
 private fun SecurityTab(
     uiState: SettingsUiState,
     onToggleMfa: (Boolean) -> Unit,
-    onSetupTotp: ((String) -> Unit) -> Unit,
-    onVerifyTotp: (String, () -> Unit) -> Unit,
+    onSetupTotp: () -> Unit,
+    onVerifyTotp: (String) -> Unit,
     onLoadRecoveryCodes: () -> Unit,
     onDismissRecoveryCodes: () -> Unit,
     onDismissTotpSetup: () -> Unit,
-    onPasswordChange: (() -> Unit) -> Unit,
+    onPasswordChange: () -> Unit,
     onCurrentPasswordChange: (String) -> Unit,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
 ) {
-    var showPasswordChange by remember { mutableStateOf(false) }
     var showTotpDialog by remember { mutableStateOf(false) }
-    var totpCode by remember { mutableStateOf("") }
+    var showPasswordDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        SettingsSection(title = "Two-Factor Authentication") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Enable MFA", color = Color.White, fontWeight = FontWeight.Medium)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Security",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            "Manage your account security and authentication",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // MFA Section
+        SettingCard(
+            title = "Two-Factor Authentication",
+            description = "Add an extra layer of security to your account",
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        uiState.mfaStatus?.let { if (it.mfaEnabled) "MFA is enabled" else "MFA is disabled" } ?: "Loading...",
-                        color = MUTED,
-                        fontSize = 12.sp
+                        if (uiState.mfaStatus?.totpEnabled == true) "TOTP is enabled" else "TOTP is disabled",
+                        color = TEXT,
+                        fontSize = 14.sp
                     )
-                }
-
-                if (uiState.isLoadingMfa) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                } else {
                     Switch(
-                        checked = uiState.mfaStatus?.mfaEnabled == true,
+                        checked = uiState.mfaStatus?.totpEnabled == true,
                         onCheckedChange = { enabled ->
-                            if (enabled && uiState.mfaStatus?.totpEnabled != true) {
+                            if (enabled) {
+                                onSetupTotp()
                                 showTotpDialog = true
-                                onSetupTotp {}
                             } else {
-                                onToggleMfa(enabled)
+                                onToggleMfa(false)
                             }
                         },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = Color.White,
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color.White.copy(alpha = 0.5f),
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = BORDER
                         )
                     )
                 }
-            }
-
-            if (uiState.mfaStatus?.totpEnabled == true) {
-                TextButton(
-                    onClick = onLoadRecoveryCodes,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text("View Recovery Codes", color = Color.White)
+                if (uiState.mfaStatus?.totpEnabled == true) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onLoadRecoveryCodes,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER))
+                    ) {
+                        Text("View Recovery Codes")
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SettingsSection(title = "Password") {
-            if (showPasswordChange) {
-                PasswordChangeForm(
-                    currentPassword = uiState.currentPassword,
-                    newPassword = uiState.newPassword,
-                    confirmPassword = uiState.confirmPassword,
-                    isChanging = uiState.isChangingPassword,
-                    onCurrentPasswordChange = onCurrentPasswordChange,
-                    onNewPasswordChange = onNewPasswordChange,
-                    onConfirmPasswordChange = onConfirmPasswordChange,
-                    onSubmit = { onPasswordChange { showPasswordChange = false } },
-                    onCancel = { showPasswordChange = false }
-                )
-            } else {
-                Button(
-                    onClick = { showPasswordChange = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Change Password")
-                }
+        // Password Section
+        SettingCard(
+            title = "Password",
+            description = "Change your account password",
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Button(
+                onClick = { showPasswordDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BG_HOVER,
+                    contentColor = TEXT
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Change Password")
             }
         }
-    }
 
-    if (showTotpDialog && uiState.totpSetupData != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showTotpDialog = false
-                onDismissTotpSetup()
-            },
-            title = { Text("Setup Authenticator") },
-            text = {
-                Column {
-                    Text(
-                        "Scan the QR code with your authenticator app, then enter the 6-digit code below.",
-                        color = MUTED,
-                        fontSize = 14.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    val qrCodeBase64 = uiState.totpSetupData.qrCode
-                    if (qrCodeBase64.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AsyncImage(
-                                    model = qrCodeBase64,
-                                    contentDescription = "QR Code",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-
-                    Text(
-                        "Or enter this key manually:",
-                        color = MUTED,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = CARD),
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BORDER)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                uiState.totpSetupData.secret.chunked(4).joinToString(" "),
-                                color = Color.White,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                fontSize = 13.sp,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    OutlinedTextField(
-                        value = totpCode,
-                        onValueChange = { if (it.length <= 6) totpCode = it.filter { c -> c.isDigit() } },
-                        label = { Text("6-digit Code") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedLabelColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = BORDER
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+        // TOTP Setup Dialog
+        if (showTotpDialog && uiState.totpSetupData != null) {
+            TotpSetupDialog(
+                totpData = uiState.totpSetupData!!,
+                onDismiss = {
+                    showTotpDialog = false
+                    onDismissTotpSetup()
+                },
+                onVerify = { code ->
+                    onVerifyTotp(code)
+                    showTotpDialog = false
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onVerifyTotp(totpCode) {
-                            showTotpDialog = false
-                            totpCode = ""
-                        }
-                    },
-                    enabled = totpCode.length == 6,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-                ) {
-                    Text("Verify")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showTotpDialog = false
-                        onDismissTotpSetup()
-                        totpCode = ""
-                    }
-                ) {
-                    Text("Cancel", color = MUTED)
-                }
-            },
-            containerColor = BG,
-            titleContentColor = Color.White,
-            textContentColor = Color.White
-        )
-    }
+            )
+        }
 
-    if (uiState.showRecoveryCodes) {
-        AlertDialog(
-            onDismissRequest = onDismissRecoveryCodes,
-            title = { Text("Recovery Codes") },
-            text = {
-                Column {
-                    Text(
-                        "Save these codes in a safe place. You can use them to recover your account if you lose access to your authenticator.",
-                        color = MUTED,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = CARD),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BORDER)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            uiState.recoveryCodes.chunked(2).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    row.forEach { code ->
-                                        Text(
-                                            code,
-                                            color = Color.White,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                }
-                                if (row.size == 2) Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = onDismissRecoveryCodes,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-                ) {
-                    Text("Done")
-                }
-            },
-            containerColor = BG,
-            titleContentColor = Color.White,
-            textContentColor = Color.White
-        )
+        // Recovery Codes Dialog
+        if (uiState.showRecoveryCodes) {
+            RecoveryCodesDialog(
+                codes = uiState.recoveryCodes,
+                onDismiss = onDismissRecoveryCodes
+            )
+        }
+
+        // Password Change Dialog
+        if (showPasswordDialog) {
+            PasswordChangeDialog(
+                currentPassword = uiState.currentPassword,
+                newPassword = uiState.newPassword,
+                confirmPassword = uiState.confirmPassword,
+                isLoading = uiState.isChangingPassword,
+                onCurrentPasswordChange = onCurrentPasswordChange,
+                onNewPasswordChange = onNewPasswordChange,
+                onConfirmPasswordChange = onConfirmPasswordChange,
+                onConfirm = {
+                    onPasswordChange()
+                    showPasswordDialog = false
+                },
+                onDismiss = { showPasswordDialog = false }
+            )
+        }
     }
 }
 
+// ── Dialogs ─────────────────────────────────────────────────────────────────────
 @Composable
-private fun PasswordChangeForm(
+private fun TotpSetupDialog(
+    totpData: to.kuudere.anisuge.data.models.TotpSetupData,
+    onDismiss: () -> Unit,
+    onVerify: (String) -> Unit,
+) {
+    var code by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BG_CARD,
+        title = { Text("Setup Authenticator", color = TEXT) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Scan the QR code with your authenticator app", color = MUTED, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                AsyncImage(
+                    model = totpData.qrCode,
+                    contentDescription = "TOTP QR Code",
+                    modifier = Modifier.size(200.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Or enter the secret manually:", color = MUTED, fontSize = 13.sp)
+                Text(
+                    totpData.secret,
+                    color = TEXT,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    label = { Text("Verification Code") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TEXT,
+                        unfocusedTextColor = TEXT,
+                        focusedLabelColor = MUTED,
+                        unfocusedLabelColor = MUTED,
+                        focusedBorderColor = TEXT,
+                        unfocusedBorderColor = BORDER
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onVerify(code) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+            ) {
+                Text("Verify")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MUTED)
+            }
+        }
+    )
+}
+
+@Composable
+private fun RecoveryCodesDialog(
+    codes: List<String>,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BG_CARD,
+        title = { Text("Recovery Codes", color = TEXT) },
+        text = {
+            Column {
+                Text("Save these codes in a secure location. They can be used to recover your account if you lose access to your authenticator.", color = MUTED, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(BG)
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        codes.chunked(2).forEach { row ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                row.forEach { code ->
+                                    Text(
+                                        code,
+                                        color = TEXT,
+                                        fontSize = 14.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+            ) {
+                Text("Done")
+            }
+        }
+    )
+}
+
+@Composable
+private fun PasswordChangeDialog(
     currentPassword: String,
     newPassword: String,
     confirmPassword: String,
-    isChanging: Boolean,
+    isLoading: Boolean,
     onCurrentPasswordChange: (String) -> Unit,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    var showCurrentPassword by remember { mutableStateOf(false) }
-    var showNewPassword by remember { mutableStateOf(false) }
-    var showConfirmPassword by remember { mutableStateOf(false) }
+    var showCurrent by remember { mutableStateOf(false) }
+    var showNew by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        OutlinedTextField(
-            value = currentPassword,
-            onValueChange = onCurrentPasswordChange,
-            label = { Text("Current Password") },
-            singleLine = true,
-            visualTransformation = if (showCurrentPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { showCurrentPassword = !showCurrentPassword }) {
-                    Icon(
-                        if (showCurrentPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null,
-                        tint = MUTED
-                    )
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedLabelColor = Color.White,
-                focusedBorderColor = Color.White,
-                unfocusedBorderColor = BORDER
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = newPassword,
-            onValueChange = onNewPasswordChange,
-            label = { Text("New Password") },
-            singleLine = true,
-            visualTransformation = if (showNewPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { showNewPassword = !showNewPassword }) {
-                    Icon(
-                        if (showNewPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null,
-                        tint = MUTED
-                    )
-                }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedLabelColor = Color.White,
-                focusedBorderColor = Color.White,
-                unfocusedBorderColor = BORDER
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = onConfirmPasswordChange,
-            label = { Text("Confirm Password") },
-            singleLine = true,
-            visualTransformation = if (showConfirmPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
-                    Icon(
-                        if (showConfirmPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null,
-                        tint = MUTED
-                    )
-                }
-            },
-            isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedLabelColor = Color.White,
-                focusedBorderColor = Color.White,
-                unfocusedBorderColor = BORDER,
-                errorBorderColor = Color(0xFFEF4444),
-                errorLabelColor = Color(0xFFEF4444)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onCancel) { Text("Cancel", color = MUTED) }
-            Spacer(modifier = Modifier.width(8.dp))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BG_CARD,
+        title = { Text("Change Password", color = TEXT) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = onCurrentPasswordChange,
+                    label = { Text("Current Password") },
+                    singleLine = true,
+                    visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showCurrent = !showCurrent }) {
+                            Icon(
+                                if (showCurrent) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = MUTED
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TEXT,
+                        unfocusedTextColor = TEXT,
+                        focusedLabelColor = MUTED,
+                        unfocusedLabelColor = MUTED,
+                        focusedBorderColor = TEXT,
+                        unfocusedBorderColor = BORDER
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = onNewPasswordChange,
+                    label = { Text("New Password") },
+                    singleLine = true,
+                    visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showNew = !showNew }) {
+                            Icon(
+                                if (showNew) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = MUTED
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TEXT,
+                        unfocusedTextColor = TEXT,
+                        focusedLabelColor = MUTED,
+                        unfocusedLabelColor = MUTED,
+                        focusedBorderColor = TEXT,
+                        unfocusedBorderColor = BORDER
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = onConfirmPasswordChange,
+                    label = { Text("Confirm Password") },
+                    singleLine = true,
+                    isError = confirmPassword.isNotEmpty() && confirmPassword != newPassword,
+                    visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showConfirm = !showConfirm }) {
+                            Icon(
+                                if (showConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                tint = MUTED
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TEXT,
+                        unfocusedTextColor = TEXT,
+                        focusedLabelColor = MUTED,
+                        unfocusedLabelColor = MUTED,
+                        focusedBorderColor = TEXT,
+                        unfocusedBorderColor = BORDER
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
             Button(
-                onClick = onSubmit,
-                enabled = currentPassword.isNotEmpty() && newPassword.length >= 8 && newPassword == confirmPassword && !isChanging,
+                onClick = onConfirm,
+                enabled = !isLoading && newPassword == confirmPassword && newPassword.length >= 8,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
             ) {
-                if (isChanging) {
+                if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
                 } else {
-                    Text("Change Password")
+                    Text("Change")
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = CARD),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BORDER)
-    ) {
-        Column {
-            Text(
-                title,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(16.dp)
-            )
-            HorizontalDivider(color = BORDER)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun SettingsDivider() {
-    HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
-}
-
-@Composable
-private fun SettingsSwitch(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(title, color = Color.White, fontWeight = FontWeight.Medium)
-                Text(description, color = MUTED, fontSize = 12.sp)
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MUTED)
             }
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = Color.White,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = BORDER
-            )
-        )
-    }
+    )
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────────
 private fun formatRelativeTime(timestamp: String): String {
     return try {
         val instant = kotlinx.datetime.Instant.parse(timestamp)
