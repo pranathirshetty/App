@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.TabletAndroid
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -88,6 +90,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -101,6 +104,8 @@ import anisugkmp.composeapp.generated.resources.anilist
 import org.jetbrains.compose.resources.painterResource
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.SessionInfoResponse
+import to.kuudere.anisuge.data.models.StorageInfo
+import to.kuudere.anisuge.data.models.AnimeFolderInfo
 
 // ── Colors ── Black & white theme ────────────────────────────────────────────────
 private val BG       = Color(0xFF0B0B0B)
@@ -150,6 +155,7 @@ fun SettingsScreen(
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
         SettingsNavItem(SettingsTab.Sync, "Sync", Icons.Default.Sync),
+        SettingsNavItem(SettingsTab.Storage, "Storage", Icons.Default.Storage),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
         SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock),
         SettingsNavItem(SettingsTab.About, "About", Icons.Default.Info)
@@ -477,6 +483,14 @@ private fun MobileSettingsDetail(
                     onExport = viewModel::exportToAniList,
                     onCancel = viewModel::cancelSyncOperation
                 )
+                is SettingsTab.Storage -> MobileStorageContent(
+                    uiState = uiState,
+                    onRefresh = viewModel::loadStorageInfo,
+                    onClearFontCache = viewModel::clearFontCache,
+                    onDeleteAnime = viewModel::deleteAnimeDownloads,
+                    formatBytes = viewModel::formatBytes,
+                    formatBytesCompact = viewModel::formatBytesCompact
+                )
             }
         }
     }
@@ -536,6 +550,14 @@ private fun SettingsContent(
                 onImport = viewModel::importFromAniList,
                 onExport = viewModel::exportToAniList,
                 onCancel = viewModel::cancelSyncOperation
+            )
+            is SettingsTab.Storage -> StorageTab(
+                uiState = uiState,
+                onRefresh = viewModel::loadStorageInfo,
+                onClearFontCache = viewModel::clearFontCache,
+                onDeleteAnime = viewModel::deleteAnimeDownloads,
+                formatBytes = viewModel::formatBytes,
+                formatBytesCompact = viewModel::formatBytesCompact
             )
         }
     }
@@ -2476,5 +2498,470 @@ private fun formatRelativeTime(timestamp: String): String {
         }
     } catch (e: Exception) {
         timestamp
+    }
+}
+
+// ── Storage Tab ────────────────────────────────────────────────────────────────
+@Composable
+private fun StorageTab(
+    uiState: SettingsUiState,
+    onRefresh: () -> Unit,
+    onClearFontCache: ((Boolean) -> Unit) -> Unit,
+    onDeleteAnime: (String, (Boolean) -> Unit) -> Unit,
+    formatBytes: (Long) -> String,
+    formatBytesCompact: (Long) -> String,
+) {
+    LaunchedEffect(Unit) {
+        onRefresh()
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Title
+        Text(
+            "Storage",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            "Manage downloaded content and cache",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        if (uiState.isLoadingStorage) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else {
+            val storageInfo = uiState.storageInfo
+            val downloadInfo = uiState.downloadStorageInfo
+
+            if (storageInfo != null) {
+                // Storage Overview Card
+                StorageOverviewCard(storageInfo, formatBytes, formatBytesCompact)
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Downloads Section
+                if (downloadInfo != null && downloadInfo.animeFolders.isNotEmpty()) {
+                    Text(
+                        "Downloads",
+                        color = TEXT,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    downloadInfo.animeFolders.forEach { anime ->
+                        AnimeStorageCard(
+                            anime = anime,
+                            formatBytes = formatBytes,
+                            onDelete = { onDeleteAnime(anime.animeId) {} }
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                } else {
+                    // Empty state
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No downloads yet",
+                            color = MUTED,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Cache Actions
+                Text(
+                    "Cache Management",
+                    color = TEXT,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onClearFontCache {} },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Clear Font Cache (${formatBytesCompact(storageInfo.fontCache.size)})")
+                    }
+
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Refresh")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StorageOverviewCard(
+    storageInfo: StorageInfo,
+    formatBytes: (Long) -> String,
+    formatBytesCompact: (Long) -> String,
+) {
+    val totalSpace = storageInfo.totalUsed + storageInfo.freeSpace
+    val usedPercent = if (totalSpace > 0) (storageInfo.totalUsed * 100 / totalSpace).toInt() else 0
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(BG_CARD)
+            .padding(24.dp)
+    ) {
+        Column {
+            // Total usage
+            Text(
+                "Storage Usage",
+                color = TEXT,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Progress bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(BG_HOVER)
+            ) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Downloads
+                    val downloadsPercent = if (storageInfo.totalUsed > 0) {
+                        (storageInfo.downloads.size.toFloat() / storageInfo.totalUsed)
+                    } else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(downloadsPercent.coerceAtLeast(0.01f))
+                            .background(Color(0xFF3B82F6))
+                    )
+                    // Font Cache
+                    val fontPercent = if (storageInfo.totalUsed > 0) {
+                        (storageInfo.fontCache.size.toFloat() / storageInfo.totalUsed)
+                    } else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(fontPercent.coerceAtLeast(0.01f))
+                            .background(Color(0xFF8B5CF6))
+                    )
+                    // Settings
+                    val settingsPercent = if (storageInfo.totalUsed > 0) {
+                        (storageInfo.settings.size.toFloat() / storageInfo.totalUsed)
+                    } else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(settingsPercent.coerceAtLeast(0.01f))
+                            .background(Color(0xFF10B981))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stats
+            Text(
+                "${formatBytes(storageInfo.totalUsed)} used of ${formatBytes(totalSpace)} (\$usedPercent%)",
+                color = MUTED,
+                fontSize = 14.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Legend
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                StorageLegendItem(
+                    color = Color(0xFF3B82F6),
+                    label = "Downloads",
+                    value = formatBytesCompact(storageInfo.downloads.size)
+                )
+                StorageLegendItem(
+                    color = Color(0xFF8B5CF6),
+                    label = "Font Cache",
+                    value = formatBytesCompact(storageInfo.fontCache.size)
+                )
+                StorageLegendItem(
+                    color = Color(0xFF10B981),
+                    label = "Settings",
+                    value = formatBytesCompact(storageInfo.settings.size)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StorageLegendItem(color: Color, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(label, color = MUTED, fontSize = 12.sp)
+            Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun AnimeStorageCard(
+    anime: to.kuudere.anisuge.data.models.AnimeFolderInfo,
+    formatBytes: (Long) -> String,
+    onDelete: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(BG_CARD)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    anime.title,
+                    color = TEXT,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "${anime.episodeCount} episodes • ${formatBytes(anime.size)}",
+                    color = MUTED,
+                    fontSize = 13.sp
+                )
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color(0xFFEF5350)
+                )
+            }
+        }
+    }
+}
+
+// ── Mobile Storage Content ─────────────────────────────────────────────────────
+@Composable
+private fun MobileStorageContent(
+    uiState: SettingsUiState,
+    onRefresh: () -> Unit,
+    onClearFontCache: ((Boolean) -> Unit) -> Unit,
+    onDeleteAnime: (String, (Boolean) -> Unit) -> Unit,
+    formatBytes: (Long) -> String,
+    formatBytesCompact: (Long) -> String,
+) {
+    LaunchedEffect(Unit) {
+        onRefresh()
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (uiState.isLoadingStorage) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else {
+            val storageInfo = uiState.storageInfo
+            val downloadInfo = uiState.downloadStorageInfo
+
+            if (storageInfo != null) {
+                // Storage Overview
+                MobileStorageOverview(storageInfo, formatBytes, formatBytesCompact)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Downloads Section
+                if (downloadInfo != null && downloadInfo.animeFolders.isNotEmpty()) {
+                    Text(
+                        "Downloads (${downloadInfo.animeFolders.size} anime)",
+                        color = TEXT,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    downloadInfo.animeFolders.forEach { anime ->
+                        AnimeStorageCard(
+                            anime = anime,
+                            formatBytes = formatBytes,
+                            onDelete = { onDeleteAnime(anime.animeId) {} }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(BG_CARD)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "No downloads yet",
+                            color = MUTED,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Cache Actions
+                OutlinedButton(
+                    onClick = { onClearFontCache {} },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Clear Font Cache (${formatBytesCompact(storageInfo.fontCache.size)})")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileStorageOverview(
+    storageInfo: StorageInfo,
+    formatBytes: (Long) -> String,
+    formatBytesCompact: (Long) -> String,
+) {
+    val totalSpace = storageInfo.totalUsed + storageInfo.freeSpace
+    val usedPercent = if (totalSpace > 0) (storageInfo.totalUsed * 100 / totalSpace).toInt() else 0
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(BG_CARD)
+            .padding(20.dp)
+    ) {
+        Column {
+            Text(
+                formatBytes(storageInfo.totalUsed),
+                color = TEXT,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "used of ${formatBytes(totalSpace)}",
+                color = MUTED,
+                fontSize = 14.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Progress bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(BG_HOVER)
+            ) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(
+                                if (storageInfo.totalUsed > 0)
+                                    (storageInfo.downloads.size.toFloat() / storageInfo.totalUsed).coerceAtLeast(0.01f)
+                                else 0.01f
+                            )
+                            .background(Color(0xFF3B82F6))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(
+                                if (storageInfo.totalUsed > 0)
+                                    (storageInfo.fontCache.size.toFloat() / storageInfo.totalUsed).coerceAtLeast(0.01f)
+                                else 0.01f
+                            )
+                            .background(Color(0xFF8B5CF6))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(
+                                if (storageInfo.totalUsed > 0)
+                                    (storageInfo.settings.size.toFloat() / storageInfo.totalUsed).coerceAtLeast(0.01f)
+                                else 0.01f
+                            )
+                            .background(Color(0xFF10B981))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Legend
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                StorageLegendItem(
+                    color = Color(0xFF3B82F6),
+                    label = "Downloads",
+                    value = formatBytesCompact(storageInfo.downloads.size)
+                )
+                StorageLegendItem(
+                    color = Color(0xFF8B5CF6),
+                    label = "Font Cache",
+                    value = formatBytesCompact(storageInfo.fontCache.size)
+                )
+                StorageLegendItem(
+                    color = Color(0xFF10B981),
+                    label = "Settings",
+                    value = formatBytesCompact(storageInfo.settings.size)
+                )
+            }
+        }
     }
 }

@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.AniListMediaListCollection
 import to.kuudere.anisuge.data.models.AniListProfile
+import to.kuudere.anisuge.data.models.DownloadStorageInfo
 import to.kuudere.anisuge.data.models.ImportResult
 import to.kuudere.anisuge.data.models.MfaStatusData
 import to.kuudere.anisuge.data.models.SessionInfoResponse
+import to.kuudere.anisuge.data.models.StorageInfo
 import to.kuudere.anisuge.data.models.TotpSetupData
 import to.kuudere.anisuge.data.models.UserPreferences
 import to.kuudere.anisuge.data.services.SettingsService
 import to.kuudere.anisuge.data.services.SettingsStore
+import to.kuudere.anisuge.data.services.StorageService
 
 data class SettingsUiState(
     // Loading states
@@ -62,11 +65,17 @@ data class SettingsUiState(
     val importResult: String? = null,
     val exportResult: String? = null,
     val syncLog: List<String> = emptyList(),
+
+    // Storage
+    val storageInfo: StorageInfo? = null,
+    val downloadStorageInfo: DownloadStorageInfo? = null,
+    val isLoadingStorage: Boolean = false,
 )
 
 sealed class SettingsTab {
     data object Preferences : SettingsTab()
     data object Sync : SettingsTab()
+    data object Storage : SettingsTab()
     data object Sessions : SettingsTab()
     data object Security : SettingsTab()
     data object About : SettingsTab()
@@ -75,6 +84,7 @@ sealed class SettingsTab {
 class SettingsViewModel(
     private val settingsService: SettingsService,
     private val settingsStore: SettingsStore,
+    private val storageService: StorageService = StorageService(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -879,4 +889,63 @@ class SettingsViewModel(
             else -> 5
         }
     }
+
+    // ==================== Storage Management ====================
+
+    fun loadStorageInfo() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingStorage = true) }
+            val info = storageService.getStorageInfo()
+            val downloadInfo = storageService.getDownloadStorageInfo()
+            _uiState.update {
+                it.copy(
+                    storageInfo = info,
+                    downloadStorageInfo = downloadInfo,
+                    isLoadingStorage = false
+                )
+            }
+        }
+    }
+
+    fun clearFontCache(onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = storageService.clearFontCache()
+            if (success) {
+                loadStorageInfo()
+                _uiState.update { it.copy(successMessage = "Font cache cleared") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Failed to clear font cache") }
+            }
+            onComplete(success)
+        }
+    }
+
+    fun deleteAnimeDownloads(animeId: String, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = storageService.deleteAnimeDownloads(animeId)
+            if (success) {
+                loadStorageInfo()
+                _uiState.update { it.copy(successMessage = "Anime downloads deleted") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Failed to delete anime downloads") }
+            }
+            onComplete(success)
+        }
+    }
+
+    fun deleteEpisodeDownload(animeId: String, episodeNumber: Int, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val success = storageService.deleteEpisodeDownload(animeId, episodeNumber)
+            if (success) {
+                loadStorageInfo()
+                _uiState.update { it.copy(successMessage = "Episode deleted") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Failed to delete episode") }
+            }
+            onComplete(success)
+        }
+    }
+
+    fun formatBytes(bytes: Long): String = storageService.formatBytes(bytes)
+    fun formatBytesCompact(bytes: Long): String = storageService.formatBytesCompact(bytes)
 }
