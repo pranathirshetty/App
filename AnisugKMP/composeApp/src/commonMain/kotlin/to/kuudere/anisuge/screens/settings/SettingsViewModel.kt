@@ -97,6 +97,57 @@ class SettingsViewModel(
     init {
         loadPreferences()
         loadSessions()
+        
+        // Watch for local changes (e.g. from player) so the UI stays in sync
+        viewModelScope.launch {
+            settingsStore.autoPlayFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(autoPlay = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.autoNextFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(autoNext = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.autoSkipIntroFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(skipIntro = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.autoSkipOutroFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(skipOutro = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.defaultLangFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(defaultLang = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.defaultCommentsFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(defaultComments = v)) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsStore.syncPercentageFlow.collect { v -> 
+                if (!_uiState.value.hasPreferencesChanges) {
+                    _uiState.update { it.copy(preferences = it.preferences.copy(syncPercentage = v)) }
+                }
+            }
+        }
     }
 
     fun clearMessages() {
@@ -124,6 +175,9 @@ class SettingsViewModel(
                     settingsStore.setAutoNext(prefs.autoNext)
                     settingsStore.setAutoSkipIntro(prefs.skipIntro)
                     settingsStore.setAutoSkipOutro(prefs.skipOutro)
+                    settingsStore.setDefaultLang(prefs.defaultLang)
+                    settingsStore.setDefaultComments(prefs.defaultComments)
+                    settingsStore.setSyncPercentage(prefs.syncPercentage)
                 }
             } else {
                 _uiState.update {
@@ -155,6 +209,9 @@ class SettingsViewModel(
                     settingsStore.setAutoNext(prefs.autoNext)
                     settingsStore.setAutoSkipIntro(prefs.skipIntro)
                     settingsStore.setAutoSkipOutro(prefs.skipOutro)
+                    settingsStore.setDefaultLang(prefs.defaultLang)
+                    settingsStore.setDefaultComments(prefs.defaultComments)
+                    settingsStore.setSyncPercentage(prefs.syncPercentage)
                 }
             } else {
                 _uiState.update {

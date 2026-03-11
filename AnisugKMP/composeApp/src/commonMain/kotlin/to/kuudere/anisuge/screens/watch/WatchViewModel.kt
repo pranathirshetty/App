@@ -44,6 +44,9 @@ data class WatchUiState(
     val autoNext: Boolean = true,
     val autoSkipIntro: Boolean = false,
     val autoSkipOutro: Boolean = false,
+    val defaultLang: Boolean = false,
+    val defaultComments: Boolean = true,
+    val syncPercentage: Int = 80,
     val offlinePath: String? = null,
     // Offline metadata
     val offlineTitle: String? = null
@@ -51,7 +54,8 @@ data class WatchUiState(
 
 class WatchViewModel(
     private val infoService: InfoService,
-    private val settingsStore: to.kuudere.anisuge.data.services.SettingsStore
+    private val settingsStore: to.kuudere.anisuge.data.services.SettingsStore,
+    private val settingsService: to.kuudere.anisuge.data.services.SettingsService
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WatchUiState())
     val uiState = _uiState.asStateFlow()
@@ -63,6 +67,9 @@ class WatchViewModel(
         viewModelScope.launch { settingsStore.autoNextFlow.collect { v -> _uiState.update { it.copy(autoNext = v) } } }
         viewModelScope.launch { settingsStore.autoSkipIntroFlow.collect { v -> _uiState.update { it.copy(autoSkipIntro = v) } } }
         viewModelScope.launch { settingsStore.autoSkipOutroFlow.collect { v -> _uiState.update { it.copy(autoSkipOutro = v) } } }
+        viewModelScope.launch { settingsStore.defaultLangFlow.collect { v -> _uiState.update { it.copy(defaultLang = v) } } }
+        viewModelScope.launch { settingsStore.defaultCommentsFlow.collect { v -> _uiState.update { it.copy(defaultComments = v) } } }
+        viewModelScope.launch { settingsStore.syncPercentageFlow.collect { v -> _uiState.update { it.copy(syncPercentage = v) } } }
     }
 
     fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null, offlineTitle: String? = null) {
@@ -170,7 +177,7 @@ class WatchViewModel(
                 }
                 
                 if (hasLinks && targetServerName == null) {
-                    val fallbackLang = reqLang ?: "sub"
+                    val fallbackLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
                     for (candidate in fallbackPriority) {
                         val apiServerName = when (candidate) {
                             "zen2" -> "Zen-2"
@@ -418,18 +425,54 @@ class WatchViewModel(
     }
 
     fun setAutoPlay(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setAutoPlay(enabled) }
+        viewModelScope.launch { 
+            settingsStore.setAutoPlay(enabled)
+            syncPreferencesToServer()
+        }
     }
 
     fun setAutoNext(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setAutoNext(enabled) }
+        viewModelScope.launch { 
+            settingsStore.setAutoNext(enabled)
+            syncPreferencesToServer()
+        }
     }
 
     fun setAutoSkipIntro(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setAutoSkipIntro(enabled) }
+        viewModelScope.launch { 
+            settingsStore.setAutoSkipIntro(enabled)
+            syncPreferencesToServer()
+        }
     }
 
     fun setAutoSkipOutro(enabled: Boolean) {
-        viewModelScope.launch { settingsStore.setAutoSkipOutro(enabled) }
+        viewModelScope.launch { 
+            settingsStore.setAutoSkipOutro(enabled)
+            syncPreferencesToServer()
+        }
+    }
+
+    private fun syncPreferencesToServer() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            try {
+                // We fetch first to avoid clobbering settings not managed by the player (like syncPercentage)
+                val current = settingsService.getPreferences()
+                val basePrefs = current?.preferences ?: to.kuudere.anisuge.data.models.UserPreferences()
+                
+                val updated = basePrefs.copy(
+                    autoPlay = state.autoPlay,
+                    autoNext = state.autoNext,
+                    skipIntro = state.autoSkipIntro,
+                    skipOutro = state.autoSkipOutro,
+                    defaultLang = state.defaultLang,
+                    defaultComments = state.defaultComments,
+                    syncPercentage = state.syncPercentage
+                )
+                settingsService.updatePreferences(updated)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }
