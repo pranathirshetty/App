@@ -792,10 +792,14 @@ fun WatchVideoPlayer(
         if (currentUrl != null) {
             // Desktop: We now use our custom Compose PlayerControls instead of mpv's OSC
             val useOsc = false
+            // Offline videos (MKV) may have fonts embedded in the container — allow them.
+            // Online streams always use API-downloaded fonts, so embedded fonts must be off.
+            val useEmbeddedFonts = uiState.offlinePath != null
             val playerState = rememberVideoPlayerState(
                 url = currentUrl,
                 startPosition = uiState.savedWatchPosition,
                 fontsDir = uiState.currentFontsDir,
+                embeddedFonts = useEmbeddedFonts,
                 showControls = useOsc,
                 autoPlay = uiState.autoPlay
             )

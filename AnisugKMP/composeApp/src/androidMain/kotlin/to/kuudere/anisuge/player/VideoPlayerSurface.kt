@@ -148,7 +148,10 @@ actual fun VideoPlayerSurface(
         }
 
         // Subtitle options
-        MPVLib.setOptionString("sub-auto", "fuzzy")
+        // Use "no" for sub-auto when external subs are provided by the API (matching desktop behaviour).
+        // "fuzzy" would cause mpv to also pick up embedded container subs which we don't want
+        // when we are explicitly loading API-supplied subtitles via sub-add.
+        MPVLib.setOptionString("sub-auto", "no")
         MPVLib.setOptionString("embeddedfonts", if (state.config.embeddedFonts) "yes" else "no")
         state.config.fontsDir?.let {
             MPVLib.setOptionString("sub-fonts-dir", it)
@@ -326,6 +329,19 @@ actual fun VideoPlayerSurface(
         isSeeking.value = false
     }
     
+    // Reactively update sub-fonts-dir when the API fonts dir becomes available (may arrive
+    // after the player is already initialised since font download happens in the ViewModel).
+    LaunchedEffect(state.config.fontsDir) {
+        state.config.fontsDir?.let { dir ->
+            withContext(Dispatchers.IO) {
+                MPVLib.setOptionString("sub-fonts-dir", dir)
+                // Also disable embedded fonts now that we have API fonts
+                MPVLib.setOptionString("embeddedfonts", "no")
+            }
+            println("[VideoPlayerSurface] Updated sub-fonts-dir: $dir")
+        }
+    }
+
     // Runtime sub change
     LaunchedEffect(state.subFileUrl) {
         state.subFileUrl?.let { sub ->
@@ -342,20 +358,23 @@ actual fun VideoPlayerSurface(
             state.subFileUrl = null
         }
     }
-    // Runtime all-subs load 
+    // Runtime all-subs load — load API-provided subtitles regardless of isPlaying state.
+    // These subs come from the API (not the MKV container), so we must add them explicitly.
+    // We no longer guard on isPlaying because the ViewModel may push subs before mpv
+    // fires FILE_LOADED (especially on fast connections). Sub-add is safe to call anytime
+    // after MPVLib.init().
     LaunchedEffect(state.allSubUrls) {
         state.allSubUrls?.let { subs ->
-            if (state.isPlaying) {
-                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                    subs.forEach { (url, name, isDefault) ->
-                        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                        if (localPath != null) {
-                            val flag = if (isDefault) "select" else "auto"
-                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
-                        }
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                subs.forEach { (url, name, isDefault) ->
+                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                    if (localPath != null) {
+                        val flag = if (isDefault) "select" else "auto"
+                        MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
                     }
                 }
             }
+            state.allSubUrls = null
         }
     }
     // Cycle audio tracks
