@@ -89,6 +89,7 @@ fun WatchScreen(
 
     LaunchedEffect(animeId, episodeNumber, offlinePath) {
         viewModel.initialize(animeId, episodeNumber, server, lang, offlinePath, offlineTitle)
+        to.kuudere.anisuge.AppComponent.realtimeService.joinRoom(animeId)
     }
 
     Scaffold(

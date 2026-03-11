@@ -54,6 +54,7 @@ fun AnimeInfoScreen(
 ) {
     LaunchedEffect(animeId) {
         viewModel.loadAnimeInfo(animeId)
+        to.kuudere.anisuge.AppComponent.realtimeService.joinRoom(animeId)
     }
 
     val state by viewModel.uiState.collectAsState()

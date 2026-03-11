@@ -34,7 +34,8 @@ data class HomeUiState(
 class HomeViewModel(
     private val homeService: HomeService,
     private val authService: AuthService,
-    private val infoService: InfoService
+    private val infoService: InfoService,
+    private val realtimeService: to.kuudere.anisuge.data.services.RealtimeService
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -50,6 +51,18 @@ class HomeViewModel(
                 val userRes = authService.checkSession()
                 val userProfile = (userRes as? SessionCheckResult.Valid)?.user
                 
+                userProfile?.let { prof ->
+                    prof.effectiveId?.let { uid ->
+                        realtimeService.connect(
+                            to.kuudere.anisuge.data.models.UserInfoData(
+                                userId = uid,
+                                username = prof.username ?: "User",
+                                avatar = prof.avatar
+                            )
+                        )
+                    }
+                }
+
                 val homeData = homeService.fetchHomeData()
                 val continueWatching = homeService.fetchContinueWatching()
                 _uiState.update { 
@@ -106,6 +119,7 @@ class HomeViewModel(
         scope.launch {
             _uiState.update { it.copy(isLoggingOut = true) }
             try {
+                realtimeService.disconnect()
                 authService.logout()
             } finally {
                 _uiState.update { it.copy(isLoggingOut = false) }

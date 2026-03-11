@@ -27,6 +27,8 @@ object AppComponent {
                 })
             }
             install(Logging) { level = LogLevel.ALL }
+            install(io.ktor.client.plugins.websocket.WebSockets) {
+            }
         }
     }
 
@@ -76,5 +78,9 @@ object AppComponent {
 
     val aniListService: to.kuudere.anisuge.data.services.AniListService by lazy {
         to.kuudere.anisuge.data.services.AniListService(httpClient)
+    }
+
+    val realtimeService: to.kuudere.anisuge.data.services.RealtimeService by lazy {
+        to.kuudere.anisuge.data.services.RealtimeService(httpClient, authService)
     }
 }

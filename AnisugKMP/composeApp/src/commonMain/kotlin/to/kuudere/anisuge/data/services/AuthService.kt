@@ -24,6 +24,10 @@ import to.kuudere.anisuge.data.models.ResetPasswordRequest
 import to.kuudere.anisuge.data.models.SessionCheckResult
 import to.kuudere.anisuge.data.models.SessionInfo
 import to.kuudere.anisuge.data.models.VerifyResetCodeRequest
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonObject
 
 class AuthService(
     private val sessionStore: SessionStore,
@@ -141,6 +145,25 @@ class AuthService(
             } else null
         } catch (e: Exception) {
             println("[AuthService] getAniListToken error: ${e.message}")
+            null
+        }
+    }
+    
+    suspend fun getWsToken(): String? {
+        val stored = sessionStore.get() ?: return null
+        return try {
+            val response = httpClient.get("$BASE_URL/api/ws/token") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            if (response.status == HttpStatusCode.OK) {
+                val json = response.body<JsonObject>()
+                val success = json["success"]?.jsonPrimitive?.booleanOrNull == true
+                if (success) {
+                    json["data"]?.jsonObject?.get("token")?.jsonPrimitive?.content
+                } else null
+            } else null
+        } catch (e: Exception) {
+            println("[AuthService] getWsToken error: ${e.message}")
             null
         }
     }

@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.outlined.Bookmark
 import to.kuudere.anisuge.ui.WatchlistBottomSheet
+import to.kuudere.anisuge.AppComponent
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -189,6 +190,19 @@ fun HomeScreen(
         searchViewModel.search()
         watchlistViewModel.refresh()
         scheduleViewModel.refresh()
+    }
+
+    // Join room based on current tab
+    LaunchedEffect(currentTab) {
+        val room = when (currentTab) {
+            AnisugTab.Home -> "home"
+            AnisugTab.Search -> "search"
+            AnisugTab.Calendar -> "countdowns"
+            AnisugTab.Bookmarks -> "watchlist"
+            AnisugTab.Downloads -> "downloads"
+            AnisugTab.Settings -> "settings"
+        }
+        AppComponent.realtimeService.joinRoom(room)
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
