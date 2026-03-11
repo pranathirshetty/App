@@ -1,9 +1,9 @@
 package to.kuudere.anisuge.player
 
 import android.net.Uri
-import android.graphics.SurfaceTexture
 import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -57,8 +57,35 @@ actual fun VideoPlayerSurface(
         return
     }
 
-    val textureView = remember { 
-        TextureView(context).apply {
+    val surfaceView = remember(resolvedUrl) { 
+        SurfaceView(context).apply {
+            // SurfaceView is more stable than TextureView for hardware-accelerated video
+            // specifically avoiding the "destroyed mutex" crashes in libhwui.
+            holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) {
+                    MPVLib.attachSurface(holder.surface)
+                    MPVLib.setOptionString("force-window", "yes")
+                    
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        if (state.config.startPosition > 0.0) {
+                            MPVLib.setOptionString("start", state.config.startPosition.toString())
+                        }
+                        MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
+                    }
+                }
+
+                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                    MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
+                    MPVLib.command(arrayOf("video-redraw"))
+                }
+
+                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                    MPVLib.setPropertyString("vo", "null")
+                    MPVLib.setPropertyString("force-window", "no")
+                    MPVLib.detachSurface()
+                }
+            })
+
             setOnTouchListener { _, event ->
                 val x = event.x.toInt().toString()
                 val y = event.y.toInt().toString()
@@ -91,18 +118,25 @@ actual fun VideoPlayerSurface(
             }
         }
 
-        MPVLib.create(context)
-        MPVLib.setOptionString("config", "yes")
-        MPVLib.setOptionString("config-dir", configDir)
+        synchronized(MPVLibLock) {
+            if (!isMPVInitialized) {
+                MPVLib.create(context)
+                MPVLib.setOptionString("config", "yes")
+                MPVLib.setOptionString("config-dir", configDir)
+                isMPVInitialized = true
+            }
+        }
+
+        // Shared native engine, so we set non-global options per-instance here
         MPVLib.setOptionString("vo", "gpu")
         MPVLib.setOptionString("hwdec", state.config.hwdec)
         val showOsc = if (state.config.showControls) "yes" else "no"
         MPVLib.setOptionString("osc", showOsc)
         MPVLib.setOptionString("osd-bar", showOsc)
         MPVLib.setOptionString("osd-level", if (state.config.showControls) "1" else "0")
-        MPVLib.setOptionString("keep-open", "yes") // Prevent mpv from exiting or showing the drag-and-drop logo
-        MPVLib.setOptionString("demuxer-seekable-cache", "no") // Force network re-fetch on seek; in-cache seek silently fails on HLS
-        MPVLib.setOptionString("hr-seek", "no") // Disable hr-seek: its two-pass seek (keyframe then precise) causes double-seek on HLS, landing at wrong position
+        MPVLib.setOptionString("keep-open", "yes") 
+        MPVLib.setOptionString("demuxer-seekable-cache", "no") 
+        MPVLib.setOptionString("hr-seek", "no") 
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
         
@@ -122,7 +156,13 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("sub-ass", "yes")
         MPVLib.setOptionString("sub-ass-override", "scale")
         
-        MPVLib.init()
+        // Only init once
+        synchronized(MPVLibLock) {
+            if (!isMPVInited) {
+                MPVLib.init()
+                isMPVInited = true
+            }
+        }
 
         var isPausedForCache = false
         val observer = object : MPVLib.EventObserver {
@@ -148,8 +188,6 @@ actual fun VideoPlayerSurface(
             
             override fun eventProperty(property: String, value: Double) {
                 if (property == "time-pos") {
-                    // Suppress stale time-pos updates while mpv is actively seeking;
-                    // the slider would snap back to the pre-seek position otherwise.
                     if (!isSeeking.value) {
                         state.position = value
                     }
@@ -163,7 +201,6 @@ actual fun VideoPlayerSurface(
                     MPVLib.MPV_EVENT_FILE_LOADED -> {
                         state.isPlaying = true
                         
-                        // Extract Tracks
                         try {
                             val count = MPVLib.getPropertyInt("track-list/count") ?: 0
                             val aTracks = mutableListOf<Pair<Int, String>>()
@@ -187,7 +224,6 @@ actual fun VideoPlayerSurface(
                             println("[VideoPlayerSurface] Error extracting tracks: ${e.message}")
                         }
                         
-                        // Load pending subtitles asynchronously to prevent JNI blocking
                         state.allSubUrls?.let { subs ->
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                 subs.forEach { (url, name, isDefault) ->
@@ -218,62 +254,19 @@ actual fun VideoPlayerSurface(
         MPVLib.observeProperty("seeking", MPVLib.MPV_FORMAT_FLAG)
         MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
 
-        var urlLoaded = false
-        val listener = object : TextureView.SurfaceTextureListener {
-            private var currentSurface: Surface? = null
-
-            override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-                val surface = Surface(texture)
-                currentSurface = surface
-                MPVLib.attachSurface(surface)
-                MPVLib.setOptionString("force-window", "yes")
-                if (!urlLoaded) {
-                    urlLoaded = true
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                        if (state.config.startPosition > 0.0) {
-                            MPVLib.setOptionString("start", state.config.startPosition.toString())
-                        }
-                        MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
-                    }
-                } else {
-                    MPVLib.setPropertyString("vo", "gpu")
-                }
-                MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
-            }
-
-            override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
-                MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
-                MPVLib.command(arrayOf("video-redraw"))
-            }
-
-            override fun onSurfaceTextureUpdated(texture: SurfaceTexture) {
-                // Not needed for MPV explicitly
-            }
-
-            override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                MPVLib.setPropertyString("vo", "null")
-                MPVLib.setPropertyString("force-window", "no")
-                MPVLib.detachSurface()
-                currentSurface?.release()
-                currentSurface = null
-                return true
-            }
-        }
-        
-        textureView.surfaceTextureListener = listener
-
         onDispose {
             MPVLib.removeObserver(observer)
-            textureView.surfaceTextureListener = null
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                MPVLib.command(arrayOf<String>("stop"))
-                MPVLib.destroy()
-            }
+            // Synchronously stop and detach to avoid races in native rendering threads during re-init
+            MPVLib.command(arrayOf<String>("stop"))
+            MPVLib.setPropertyString("vo", "null")
+            MPVLib.detachSurface()
+            // We do NOT call MPVLib.destroy() here because we reuse it across videos
+            // to avoid the "pthread_mutex_lock called on a destroyed mutex" crash in libhwui.
         }
     }
 
     LaunchedEffect(state.pauseRequested) {
-        state.isPaused = state.pauseRequested // Instant UI snap
+        state.isPaused = state.pauseRequested 
         withContext(Dispatchers.IO) {
             MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
         }
@@ -293,8 +286,7 @@ actual fun VideoPlayerSurface(
                     MPVLib.setOptionString("panscan", "0")
                 }
                 "Stretch" -> {
-                    // Try to force distortion filling current window aspect
-                    MPVLib.setOptionString("video-aspect-override", "16:9") // better default for modern phones
+                    MPVLib.setOptionString("video-aspect-override", "16:9") 
                     MPVLib.setOptionString("panscan", "0")
                 }
                 "Zoom" -> {
@@ -311,14 +303,12 @@ actual fun VideoPlayerSurface(
         state.seekTarget = null
         isSeeking.value = true
         val safeTarget = target.coerceAtLeast(0.1)
-        // Snap UI to target immediately so slider doesn't jump
         state.position = safeTarget
 
         withContext(Dispatchers.IO) {
             MPVLib.command(arrayOf("seek", safeTarget.toString(), "absolute"))
         }
 
-        // Wait for mpv's position to stabilize (two consecutive reads within 1s)
         var lastPos = -1.0
         var waited = 0
         while (waited < 3000) {
@@ -340,7 +330,7 @@ actual fun VideoPlayerSurface(
     LaunchedEffect(state.subFileUrl) {
         state.subFileUrl?.let { sub ->
             if (sub == "NONE") {
-                MPVLib.setPropertyInt("sid", 0) // Disable subtitles
+                MPVLib.setPropertyInt("sid", 0) 
             } else {
                 val localPath = withContext(Dispatchers.IO) {
                     to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(sub)
@@ -352,7 +342,7 @@ actual fun VideoPlayerSurface(
             state.subFileUrl = null
         }
     }
-    // Runtime all-subs load (on new episode/server change after file read)
+    // Runtime all-subs load 
     LaunchedEffect(state.allSubUrls) {
         state.allSubUrls?.let { subs ->
             if (state.isPlaying) {
@@ -396,7 +386,7 @@ actual fun VideoPlayerSurface(
 
     AndroidView(
         factory = {
-            textureView.apply {
+            surfaceView.apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
@@ -406,3 +396,8 @@ actual fun VideoPlayerSurface(
         modifier = modifier.background(Color.Black)
     )
 }
+
+// Ensure MPV natively creates only once for app stability
+private var isMPVInitialized = false
+private var isMPVInited = false
+private val MPVLibLock = Any()
