@@ -14,7 +14,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         val AUTO_SKIP_INTRO_KEY = booleanPreferencesKey("auto_skip_intro")
         val AUTO_SKIP_OUTRO_KEY = booleanPreferencesKey("auto_skip_outro")
         val DEFAULT_LANG_KEY = booleanPreferencesKey("default_lang")
-        val DEFAULT_COMMENTS_KEY = booleanPreferencesKey("default_comments")
         val SYNC_PERCENTAGE_KEY = androidx.datastore.preferences.core.intPreferencesKey("sync_percentage")
     }
 
@@ -23,7 +22,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val autoSkipIntroFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_SKIP_INTRO_KEY] ?: false }
     val autoSkipOutroFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_SKIP_OUTRO_KEY] ?: false }
     val defaultLangFlow: Flow<Boolean> = dataStore.data.map { it[DEFAULT_LANG_KEY] ?: false }
-    val defaultCommentsFlow: Flow<Boolean> = dataStore.data.map { it[DEFAULT_COMMENTS_KEY] ?: true }
     val syncPercentageFlow: Flow<Int> = dataStore.data.map { it[SYNC_PERCENTAGE_KEY] ?: 80 }
 
     suspend fun setAutoPlay(enabled: Boolean) {
@@ -44,10 +42,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setDefaultLang(enabled: Boolean) {
         dataStore.edit { it[DEFAULT_LANG_KEY] = enabled }
-    }
-
-    suspend fun setDefaultComments(enabled: Boolean) {
-        dataStore.edit { it[DEFAULT_COMMENTS_KEY] = enabled }
     }
 
     suspend fun setSyncPercentage(percentage: Int) {

@@ -45,7 +45,6 @@ data class WatchUiState(
     val autoSkipIntro: Boolean = false,
     val autoSkipOutro: Boolean = false,
     val defaultLang: Boolean = false,
-    val defaultComments: Boolean = true,
     val syncPercentage: Int = 80,
     val offlinePath: String? = null,
     // Offline metadata
@@ -68,7 +67,6 @@ class WatchViewModel(
         viewModelScope.launch { settingsStore.autoSkipIntroFlow.collect { v -> _uiState.update { it.copy(autoSkipIntro = v) } } }
         viewModelScope.launch { settingsStore.autoSkipOutroFlow.collect { v -> _uiState.update { it.copy(autoSkipOutro = v) } } }
         viewModelScope.launch { settingsStore.defaultLangFlow.collect { v -> _uiState.update { it.copy(defaultLang = v) } } }
-        viewModelScope.launch { settingsStore.defaultCommentsFlow.collect { v -> _uiState.update { it.copy(defaultComments = v) } } }
         viewModelScope.launch { settingsStore.syncPercentageFlow.collect { v -> _uiState.update { it.copy(syncPercentage = v) } } }
     }
 
@@ -466,7 +464,6 @@ class WatchViewModel(
                     skipIntro = state.autoSkipIntro,
                     skipOutro = state.autoSkipOutro,
                     defaultLang = state.defaultLang,
-                    defaultComments = state.defaultComments,
                     syncPercentage = state.syncPercentage
                 )
                 settingsService.updatePreferences(updated)

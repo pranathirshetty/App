@@ -135,13 +135,6 @@ class SettingsViewModel(
             }
         }
         viewModelScope.launch {
-            settingsStore.defaultCommentsFlow.collect { v -> 
-                if (!_uiState.value.hasPreferencesChanges) {
-                    _uiState.update { it.copy(preferences = it.preferences.copy(defaultComments = v)) }
-                }
-            }
-        }
-        viewModelScope.launch {
             settingsStore.syncPercentageFlow.collect { v -> 
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(syncPercentage = v)) }
@@ -176,7 +169,6 @@ class SettingsViewModel(
                     settingsStore.setAutoSkipIntro(prefs.skipIntro)
                     settingsStore.setAutoSkipOutro(prefs.skipOutro)
                     settingsStore.setDefaultLang(prefs.defaultLang)
-                    settingsStore.setDefaultComments(prefs.defaultComments)
                     settingsStore.setSyncPercentage(prefs.syncPercentage)
                 }
             } else {
@@ -210,7 +202,6 @@ class SettingsViewModel(
                     settingsStore.setAutoSkipIntro(prefs.skipIntro)
                     settingsStore.setAutoSkipOutro(prefs.skipOutro)
                     settingsStore.setDefaultLang(prefs.defaultLang)
-                    settingsStore.setDefaultComments(prefs.defaultComments)
                     settingsStore.setSyncPercentage(prefs.syncPercentage)
                 }
             } else {
@@ -234,7 +225,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setDefaultComments(enabled: Boolean) = updatePreference { it.copy(defaultComments = enabled) }
     fun setDefaultLang(enabled: Boolean) = updatePreference { it.copy(defaultLang = enabled) }
     fun setAutoNext(enabled: Boolean) = updatePreference { it.copy(autoNext = enabled) }
     fun setAutoPlay(enabled: Boolean) = updatePreference { it.copy(autoPlay = enabled) }
