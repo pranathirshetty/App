@@ -47,11 +47,15 @@ fun ConfirmDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Box(
+            Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(onClick = onDismiss),
+                .background(Color.Black.copy(alpha = 0.75f))
+                .clickable(
+                    onClick = onDismiss,
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ),
             contentAlignment = Alignment.Center,
         ) {
             AnimatedVisibility(
@@ -68,11 +72,15 @@ fun ConfirmDialog(
                 Column(
                     modifier = Modifier
                         .widthIn(max = 380.dp)
-                        .padding(horizontal = 28.dp)
+                        .padding(horizontal = 24.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
-                        .clickable(onClick = {}),
+                        .background(Color(0xFF0D0D0D))
+                        .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                        .clickable(
+                            onClick = {},
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ),
                 ) {
                     // Title + message
                     Column(
@@ -109,7 +117,7 @@ fun ConfirmDialog(
                             modifier = Modifier.weight(1f),
                             onClick = onDismiss,
                         )
-                        Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.07f)))
+                        Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.08f)))
                         DialogActionCell(
                             label = confirmLabel,
                             icon = Icons.Default.Delete,
@@ -132,13 +140,6 @@ private fun DialogActionCell(
     isPrimary: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val inter = remember { MutableInteractionSource() }
-    val hovered by inter.collectIsHoveredAsState()
-
-    val bg by animateColorAsState(
-        targetValue = if (hovered) Color.White.copy(alpha = if (isPrimary) 0.10f else 0.05f) else Color.Transparent,
-        animationSpec = tween(200),
-    )
     val tint by animateColorAsState(
         targetValue = if (isPrimary) Color.White else Color.White.copy(alpha = 0.65f),
         animationSpec = tween(200),
@@ -147,8 +148,6 @@ private fun DialogActionCell(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(bg)
-            .hoverable(inter)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -161,3 +160,4 @@ private fun DialogActionCell(
         }
     }
 }
+
