@@ -300,17 +300,29 @@ class WatchViewModel(
 
                 if (chapters.isNotEmpty()) {
                     if (intro == null) {
-                        chapters.find { ch ->
-                            val t = ch.title?.lowercase() ?: ""
-                            t.contains("opening") || t == "op" || t.contains("theme") || t.contains(" intro") || t.startsWith("intro")
-                        }?.let { ch ->
+                        // Priority 1: Openings
+                        var foundIntro = chapters.find { ch ->
+                            val t = ch.title?.lowercase()?.trim() ?: ""
+                            t == "opening" || t == "title sequence" || t == "op" ||
+                            t.contains("opening") || t.contains("theme") || t.contains(" op") || t.contains("op ")
+                        }
+                        // Priority 2: Intro
+                        if (foundIntro == null) {
+                            foundIntro = chapters.find { ch ->
+                                val t = ch.title?.lowercase()?.trim() ?: ""
+                                t == "intro" || t.contains("intro")
+                            }
+                        }
+                        foundIntro?.let { ch ->
                             intro = to.kuudere.anisuge.data.models.SkipData(ch.resolvedStart, ch.resolvedEnd)
                         }
                     }
                     if (outro == null) {
                         chapters.find { ch ->
-                            val t = ch.title?.lowercase() ?: ""
-                            t.contains("credit") || t.contains("ending") || t == "ed" || t.contains("outro") || t.contains("closing")
+                            val t = ch.title?.lowercase()?.trim() ?: ""
+                            t.contains("credit") || t.contains("end") || t.contains("ed") ||
+                            t.contains("outro") || t.contains("closing") || t.contains("credits") ||
+                            t.contains(" ed") || t.contains("ed ")
                         }?.let { ch ->
                             outro = to.kuudere.anisuge.data.models.SkipData(ch.resolvedStart, ch.resolvedEnd)
                         }
