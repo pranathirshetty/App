@@ -128,6 +128,22 @@ class AuthService(
             sessionStore.clear()
         }
     }
+
+    suspend fun getAniListToken(): String? {
+        val stored = sessionStore.get() ?: return null
+        return try {
+            val response = httpClient.get("$BASE_URL/api/auth/anilist/token") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            if (response.status == HttpStatusCode.OK) {
+                val body: to.kuudere.anisuge.data.models.AniListTokenResponse = response.body()
+                if (body.success) body.access_token else null
+            } else null
+        } catch (e: Exception) {
+            println("[AuthService] getAniListToken error: ${e.message}")
+            null
+        }
+    }
 }
 
 

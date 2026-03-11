@@ -158,13 +158,12 @@ internal class MpvPlayer(
             println("[MpvPlayer] isSeeking=false after ${waited}ms, position now=${state.position}")
         }
     }
-
     fun setSubFile(url: String) {
-        ctx ?: return
+        val handle = ctx ?: return
         val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
             ?: return println("[MpvPlayer] setSubFile: prepareSubtitle returned null for $url")
         println("[MpvPlayer] sub-add -> $localPath")
-        val r = lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, "select", null))
+        val r = lib?.mpv_command(handle, arrayOf("sub-add", localPath, "select", null))
         println("[MpvPlayer] sub-add result: $r")
     }
 
@@ -295,7 +294,7 @@ internal class MpvPlayer(
                                         val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                         if (localPath != null) {
                                             val flag = if (isDefault) "select" else "auto"
-                                            lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
+                                            lib?.mpv_command(handle, arrayOf("sub-add", localPath, flag, null))
                                             println("[MpvPlayer] sub-add [$flag] -> $localPath")
                                         }
                                     }
@@ -365,7 +364,7 @@ internal class MpvPlayer(
                 }
 
                 if (state.cycleAudio) {
-                    lib?.mpv_command(ctx!!, arrayOf("cycle", "audio", null))
+                    lib?.mpv_command(handle, arrayOf("cycle", "audio", null))
                     withContext(Dispatchers.Main) { state.cycleAudio = false }
                     lastSentAudioTrack = null // reset so next explicit selection forces update
                 }
@@ -426,7 +425,7 @@ internal class MpvPlayer(
                                 val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
                                 if (localPath != null) {
                                     val flag = if (isDefault) "select" else "auto"
-                                    lib?.mpv_command(ctx!!, arrayOf("sub-add", localPath, flag, null))
+                                    lib?.mpv_command(handle, arrayOf("sub-add", localPath, flag, null))
                                 }
                             }
                         }

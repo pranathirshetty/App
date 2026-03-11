@@ -46,6 +46,7 @@ data class WatchUiState(
     val autoSkipOutro: Boolean = false,
     val defaultLang: Boolean = false,
     val syncPercentage: Int = 80,
+    val didMarkWatched: Boolean = false,
     val offlinePath: String? = null,
     // Offline metadata
     val offlineTitle: String? = null
@@ -88,6 +89,7 @@ class WatchViewModel(
                 targetLang = null,
                 targetSubtitleLang = null,
                 targetSubtitleLangCode = null,
+                didMarkWatched = false,
                 offlinePath = offlinePath,
                 offlineTitle = offlineTitle
             )
@@ -376,7 +378,7 @@ class WatchViewModel(
     }
 
     fun onEpisodeSelected(episodeNumber: Int) {
-        _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null) }
+        _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null, didMarkWatched = false) }
         fetchEpisodeData(episodeNumber)
     }
 
@@ -397,6 +399,31 @@ class WatchViewModel(
                 server = server,
                 language = language
             )
+
+            // AniList Sync
+            val state = _uiState.value
+            if (!state.didMarkWatched && duration > 0) {
+                val ratio = currentTime / duration
+                if (ratio * 100 >= state.syncPercentage) {
+                    val anilistId = state.episodeData?.animeInfo?.anilist
+                    if (anilistId != null) {
+                        _uiState.update { it.copy(didMarkWatched = true) }
+                        println("[WatchVM] Progress threshold met (${state.syncPercentage}%). Syncing episode ${state.currentEpisodeNumber} to AniList.")
+                        
+                        // Fetch token and sync
+                        to.kuudere.anisuge.AppComponent.authService.getAniListToken()?.let { token ->
+                            val folder = state.episodeData.folder ?: "Watching"
+                            val result = to.kuudere.anisuge.AppComponent.aniListService.updateStatus(
+                                accessToken = token,
+                                anilistId = anilistId,
+                                folder = folder,
+                                progress = state.currentEpisodeNumber
+                            )
+                            println("[WatchVM] AniList progress sync result: $result")
+                        } ?: println("[WatchVM] Failed to sync progress: No AniList token found.")
+                    }
+                }
+            }
         }
     }
 
