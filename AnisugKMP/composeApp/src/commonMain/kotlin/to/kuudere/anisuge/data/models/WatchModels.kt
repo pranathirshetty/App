@@ -34,7 +34,7 @@ data class SubtitleData(
     val language: String? = null,
     @SerialName("language_name") val languageName: String? = null,
     val url: String? = null,
-    val is_default: Boolean? = false,
+    @SerialName("default") val is_default: Boolean? = false,
     val title: String? = null,
     val format: String? = null,
 ) {
@@ -63,6 +63,11 @@ data class SkipData(
 @Serializable
 data class ChapterData(
     val title: String? = null,
+    @SerialName("start") val start: Double? = null,
+    @SerialName("end") val end: Double? = null,
     val start_time: Double? = null,
     val end_time: Double? = null
-)
+) {
+    val resolvedStart: Double? get() = start ?: start_time
+    val resolvedEnd: Double? get() = end ?: end_time
+}

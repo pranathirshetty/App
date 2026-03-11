@@ -259,36 +259,65 @@ class WatchViewModel(
                     qualities.add("Auto" to streamData.m3u8_url)
                 }
 
-                val subtitles = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
-                var defaultSubUrl: String? = null
-                var matchedTargetSubUrl: String? = null
-                var partialMatchedTargetSubUrl: String? = null
+                val subtitles = streamData.subtitles ?: emptyList()
                 
-                streamData.subtitles?.forEach { subData ->
-                    val url = subData.url ?: return@forEach
-                    subtitles.add(subData)
-                    if (subData.is_default == true) {
-                        defaultSubUrl = url
+                // Refined Subtitle Selection Logic mirroring +page.server.ts
+                var selectedSubUrl: String? = null
+                val isDub = currState.targetLang == "dub"
+                val englishSubs = subtitles.filter { 
+                    val lang = (it.language ?: it.lang ?: "").lowercase()
+                    lang == "en" || lang == "eng" || it.languageName?.lowercase()?.contains("english") == true
+                }
+
+                if (englishSubs.isNotEmpty()) {
+                    val candidates = englishSubs
+                    if (isDub) {
+                        // Priority for DUB: 1. dubtitle, 2. cc, 3. forced, 4. regular English, 5. first available
+                        selectedSubUrl = candidates.find { it.title?.lowercase()?.contains("dubtitle") == true }?.url
+                            ?: candidates.find { it.title?.lowercase()?.contains("cc") == true }?.url
+                            ?: candidates.find { it.title?.lowercase()?.contains("forced") == true }?.url
+                            ?: candidates.find { !listOf("signs", "songs", "commentary").any { k -> it.title?.lowercase()?.contains(k) == true } }?.url
+                            ?: candidates.firstOrNull()?.url
+                    } else {
+                        // Priority for SUB: 1. regular English, 2. full, 3. first available
+                        selectedSubUrl = candidates.find { !listOf("cc", "forced", "dubtitle", "signs", "songs", "commentary").any { k -> it.title?.lowercase()?.contains(k) == true } }?.url
+                            ?: candidates.find { it.title?.lowercase()?.contains("full") == true && !listOf("cc", "forced", "dubtitle").any { k -> it.title?.lowercase()?.contains(k) == true } }?.url
+                            ?: candidates.find { !listOf("cc", "forced", "dubtitle").any { k -> it.title?.lowercase()?.contains(k) == true } }?.url
+                            ?: candidates.firstOrNull()?.url
                     }
-                    val label = subData.title ?: subData.resolvedLang ?: ""
-                    val langCode = subData.language ?: subData.lang ?: ""
-                    
-                    if (currState.targetSubtitleLang != null) {
-                        if (label.equals(currState.targetSubtitleLang, ignoreCase = true) || 
-                            langCode.equals(currState.targetSubtitleLangCode, ignoreCase = true)) {
-                            matchedTargetSubUrl = url
-                        } else if (
-                            label.lowercase().contains(currState.targetSubtitleLang.lowercase()) ||
-                            currState.targetSubtitleLang.lowercase().contains(label.lowercase())
-                        ) {
-                            if (partialMatchedTargetSubUrl == null) partialMatchedTargetSubUrl = url
+                }
+
+                // Final fallbacks
+                if (selectedSubUrl == null) {
+                    selectedSubUrl = subtitles.find { it.is_default == true }?.url 
+                        ?: subtitles.firstOrNull()?.url
+                }
+
+                // Handle missing chapters/intro/outro for Zen servers
+                var intro = streamData.intro
+                var outro = streamData.outro
+                val chapters = streamData.chapters ?: emptyList()
+
+                if (chapters.isNotEmpty()) {
+                    if (intro == null) {
+                        chapters.find { ch ->
+                            val t = ch.title?.lowercase() ?: ""
+                            t.contains("opening") || t == "op" || t.contains("theme") || t.contains(" intro") || t.startsWith("intro")
+                        }?.let { ch ->
+                            intro = to.kuudere.anisuge.data.models.SkipData(ch.resolvedStart, ch.resolvedEnd)
                         }
-                    } else if (currState.targetSubtitleLangCode != null) {
-                        if (langCode.equals(currState.targetSubtitleLangCode, ignoreCase = true)) {
-                            matchedTargetSubUrl = url
+                    }
+                    if (outro == null) {
+                        chapters.find { ch ->
+                            val t = ch.title?.lowercase() ?: ""
+                            t.contains("credit") || t.contains("ending") || t == "ed" || t.contains("outro") || t.contains("closing")
+                        }?.let { ch ->
+                            outro = to.kuudere.anisuge.data.models.SkipData(ch.resolvedStart, ch.resolvedEnd)
                         }
                     }
                 }
+
+                val finalStreamData = streamData.copy(intro = intro, outro = outro)
 
                 // Download fonts if available
                 var localFontsDir: String? = null
@@ -303,15 +332,15 @@ class WatchViewModel(
                     state.copy(
                         isLoadingVideo = false,
                         loadingMessage = null,
-                        streamingData = streamData,
+                        streamingData = finalStreamData,
                         availableQualities = qualities,
                         currentQuality = qualities.firstOrNull()?.first ?: "Auto",
                         availableSubtitles = subtitles,
-                        currentSubtitleUrl = matchedTargetSubUrl ?: partialMatchedTargetSubUrl ?: defaultSubUrl ?: subtitles.firstOrNull()?.url,
+                        currentSubtitleUrl = selectedSubUrl,
                         currentFontsDir = localFontsDir
                     )
                 }
-                println("[WatchVM] subtitle=${defaultSubUrl ?: subtitles.firstOrNull()?.url}, fontsDir=$localFontsDir, subtitleCount=${subtitles.size}")
+                println("[WatchVM] Selected sub=$selectedSubUrl, intro=${intro?.start}-${intro?.end}, outro=${outro?.start}-${outro?.end}")
             } else {
                 _uiState.update { it.copy(isLoadingVideo = false, loadingMessage = null) }
             }
