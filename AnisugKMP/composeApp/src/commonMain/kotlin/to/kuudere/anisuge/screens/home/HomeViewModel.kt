@@ -83,7 +83,19 @@ class HomeViewModel(
         scope.launch {
             _uiState.update { it.copy(isUpdatingWatchlist = true) }
             try {
-                infoService.updateWatchlistStatus(animeId, folder)
+                val response = infoService.updateWatchlistStatus(animeId, folder)
+                if (response != null && response.success) {
+                    // AniList Sync
+                    response.data?.token?.let { token ->
+                        response.data.anilist?.let { anilistId ->
+                            println("[HomeVM] Triggering AniList sync for $anilistId to $folder")
+                            scope.launch {
+                                val syncResult = to.kuudere.anisuge.AppComponent.aniListService.updateStatus(token, anilistId, folder)
+                                println("[HomeVM] AniList sync result for $anilistId: $syncResult")
+                            }
+                        } ?: println("[HomeVM] No anilistId returned for sync")
+                    } ?: println("[HomeVM] No token returned for sync")
+                }
             } finally {
                 _uiState.update { it.copy(isUpdatingWatchlist = false) }
             }

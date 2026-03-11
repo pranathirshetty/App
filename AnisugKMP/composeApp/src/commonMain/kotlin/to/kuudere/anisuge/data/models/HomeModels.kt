@@ -25,6 +25,7 @@ data class AnimeItem(
     val folder:       String? = null,
     val status:       String? = null,
     val mainId:       String? = null,
+    val anilistId:    Int? = null,
 ) {
     val title: String get() = english?.ifBlank { romaji } ?: romaji ?: ""
     val imageUrl: String get() = cover ?: ""

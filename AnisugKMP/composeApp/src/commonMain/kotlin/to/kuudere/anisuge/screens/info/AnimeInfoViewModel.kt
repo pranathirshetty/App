@@ -106,9 +106,20 @@ class AnimeInfoViewModel(
         
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdatingWatchlist = true) }
-            val success = infoService.updateWatchlistStatus(animeId, folder)
+            val response = infoService.updateWatchlistStatus(animeId, folder)
             
-            if (success) {
+            if (response != null && response.success) {
+                // AniList Sync
+                response.data?.token?.let { token ->
+                    response.data.anilist?.let { anilistId ->
+                        println("[AnimeInfoVM] Triggering AniList sync for $anilistId to $folder")
+                        viewModelScope.launch {
+                            val syncResult = to.kuudere.anisuge.AppComponent.aniListService.updateStatus(token, anilistId, folder)
+                            println("[AnimeInfoVM] AniList sync result for $anilistId: $syncResult")
+                        }
+                    } ?: println("[AnimeInfoVM] No anilistId returned for sync")
+                } ?: println("[AnimeInfoVM] No token returned for sync")
+
                 _uiState.update {
                     it.copy(
                         isUpdatingWatchlist = false,

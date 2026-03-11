@@ -11,6 +11,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import to.kuudere.anisuge.data.models.SessionInfo
 import to.kuudere.anisuge.data.models.WatchlistResponse
+import to.kuudere.anisuge.data.models.WatchlistUpdateResponse
 import kotlinx.serialization.Serializable
 
 class WatchlistService(
@@ -43,18 +44,20 @@ class WatchlistService(
     @Serializable
     private data class UpdateStatusRequest(val animeId: String, val folder: String)
 
-    suspend fun updateStatus(animeId: String, folder: String): Boolean {
+    suspend fun updateStatus(animeId: String, folder: String): WatchlistUpdateResponse? {
         return try {
-            val stored = sessionStore.get() ?: return false
+            val stored = sessionStore.get() ?: return null
             val response = httpClient.post("$BASE_URL/api/anime/watchlist") {
                 contentType(ContentType.Application.Json)
                 header("Cookie", sessionToCookie(stored))
                 setBody(UpdateStatusRequest(animeId, folder))
             }
-            response.status.value in 200..299
+            if (response.status.value in 200..299) {
+                response.body<WatchlistUpdateResponse>()
+            } else null
         } catch (e: Exception) {
             println("[WatchlistService] updateStatus error: ${e.message}")
-            false
+            null
         }
     }
 }

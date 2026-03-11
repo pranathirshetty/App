@@ -68,9 +68,9 @@ class InfoService(
         }
     }
 
-    suspend fun updateWatchlistStatus(animeId: String, folder: String): Boolean {
+    suspend fun updateWatchlistStatus(animeId: String, folder: String): to.kuudere.anisuge.data.models.WatchlistUpdateResponse? {
         return try {
-            val stored = sessionStore.get() ?: return false
+            val stored = sessionStore.get() ?: return null
             val payload = buildJsonObject {
                 put("animeId", animeId)
                 put("folder", folder)
@@ -80,10 +80,12 @@ class InfoService(
                 contentType(ContentType.Application.Json)
                 setBody(payload.toString())
             }
-            response.status.value in 200..299
+            if (response.status.value in 200..299) {
+                response.body<to.kuudere.anisuge.data.models.WatchlistUpdateResponse>()
+            } else null
         } catch (e: Exception) {
             println("[InfoService] updateWatchlistStatus error: ${e.message}")
-            false
+            null
         }
     }
 

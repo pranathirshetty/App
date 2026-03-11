@@ -16,3 +16,20 @@ data class WatchlistResponse(
     val page: Int get() = currentPageAlt ?: currentPage
     val total: Int get() = totalPagesAlt ?: totalPages
 }
+
+@Serializable
+data class WatchlistUpdateResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val data: WatchlistUpdateData? = null
+)
+
+@Serializable
+data class WatchlistUpdateData(
+    val itemId: String? = null,
+    val folder: String? = null,
+    val anime: String? = null,
+    val token: String? = null,
+    val anilist: Int? = null,
+    val inWatchlist: Boolean = false
+)

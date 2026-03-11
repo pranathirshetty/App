@@ -26,7 +26,7 @@ object AppComponent {
                     isLenient         = true
                 })
             }
-            install(Logging) { level = LogLevel.HEADERS }
+            install(Logging) { level = LogLevel.ALL }
         }
     }
 
@@ -72,5 +72,9 @@ object AppComponent {
 
     val settingsService: to.kuudere.anisuge.data.services.SettingsService by lazy {
         to.kuudere.anisuge.data.services.SettingsService(sessionStore, httpClient)
+    }
+
+    val aniListService: to.kuudere.anisuge.data.services.AniListService by lazy {
+        to.kuudere.anisuge.data.services.AniListService(httpClient)
     }
 }

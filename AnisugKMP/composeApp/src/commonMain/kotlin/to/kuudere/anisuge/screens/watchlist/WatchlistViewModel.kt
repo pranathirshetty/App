@@ -142,8 +142,19 @@ class WatchlistViewModel : ViewModel() {
     fun updateAnimeStatus(animeId: String, newFolder: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdating = true) }
-            val success = watchlistService.updateStatus(animeId, newFolder)
-            if (success) {
+            val response = watchlistService.updateStatus(animeId, newFolder)
+            if (response != null && response.success) {
+                // AniList Sync
+                response.data?.token?.let { token ->
+                    response.data.anilist?.let { anilistId ->
+                        println("[WatchlistVM] Triggering AniList sync for $anilistId to $newFolder")
+                        viewModelScope.launch {
+                            val syncResult = AppComponent.aniListService.updateStatus(token, anilistId, newFolder)
+                            println("[WatchlistVM] AniList sync result for $anilistId: $syncResult")
+                        }
+                    } ?: println("[WatchlistVM] No anilistId returned for sync")
+                } ?: println("[WatchlistVM] No token returned for sync")
+
                 // Remove from list if current folder doesn't match new status
                 val currentFolder = _uiState.value.selectedFolder
                 if (currentFolder != "All" && currentFolder != "All lists" && currentFolder != newFolder) {

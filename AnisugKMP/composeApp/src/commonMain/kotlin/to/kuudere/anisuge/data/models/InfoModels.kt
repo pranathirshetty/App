@@ -48,12 +48,6 @@ data class AnimeDetailsResponse(
 )
 
 @Serializable
-data class WatchlistUpdateResponse(
-    val success: Boolean = true,
-    val message: String? = null
-)
-
-@Serializable
 data class ContinueWatching(
     val continueId: String? = null,
     val link: String? = null,
