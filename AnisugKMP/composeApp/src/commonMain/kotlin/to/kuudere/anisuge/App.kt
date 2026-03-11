@@ -105,8 +105,8 @@ fun App(onAppExit: () -> Unit = {}) {
                         settingsViewModel = settingsVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
-                        onWatchOffline = { id, ep, path -> 
-                            navController.navigate(Screen.Watch(id, ep, offlinePath = path).route) 
+                        onWatchOffline = { id, ep, path, title ->
+                            navController.navigate(Screen.Watch(id, ep, offlinePath = path, offlineTitle = title).route)
                         },
                         onLogout = {
                             navController.navigate(Screen.Auth.route) {
@@ -158,7 +158,8 @@ fun App(onAppExit: () -> Unit = {}) {
                         navArgument("episodeNumber") { type = androidx.navigation.NavType.StringType },
                         navArgument("server") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
                         navArgument("lang") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
-                        navArgument("offlinePath") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
+                        navArgument("offlinePath") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("offlineTitle") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
                     )
                 ) { backStackEntry ->
                     val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
@@ -167,6 +168,7 @@ fun App(onAppExit: () -> Unit = {}) {
                     val server = backStackEntry.arguments?.getString("server")
                     val lang = backStackEntry.arguments?.getString("lang")
                     val offlinePath = backStackEntry.arguments?.getString("offlinePath")
+                    val offlineTitle = backStackEntry.arguments?.getString("offlineTitle")
 
                     WatchScreen(
                         animeId = animeId,
@@ -174,6 +176,7 @@ fun App(onAppExit: () -> Unit = {}) {
                         server = server,
                         lang = lang,
                         offlinePath = offlinePath,
+                        offlineTitle = offlineTitle,
                         viewModel = watchVm,
                         onBack = { navController.popBackStack() }
                     )

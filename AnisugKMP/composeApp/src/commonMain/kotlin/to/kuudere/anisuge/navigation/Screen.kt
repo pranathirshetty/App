@@ -22,19 +22,21 @@ sealed class Screen(val route: String) {
         val episodeNumber: Int,
         val server: String? = null,
         val lang: String? = null,
-        val offlinePath: String? = null
+        val offlinePath: String? = null,
+        val offlineTitle: String? = null
     ) : Screen(
         "watch/$animeId/$episodeNumber" + buildString {
-            if (server != null || lang != null || offlinePath != null) append("?")
+            if (server != null || lang != null || offlinePath != null || offlineTitle != null) append("?")
             val params = mutableListOf<String>()
             if (server != null) params.add("server=$server")
             if (lang != null) params.add("lang=$lang")
             if (offlinePath != null) params.add("offlinePath=$offlinePath")
+            if (offlineTitle != null) params.add("offlineTitle=$offlineTitle")
             append(params.joinToString("&"))
         }
     ) {
         companion object {
-            const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}&offlinePath={offlinePath}"
+            const val route = "watch/{animeId}/{episodeNumber}?server={server}&lang={lang}&offlinePath={offlinePath}&offlineTitle={offlineTitle}"
         }
     }
 

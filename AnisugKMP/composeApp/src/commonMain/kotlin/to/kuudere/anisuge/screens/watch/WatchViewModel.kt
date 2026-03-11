@@ -44,7 +44,9 @@ data class WatchUiState(
     val autoNext: Boolean = true,
     val autoSkipIntro: Boolean = false,
     val autoSkipOutro: Boolean = false,
-    val offlinePath: String? = null
+    val offlinePath: String? = null,
+    // Offline metadata
+    val offlineTitle: String? = null
 )
 
 class WatchViewModel(
@@ -63,14 +65,15 @@ class WatchViewModel(
         viewModelScope.launch { settingsStore.autoSkipOutroFlow.collect { v -> _uiState.update { it.copy(autoSkipOutro = v) } } }
     }
 
-    fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null) {
+    fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null, offlineTitle: String? = null) {
         currentAnimeId = animeId
-        _uiState.update { 
+        _uiState.update {
             it.copy(
-                currentEpisodeNumber = episodeNumber, 
+                currentEpisodeNumber = episodeNumber,
                 isLoading = true,
                 loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
                 isLoadingVideo = false,
+                episodeData = null,  // Clear previous anime data
                 streamingData = null,
                 availableQualities = emptyList(),
                 availableSubtitles = emptyList(),
@@ -80,8 +83,9 @@ class WatchViewModel(
                 targetLang = null,
                 targetSubtitleLang = null,
                 targetSubtitleLangCode = null,
-                offlinePath = offlinePath
-            ) 
+                offlinePath = offlinePath,
+                offlineTitle = offlineTitle
+            )
         }
         if (offlinePath != null) {
             loadOfflineStream(offlinePath)

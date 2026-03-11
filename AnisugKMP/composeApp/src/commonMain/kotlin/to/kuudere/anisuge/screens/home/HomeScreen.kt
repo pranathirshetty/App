@@ -172,7 +172,7 @@ fun HomeScreen(
     settingsViewModel: SettingsViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
-    onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> },
+    onWatchOffline: (String, Int, String, String) -> Unit = { _, _, _, _ -> },
     onLogout: () -> Unit = {},
     onExit: () -> Unit = {},
     startOnDownloads: Boolean = false,
@@ -1595,7 +1595,7 @@ fun HomeOfflineState(onRetry: () -> Unit, isLoading: Boolean = false) {
 // ── Downloads Tab ─────────────────────────────────────────────────────────
 
 @Composable
-fun DownloadsTab(onWatchOffline: (String, Int, String) -> Unit = { _, _, _ -> }) {
+fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _, _, _ -> }) {
     val tasks by DownloadManager.tasks.collectAsState()
     val sortedTasks = remember(tasks) {
         tasks.sortedWith(
@@ -1849,7 +1849,7 @@ private fun DownloadsStatChip(
 @Composable
 private fun DownloadTaskCard(
     task: DownloadTask,
-    onWatchOffline: (String, Int, String) -> Unit,
+    onWatchOffline: (String, Int, String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val manager = DownloadManager
@@ -2030,7 +2030,7 @@ private fun DownloadTaskCard(
                     label = "Play",
                     isPrimary = true,
                     modifier = Modifier.weight(1f),
-                    onClick = { task.localPath?.let { onWatchOffline(task.animeId, task.episodeNumber, it) } },
+                    onClick = { task.localPath?.let { onWatchOffline(task.animeId, task.episodeNumber, it, task.title) } },
                 )
             } else {
                 // Pause / Resume button

@@ -68,6 +68,7 @@ fun WatchScreen(
     server: String? = null,
     lang: String? = null,
     offlinePath: String? = null,
+    offlineTitle: String? = null,
     viewModel: WatchViewModel,
     onBack: () -> Unit
 ) {
@@ -87,7 +88,7 @@ fun WatchScreen(
     }
 
     LaunchedEffect(animeId, episodeNumber, offlinePath) {
-        viewModel.initialize(animeId, episodeNumber, server, lang, offlinePath)
+        viewModel.initialize(animeId, episodeNumber, server, lang, offlinePath, offlineTitle)
     }
 
     Scaffold(
@@ -206,6 +207,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                         val title = animeInfo?.english?.takeIf { !it.isNullOrBlank() }
                             ?: animeInfo?.romaji?.takeIf { !it.isNullOrBlank() }
                             ?: animeInfo?.native?.takeIf { !it.isNullOrBlank() }
+                            ?: uiState.offlineTitle
                             ?: "Unknown"
                         val bannerUrl = animeInfo?.banner?.takeIf {
                             !it.isNullOrBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
@@ -851,11 +853,16 @@ fun WatchVideoPlayer(
             val animeInfo = uiState.episodeData?.animeInfo
             val currentEp = uiState.episodeData?.allEpisodes?.find { it.number == uiState.currentEpisodeNumber }
             val title = buildString {
-                if (animeInfo?.english != null) append(animeInfo.english)
-                if (currentEp != null) {
+                // Use offline title if available, otherwise use anime info
+                val animeTitle = animeInfo?.english?.takeIf { !it.isNullOrBlank() }
+                    ?: animeInfo?.romaji?.takeIf { !it.isNullOrBlank() }
+                    ?: animeInfo?.native?.takeIf { !it.isNullOrBlank() }
+                    ?: uiState.offlineTitle  // Fallback to offline title
+                if (animeTitle != null) append(animeTitle)
+                if (currentEp != null || uiState.offlinePath != null) {
                     if (isNotEmpty()) append(" • ")
                     append("Episode ${uiState.currentEpisodeNumber}")
-                    currentEp.titles?.firstOrNull()?.let { epTitle ->
+                    currentEp?.titles?.firstOrNull()?.let { epTitle ->
                         if (epTitle.isNotEmpty()) append(" - $epTitle")
                     }
                 }
