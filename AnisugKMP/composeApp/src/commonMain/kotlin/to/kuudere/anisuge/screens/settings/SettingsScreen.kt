@@ -2827,7 +2827,7 @@ private fun StorageOverviewCard(
 
             // Stats
             Text(
-                "${formatBytes(storageInfo.totalUsed)} used of ${formatBytes(totalSpace)} (\$usedPercent%)",
+                "${formatBytes(storageInfo.totalUsed)} used of ${formatBytes(totalSpace)} ($usedPercent%)",
                 color = MUTED,
                 fontSize = 14.sp
             )
