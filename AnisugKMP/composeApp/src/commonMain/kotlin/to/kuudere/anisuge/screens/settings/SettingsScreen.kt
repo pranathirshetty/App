@@ -417,6 +417,7 @@ private fun MobileSettingsDetail(
         modifier = Modifier
             .fillMaxSize()
             .background(BG)
+            .verticalScroll(rememberScrollState())
     ) {
         // Header with back
         Row(
@@ -443,8 +444,7 @@ private fun MobileSettingsDetail(
         // Content
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 16.dp)
         ) {
