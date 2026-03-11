@@ -110,6 +110,7 @@ import to.kuudere.anisuge.data.models.AnimeFolderInfo
 import to.kuudere.anisuge.platform.AppVersion
 import to.kuudere.anisuge.platform.PlatformName
 import to.kuudere.anisuge.platform.isDesktopPlatform
+import to.kuudere.anisuge.ui.ConfirmDialog
 
 // ── Colors ── Black & white theme ────────────────────────────────────────────────
 private val BG       = Color(0xFF0B0B0B)
@@ -148,13 +149,9 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(selectedTab) {
-        when (selectedTab) {
-            is SettingsTab.Sessions -> viewModel.loadSessions()
-            is SettingsTab.Security -> viewModel.loadMfaStatus()
-            is SettingsTab.Sync -> viewModel.loadAniListStatus()
-            else -> {}
-        }
+        viewModel.onTabSelected(selectedTab)
     }
+
 
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
@@ -246,7 +243,7 @@ fun SettingsScreen(
                             }
                         )
                     } else {
-                        // Detail screen
+                        // Detail page
                         MobileSettingsDetail(
                             tab = detailTab,
                             navItems = navItems,
@@ -258,6 +255,72 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        // Confirmation Dialogs
+        if (uiState.showDisconnectConfirm) {
+            ConfirmDialog(
+                title = "Disconnect AniList",
+                message = "Are you sure you want to disconnect your AniList account? Your progress will no longer be synced.",
+                confirmLabel = "Disconnect",
+                onConfirm = {
+                    viewModel.setShowDisconnectConfirm(false)
+                    viewModel.disconnectAniList()
+                },
+                onDismiss = { viewModel.setShowDisconnectConfirm(false) }
+            )
+        }
+
+        if (uiState.showDeleteAllSessionsConfirm) {
+            ConfirmDialog(
+                title = "End All Sessions",
+                message = "Are you sure you want to end all other active sessions? You will be logged out on all other devices.",
+                confirmLabel = "End All",
+                onConfirm = {
+                    viewModel.setShowDeleteAllSessionsConfirm(false)
+                    viewModel.deleteAllSessions()
+                },
+                onDismiss = { viewModel.setShowDeleteAllSessionsConfirm(false) }
+            )
+        }
+
+        uiState.deleteSessionId?.let { sessionId ->
+            ConfirmDialog(
+                title = "End Session",
+                message = "Are you sure you want to end this session?",
+                confirmLabel = "End Session",
+                onConfirm = {
+                    viewModel.setDeleteSessionId(null)
+                    viewModel.deleteSession(sessionId)
+                },
+                onDismiss = { viewModel.setDeleteSessionId(null) }
+            )
+        }
+
+        if (uiState.showClearCacheConfirm) {
+            ConfirmDialog(
+                title = "Clear Font Cache",
+                message = "This will delete all cached subtitle fonts. Proceed?",
+                confirmLabel = "Clear",
+                onConfirm = {
+                    viewModel.setShowClearCacheConfirm(false)
+                    viewModel.clearFontCache()
+                },
+                onDismiss = { viewModel.setShowClearCacheConfirm(false) }
+            )
+        }
+
+        uiState.deleteAnimeId?.let { animeId ->
+            ConfirmDialog(
+                title = "Delete Downloads",
+                message = "Delete all downloaded episodes for \"${uiState.deleteAnimeTitle ?: "this anime"}\"?",
+                confirmLabel = "Delete",
+                onConfirm = {
+                    viewModel.setDeleteAnime(null, null)
+                    viewModel.deleteAnimeDownloads(animeId)
+                },
+                onDismiss = { viewModel.setDeleteAnime(null, null) }
+            )
         }
     }
 }
@@ -524,8 +587,8 @@ private fun MobileSettingsDetail(
                 )
                 is SettingsTab.Sessions -> MobileSessionsContent(
                     uiState = uiState,
-                    onDeleteSession = viewModel::deleteSession,
-                    onDeleteAllSessions = viewModel::deleteAllSessions,
+                    onDeleteSession = { viewModel.setDeleteSessionId(it) },
+                    onDeleteAllSessions = { viewModel.setShowDeleteAllSessionsConfirm(true) },
                     onLogout = onLogout
                 )
                 is SettingsTab.Security -> MobileSecurityContent(
@@ -545,7 +608,7 @@ private fun MobileSettingsDetail(
                 is SettingsTab.Sync -> MobileSyncContent(
                     uiState = uiState,
                     onConnect = { viewModel.getAniListAuthUrl() },
-                    onDisconnect = viewModel::disconnectAniList,
+                    onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                     onImport = viewModel::importFromAniList,
                     onExport = viewModel::exportToAniList,
                     onCancel = viewModel::cancelSyncOperation
@@ -553,8 +616,10 @@ private fun MobileSettingsDetail(
                 is SettingsTab.Storage -> MobileStorageContent(
                     uiState = uiState,
                     onRefresh = viewModel::loadStorageInfo,
-                    onClearFontCache = viewModel::clearFontCache,
-                    onDeleteAnime = viewModel::deleteAnimeDownloads,
+                    onClearFontCache = { viewModel.setShowClearCacheConfirm(true) },
+                    onDeleteAnime = { id, title -> 
+                        viewModel.setDeleteAnime(id, title)
+                    },
                     formatBytes = viewModel::formatBytes,
                     formatBytesCompact = viewModel::formatBytesCompact
                 )
@@ -592,8 +657,8 @@ private fun SettingsContent(
             )
             is SettingsTab.Sessions -> SessionsTab(
                 uiState = uiState,
-                onDeleteSession = viewModel::deleteSession,
-                onDeleteAllSessions = viewModel::deleteAllSessions,
+                onDeleteSession = { viewModel.setDeleteSessionId(it) },
+                onDeleteAllSessions = { viewModel.setShowDeleteAllSessionsConfirm(true) },
                 onLogout = onLogout
             )
             is SettingsTab.Security -> SecurityTab(
@@ -613,7 +678,7 @@ private fun SettingsContent(
             is SettingsTab.Sync -> SyncTab(
                 uiState = uiState,
                 onConnect = { viewModel.getAniListAuthUrl() },
-                onDisconnect = viewModel::disconnectAniList,
+                onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                 onImport = viewModel::importFromAniList,
                 onExport = viewModel::exportToAniList,
                 onCancel = viewModel::cancelSyncOperation
@@ -621,8 +686,10 @@ private fun SettingsContent(
             is SettingsTab.Storage -> StorageTab(
                 uiState = uiState,
                 onRefresh = viewModel::loadStorageInfo,
-                onClearFontCache = viewModel::clearFontCache,
-                onDeleteAnime = viewModel::deleteAnimeDownloads,
+                onClearFontCache = { viewModel.setShowClearCacheConfirm(true) },
+                onDeleteAnime = { id, title -> 
+                    viewModel.setDeleteAnime(id, title)
+                },
                 formatBytes = viewModel::formatBytes,
                 formatBytesCompact = viewModel::formatBytesCompact
             )
@@ -2573,8 +2640,8 @@ private fun formatRelativeTime(timestamp: String): String {
 private fun StorageTab(
     uiState: SettingsUiState,
     onRefresh: () -> Unit,
-    onClearFontCache: ((Boolean) -> Unit) -> Unit,
-    onDeleteAnime: (String, (Boolean) -> Unit) -> Unit,
+    onClearFontCache: () -> Unit,
+    onDeleteAnime: (String, String) -> Unit,
     formatBytes: (Long) -> String,
     formatBytesCompact: (Long) -> String,
 ) {
@@ -2626,7 +2693,7 @@ private fun StorageTab(
                         AnimeStorageCard(
                             anime = anime,
                             formatBytes = formatBytes,
-                            onDelete = { onDeleteAnime(anime.animeId) {} }
+                            onDelete = { onDeleteAnime(anime.animeId, anime.title) }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -2664,7 +2731,7 @@ private fun StorageTab(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { onClearFontCache {} },
+                        onClick = onClearFontCache,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                         border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
@@ -2860,8 +2927,8 @@ private fun AnimeStorageCard(
 private fun MobileStorageContent(
     uiState: SettingsUiState,
     onRefresh: () -> Unit,
-    onClearFontCache: ((Boolean) -> Unit) -> Unit,
-    onDeleteAnime: (String, (Boolean) -> Unit) -> Unit,
+    onClearFontCache: () -> Unit,
+    onDeleteAnime: (String, String) -> Unit,
     formatBytes: (Long) -> String,
     formatBytesCompact: (Long) -> String,
 ) {
@@ -2898,7 +2965,7 @@ private fun MobileStorageContent(
                         AnimeStorageCard(
                             anime = anime,
                             formatBytes = formatBytes,
-                            onDelete = { onDeleteAnime(anime.animeId) {} }
+                            onDelete = { onDeleteAnime(anime.animeId, anime.title) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -2922,8 +2989,8 @@ private fun MobileStorageContent(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Cache Actions
-                OutlinedButton(
-                    onClick = { onClearFontCache {} },
+                 OutlinedButton(
+                    onClick = onClearFontCache,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                     border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),

@@ -70,6 +70,14 @@ data class SettingsUiState(
     val storageInfo: StorageInfo? = null,
     val downloadStorageInfo: DownloadStorageInfo? = null,
     val isLoadingStorage: Boolean = false,
+    
+    // Confirmation States
+    val showDisconnectConfirm: Boolean = false,
+    val showDeleteAllSessionsConfirm: Boolean = false,
+    val deleteSessionId: String? = null,
+    val deleteAnimeId: String? = null,
+    val deleteAnimeTitle: String? = null,
+    val showClearCacheConfirm: Boolean = false,
 )
 
 sealed class SettingsTab {
@@ -145,6 +153,35 @@ class SettingsViewModel(
 
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+    }
+
+    fun setShowDisconnectConfirm(show: Boolean) {
+        _uiState.update { it.copy(showDisconnectConfirm = show) }
+    }
+
+    fun setShowDeleteAllSessionsConfirm(show: Boolean) {
+        _uiState.update { it.copy(showDeleteAllSessionsConfirm = show) }
+    }
+
+    fun setDeleteSessionId(id: String?) {
+        _uiState.update { it.copy(deleteSessionId = id) }
+    }
+
+    fun setDeleteAnime(id: String?, title: String?) {
+        _uiState.update { it.copy(deleteAnimeId = id, deleteAnimeTitle = title) }
+    }
+
+    fun setShowClearCacheConfirm(show: Boolean) {
+        _uiState.update { it.copy(showClearCacheConfirm = show) }
+    }
+
+    fun onTabSelected(tab: SettingsTab) {
+        when (tab) {
+            is SettingsTab.Sessions -> loadSessions()
+            is SettingsTab.Security -> loadMfaStatus()
+            is SettingsTab.Sync -> loadAniListStatus()
+            else -> {}
+        }
     }
 
     // ==================== Preferences ====================
