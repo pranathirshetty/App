@@ -219,9 +219,28 @@ actual fun VideoPlayerSurface(
                                 else if (type == "sub") sTracks.add(id to label)
                             }
                             state.audioTracks = aTracks
-                            state.subtitleTracks = sTracks
-                            if (state.selectedSubtitleTrack == null && sTracks.isNotEmpty()) {
-                                state.selectedSubtitleTrack = sTracks.first().first
+                            // Decide where to pull subtitle labels from.
+                            // For offline files we still use mpv's track list, but
+                            // for online streams we want the names provided by the API
+                            // (stored earlier in state.allSubUrls) because the container
+                            // track names vanish after load.
+                            val isOffline = state.config.url.startsWith("file://") ||
+                                    state.config.url.startsWith("/")
+                            if (isOffline) {
+                                state.subtitleTracks = sTracks
+                                if (state.selectedSubtitleTrack == null && sTracks.isNotEmpty()) {
+                                    state.selectedSubtitleTrack = sTracks.first().first
+                                }
+                            } else {
+                                val apiSubs = state.allSubUrls ?: emptyList()
+                                state.subtitleTracks = apiSubs.mapIndexed { idx, sub ->
+                                    idx to sub.second
+                                }
+                                // select default if available
+                                val defaultIndex = apiSubs.indexOfFirst { it.third }
+                                if (defaultIndex >= 0) {
+                                    state.selectedSubtitleTrack = defaultIndex
+                                }
                             }
                         } catch (e: Exception) {
                             println("[VideoPlayerSurface] Error extracting tracks: ${e.message}")
