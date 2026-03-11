@@ -11,6 +11,15 @@ val LocalWindowState = staticCompositionLocalOf<WindowState> {
 }
 
 actual val isDesktopPlatform: Boolean = true
+actual val PlatformName: String = System.getProperty("os.name").let { os ->
+    val lower = os.lowercase()
+    when {
+        "windows" in lower -> "Windows"
+        "linux" in lower   -> "Linux"
+        "mac" in lower     -> "macOS"
+        else               -> "Desktop"
+    }
+}
 
 @Composable
 actual fun LockScreenOrientation(landscape: Boolean) {

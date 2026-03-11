@@ -96,6 +96,7 @@ class SettingsViewModel(
 
     init {
         loadPreferences()
+        loadSessions()
     }
 
     fun clearMessages() {

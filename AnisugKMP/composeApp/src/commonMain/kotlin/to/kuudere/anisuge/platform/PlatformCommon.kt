@@ -2,6 +2,9 @@ package to.kuudere.anisuge.platform
 import androidx.compose.runtime.Composable
 
 expect val isDesktopPlatform: Boolean
+expect val PlatformName: String
+
+val AppVersion: String = "1.0.0"
 
 /** Requests landscape on Android, ignored/different on desktop */
 @Composable

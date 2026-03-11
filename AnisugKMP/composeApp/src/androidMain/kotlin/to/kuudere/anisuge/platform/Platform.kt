@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 
 actual val isDesktopPlatform: Boolean = false
+actual val PlatformName: String = "Android"
 
 @Composable
 actual fun LockScreenOrientation(landscape: Boolean) {

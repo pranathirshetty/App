@@ -107,6 +107,9 @@ import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.SessionInfoResponse
 import to.kuudere.anisuge.data.models.StorageInfo
 import to.kuudere.anisuge.data.models.AnimeFolderInfo
+import to.kuudere.anisuge.platform.AppVersion
+import to.kuudere.anisuge.platform.PlatformName
+import to.kuudere.anisuge.platform.isDesktopPlatform
 
 // ── Colors ── Black & white theme ────────────────────────────────────────────────
 private val BG       = Color(0xFF0B0B0B)
@@ -190,6 +193,7 @@ fun SettingsScreen(
                         navItems = navItems,
                         selectedTab = selectedTab,
                         onTabSelect = { selectedTab = it },
+                        uiState = uiState,
                         modifier = Modifier.width(260.dp)
                     )
 
@@ -229,6 +233,7 @@ fun SettingsScreen(
                         // Main settings list
                         MobileSettingsList(
                             navItems = navItems,
+                            uiState = uiState,
                             onItemClick = {
                                 showDetail = it
                                 // Load data when opening detail
@@ -263,6 +268,7 @@ private fun Sidebar(
     navItems: List<SettingsNavItem>,
     selectedTab: SettingsTab,
     onTabSelect: (SettingsTab) -> Unit,
+    uiState: SettingsUiState,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -315,14 +321,53 @@ private fun Sidebar(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // App Stats
+        val displayPlatform = (uiState.currentSession?.osName?.takeIf { it.isNotBlank() } ?: PlatformName)
+            .let { p ->
+                if (p.lowercase() == "macos") "macOS" 
+                else p.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
+
+        AppStatsSection(
+            version = uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion,
+            platform = displayPlatform,
+            userId = uiState.currentSession?.userId ?: "Not logged in",
+            modifier = Modifier.padding(start = 12.dp)
+        )
     }
 }
 
 @Composable
 private fun AppStatItem(label: String, value: String) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(label, color = MUTED, fontSize = 11.sp)
-        Text(value, color = TEXT.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = MUTED, fontSize = 12.sp)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(value, color = TEXT.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun AppStatsSection(
+    version: String,
+    platform: String,
+    userId: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.padding(vertical = 12.dp)) {
+        Text(
+            "APP STATS",
+            color = MUTED,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        AppStatItem("Client Version", version)
+        AppStatItem("Platform", platform)
+        AppStatItem("User ID", userId)
     }
 }
 
@@ -330,6 +375,7 @@ private fun AppStatItem(label: String, value: String) {
 @Composable
 private fun MobileSettingsList(
     navItems: List<SettingsNavItem>,
+    uiState: SettingsUiState,
     onItemClick: (SettingsTab) -> Unit,
 ) {
     Column(
@@ -357,6 +403,23 @@ private fun MobileSettingsList(
                 onClick = { onItemClick(item.tab) }
             )
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider(thickness = 1.dp, color = BORDER)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // App Stats
+        val displayPlatform = (uiState.currentSession?.osName?.takeIf { it.isNotBlank() } ?: PlatformName)
+            .let { p ->
+                if (p.lowercase() == "macos") "macOS"
+                else p.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
+
+        AppStatsSection(
+            version = uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion,
+            platform = displayPlatform,
+            userId = uiState.currentSession?.userId ?: "Not logged in"
+        )
     }
 }
 
