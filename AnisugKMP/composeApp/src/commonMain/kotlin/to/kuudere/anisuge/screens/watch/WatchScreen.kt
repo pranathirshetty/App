@@ -992,6 +992,116 @@ fun WatchVideoPlayer(
                         }
                     }
                 }
+
+                // Skip Intro Overlay
+                val intro = uiState.streamingData?.intro
+                if (intro != null && intro.start != null && intro.end != null) {
+                    if (playerState.position >= intro.start && playerState.position < intro.end - 1.0 && !uiState.autoSkipIntro) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, start = 32.dp),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.8f))
+                                        .clickable { playerState.seekTarget = intro.end.toDouble() }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.FastForward,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Skip Intro",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.8f))
+                                        .clickable { viewModel.setAutoSkipIntro(true) }
+                                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        "Auto",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Skip Outro Overlay
+                val outro = uiState.streamingData?.outro
+                if (outro != null && outro.start != null && outro.end != null) {
+                    if (playerState.position >= outro.start && playerState.position < outro.end - 1.0 && !uiState.autoSkipOutro) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, start = 32.dp),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.8f))
+                                        .clickable { playerState.seekTarget = outro.end.toDouble() }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.FastForward,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Skip Outro",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(8.dp))
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                        .background(Color.Black.copy(alpha = 0.8f))
+                                        .clickable { viewModel.setAutoSkipOutro(true) }
+                                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        "Auto",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             
             if (uiState.showSettingsOverlay) {
