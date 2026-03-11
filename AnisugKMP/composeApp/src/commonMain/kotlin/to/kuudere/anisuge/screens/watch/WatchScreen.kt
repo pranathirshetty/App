@@ -806,6 +806,82 @@ fun WatchVideoPlayer(
                 showControls = useOsc,
                 autoPlay = uiState.autoPlay
             )
+
+            // Skip button states mirroring Zen
+            var skipIntroElapsed by remember(uiState.currentEpisodeNumber) { mutableStateOf(0L) }
+            var skipIntroTimedOut by remember(uiState.currentEpisodeNumber) { mutableStateOf(false) }
+            var skipIntroManualDismissed by remember(uiState.currentEpisodeNumber) { mutableStateOf(false) }
+            
+            var skipOutroElapsed by remember(uiState.currentEpisodeNumber) { mutableStateOf(0L) }
+            var skipOutroTimedOut by remember(uiState.currentEpisodeNumber) { mutableStateOf(false) }
+            var skipOutroManualDismissed by remember(uiState.currentEpisodeNumber) { mutableStateOf(false) }
+
+            val SKIP_TIMEOUT = 10000L // 10 seconds
+
+            // Update timers
+            LaunchedEffect(playerState.position, playerState.isPlaying, playerState.isPaused) {
+                if (!playerState.isPlaying || playerState.isPaused) return@LaunchedEffect
+                
+                val current = playerState.position
+                val intro = uiState.streamingData?.intro
+                val outro = uiState.streamingData?.outro
+
+                // Intro timer logic
+                if (intro != null && intro.start != null && intro.end != null && current >= intro.start && current < intro.end - 1.0) {
+                    if (!skipIntroTimedOut && !skipIntroManualDismissed) {
+                        // We use a fixed tick since this effect runs on position change (usually high frequency)
+                        // For simplicity in KMP, we'll just use a separate timer for ticks
+                    }
+                } else {
+                    // Reset if we leave the intro range
+                    if (skipIntroTimedOut || skipIntroManualDismissed) {
+                        skipIntroTimedOut = false
+                        skipIntroManualDismissed = false
+                        skipIntroElapsed = 0L
+                    }
+                }
+
+                // Outro timer logic
+                if (outro != null && outro.start != null && outro.end != null && current >= outro.start && current < outro.end - 1.0) {
+                    // Similar for outro
+                } else {
+                    if (skipOutroTimedOut || skipOutroManualDismissed) {
+                        skipOutroTimedOut = false
+                        skipOutroManualDismissed = false
+                        skipOutroElapsed = 0L
+                    }
+                }
+            }
+
+            // High-frequency tick for progress bar
+            LaunchedEffect(uiState.currentEpisodeNumber) {
+                while(true) {
+                    kotlinx.coroutines.delay(100)
+                    if (playerState.isPlaying && !playerState.isPaused) {
+                        val current = playerState.position
+                        val intro = uiState.streamingData?.intro
+                        val outro = uiState.streamingData?.outro
+
+                        if (intro != null && intro.start != null && intro.end != null && current >= intro.start && current < intro.end - 1.0) {
+                            if (!skipIntroTimedOut && !skipIntroManualDismissed) {
+                                skipIntroElapsed += 100
+                                if (skipIntroElapsed >= SKIP_TIMEOUT) skipIntroTimedOut = true
+                            }
+                        } else {
+                            skipIntroElapsed = 0L
+                        }
+
+                        if (outro != null && outro.start != null && outro.end != null && current >= outro.start && current < outro.end - 1.0) {
+                            if (!skipOutroTimedOut && !skipOutroManualDismissed) {
+                                skipOutroElapsed += 100
+                                if (skipOutroElapsed >= SKIP_TIMEOUT) skipOutroTimedOut = true
+                            }
+                        } else {
+                            skipOutroElapsed = 0L
+                        }
+                    }
+                }
+            }
             
             LaunchedEffect(uiState.availableSubtitles) {
                 if (uiState.availableSubtitles.isNotEmpty()) {
@@ -887,8 +963,9 @@ fun WatchVideoPlayer(
                 if (uiState.autoSkipIntro) {
                     val intro = uiState.streamingData?.intro
                     if (intro != null && intro.start != null && intro.end != null) {
-                        if (pos >= intro.start && pos < intro.end - 1.0) {
-                            playerState.seekTarget = intro.end.toDouble()
+                        // Wait 1s into the range to match Zen logic
+                        if (pos >= intro.start + 1.0 && pos < intro.end - 1.0) {
+                            playerState.seekTarget = (intro.end + 0.5).toDouble()
                         }
                     }
                 }
@@ -897,8 +974,10 @@ fun WatchVideoPlayer(
                 if (uiState.autoSkipOutro) {
                     val outro = uiState.streamingData?.outro
                     if (outro != null && outro.start != null && outro.end != null) {
-                        if (pos >= outro.start && pos < outro.end - 1.0) {
-                            playerState.seekTarget = outro.end.toDouble()
+                        // Wait 1s into the range to match Zen logic
+                        if (pos >= outro.start + 1.0 && pos < outro.end - 1.0) {
+                            val target = (outro.end + 0.5).toDouble()
+                            playerState.seekTarget = if (dur > 0) target.coerceAtMost(dur - 0.5) else target
                         }
                     }
                 }
@@ -953,7 +1032,7 @@ fun WatchVideoPlayer(
                 if (!isOffline && playerState.duration > 0 && playerState.hasNextEpisode && playerState.position >= playerState.duration - 15.0) {
                     val remaining = (playerState.duration - playerState.position).toInt().coerceAtLeast(0)
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, end = 32.dp),
+                        modifier = Modifier.fillMaxSize().padding(bottom = 132.dp, end = 12.dp),
                         contentAlignment = Alignment.BottomEnd
                     ) {
                         androidx.compose.foundation.layout.Row(
@@ -996,53 +1075,43 @@ fun WatchVideoPlayer(
                 // Skip Intro Overlay
                 val intro = uiState.streamingData?.intro
                 if (intro != null && intro.start != null && intro.end != null) {
-                    if (playerState.position >= intro.start && playerState.position < intro.end - 1.0 && !uiState.autoSkipIntro) {
+                    val inRange = playerState.position >= intro.start && playerState.position < intro.end - 1.0
+                    if (inRange && !uiState.autoSkipIntro && !skipIntroTimedOut && !skipIntroManualDismissed) {
+                        val progress = (1.0f - (skipIntroElapsed.toFloat() / SKIP_TIMEOUT)).coerceIn(0f, 1f)
                         Box(
-                            modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, start = 32.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(WindowInsets.safeDrawing)
+                                .padding(bottom = 88.dp, start = 12.dp),
                             contentAlignment = Alignment.BottomStart
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                        .background(Color.Black.copy(alpha = 0.8f))
-                                        .clickable { playerState.seekTarget = intro.end.toDouble() }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.FastForward,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Skip Intro",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                
-                                Spacer(modifier = Modifier.width(8.dp))
-                                
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .border(0.8.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.7f))
+                                    .clickable { 
+                                        playerState.seekTarget = (intro.end + 0.5).toDouble()
+                                        skipIntroManualDismissed = true 
+                                    }
+                            ) {
+                                // Progress bar background (draining effect)
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                        .background(Color.Black.copy(alpha = 0.8f))
-                                        .clickable { viewModel.setAutoSkipIntro(true) }
-                                        .padding(horizontal = 10.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        "Auto",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 13.sp
-                                    )
-                                }
+                                        .matchParentSize()
+                                        .fillMaxWidth(progress)
+                                        .background(Color.White.copy(alpha = 0.15f))
+                                )
+
+                                Text(
+                                    "Skip Intro",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    softWrap = false,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
@@ -1051,53 +1120,44 @@ fun WatchVideoPlayer(
                 // Skip Outro Overlay
                 val outro = uiState.streamingData?.outro
                 if (outro != null && outro.start != null && outro.end != null) {
-                    if (playerState.position >= outro.start && playerState.position < outro.end - 1.0 && !uiState.autoSkipOutro) {
+                    val inRange = playerState.position >= outro.start && playerState.position < outro.end - 1.0
+                    if (inRange && !uiState.autoSkipOutro && !skipOutroTimedOut && !skipOutroManualDismissed) {
+                        val progress = (1.0f - (skipOutroElapsed.toFloat() / SKIP_TIMEOUT)).coerceIn(0f, 1f)
                         Box(
-                            modifier = Modifier.fillMaxSize().padding(bottom = 105.dp, start = 32.dp),
-                            contentAlignment = Alignment.BottomStart
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(WindowInsets.safeDrawing)
+                                .padding(bottom = 88.dp, end = 12.dp),
+                            contentAlignment = Alignment.BottomEnd
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                        .background(Color.Black.copy(alpha = 0.8f))
-                                        .clickable { playerState.seekTarget = outro.end.toDouble() }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.FastForward,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Skip Outro",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                
-                                Spacer(modifier = Modifier.width(8.dp))
-                                
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .border(0.8.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(4.dp))
+                                    .background(Color.Black.copy(alpha = 0.7f))
+                                    .clickable { 
+                                        val target = (outro.end + 0.5).toDouble()
+                                        playerState.seekTarget = if (playerState.duration > 0) target.coerceAtMost(playerState.duration - 0.5) else target
+                                        skipOutroManualDismissed = true
+                                    }
+                            ) {
+                                // Progress bar background (draining effect)
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                                        .background(Color.Black.copy(alpha = 0.8f))
-                                        .clickable { viewModel.setAutoSkipOutro(true) }
-                                        .padding(horizontal = 10.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        "Auto",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 13.sp
-                                    )
-                                }
+                                        .matchParentSize()
+                                        .fillMaxWidth(progress)
+                                        .background(Color.White.copy(alpha = 0.15f))
+                                )
+
+                                Text(
+                                    "Skip Outro",
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    softWrap = false,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
