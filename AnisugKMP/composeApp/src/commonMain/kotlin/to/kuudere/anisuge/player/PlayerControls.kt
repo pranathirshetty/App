@@ -41,6 +41,9 @@ import to.kuudere.anisuge.data.models.StreamingData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 
 /**
  * Shared cross-platform player controls overlay.
@@ -133,6 +136,12 @@ fun PlayerControls(
         }
     }
 
+    // Double Tap Seek State
+    var doubleTapSide by remember { mutableStateOf<String?>(null) } // "left", "right"
+    var doubleTapAmount by remember { mutableStateOf(0) }
+    var doubleTapCounter by remember { mutableStateOf(0) } // To trigger re-animation
+    var doubleTapResetJob by remember { mutableStateOf<Job?>(null) }
+
     // Hook up desktop AWT Canvas pointer moves to wake up controls
     LaunchedEffect(playerState.canvasPointerMoved) {
         if (playerState.canvasPointerMoved > 0) {
@@ -161,7 +170,7 @@ fun PlayerControls(
                     }
                 }
             }
-            .pointerInput(Unit) {
+            .pointerInput(playerState.isLocked) {
                 detectTapGestures(
                     onTap = {
                         if (playerState.isLocked) {
@@ -169,6 +178,15 @@ fun PlayerControls(
                             if (controlsVisible) scheduleHide()
                             return@detectTapGestures
                         }
+
+                        // If double tap is "warm", treat tap on same side as additional seek
+                        val warmSide = doubleTapSide
+                        if (warmSide != null) {
+                            // Tapping while animation is active? 
+                            // detectTapGestures doesn't easily let us capture individual taps after double tap 
+                            // But for now, we'll keep the standard behavior.
+                        }
+
                         val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
                         val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
                         if (currentIsLoading || !currentIsPlayingActively) {
@@ -181,20 +199,43 @@ fun PlayerControls(
                     onDoubleTap = { offset ->
                         if (playerState.isLocked) return@detectTapGestures
                         val width = size.width
-                        if (offset.x < width / 3) {
-                            // Double tap left → rewind 10s
+                        val side = if (offset.x < width / 3) "left" 
+                                  else if (offset.x > width * 2 / 3) "right"
+                                  else "center"
+
+                        if (side == "left") {
+                            doubleTapSide = "left"
+                            doubleTapAmount += 10
+                            doubleTapCounter++
                             val newPos = (playerState.position - 10.0).coerceAtLeast(0.0)
                             playerState.seekTarget = newPos
                             expectedPosition = newPos
-                        } else if (offset.x > width * 2 / 3) {
-                            // Double tap right → forward 10s
+                            
+                            doubleTapResetJob?.cancel()
+                            doubleTapResetJob = scope.launch {
+                                delay(650)
+                                doubleTapSide = null
+                                doubleTapAmount = 0
+                            }
+                        } else if (side == "right") {
+                            doubleTapSide = "right"
+                            doubleTapAmount += 10
+                            doubleTapCounter++
                             val newPos = (playerState.position + 10.0).coerceAtMost(playerState.duration)
                             playerState.seekTarget = newPos
                             expectedPosition = newPos
+
+                            doubleTapResetJob?.cancel()
+                            doubleTapResetJob = scope.launch {
+                                delay(650)
+                                doubleTapSide = null
+                                doubleTapAmount = 0
+                            }
                         } else {
-                            // Double tap center → toggle play/pause
+                            // Center double tap toggles play/pause
                             playerState.pauseRequested = !playerState.isPaused
                         }
+                        
                         controlsVisible = true
                         scheduleHide()
                     }
@@ -259,6 +300,13 @@ fun PlayerControls(
                 )
             }
     ) {
+        // Double Tap Seek Animation Overlay
+        DoubleTapSeekOverlay(
+            side = doubleTapSide,
+            amount = doubleTapAmount,
+            counter = doubleTapCounter
+        )
+
         AnimatedVisibility(
             visible = playerState.indicatorText != null,
             enter = fadeIn(),
@@ -593,6 +641,111 @@ fun PlayerControls(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DoubleTapSeekOverlay(
+    side: String?,
+    amount: Int,
+    counter: Int
+) {
+    if (side == null) return
+
+    val isLeft = side == "left"
+    val alpha = remember { Animatable(0f) }
+    val scale = remember { Animatable(0.95f) }
+    
+    // Icon sequence animation
+    val arrow1Alpha = remember { Animatable(0f) }
+    val arrow2Alpha = remember { Animatable(0f) }
+    val arrow3Alpha = remember { Animatable(0f) }
+
+    LaunchedEffect(counter) {
+        // Reset and run animations
+        launch { 
+            alpha.snapTo(0.4f)
+            alpha.animateTo(0f, tween(600, easing = LinearOutSlowInEasing))
+        }
+        launch {
+            scale.snapTo(0.95f)
+            scale.animateTo(1.05f, tween(600, easing = LinearOutSlowInEasing))
+        }
+        
+        // Sequenced arrows like YT
+        val arrowTween = 150
+        launch {
+            arrow1Alpha.snapTo(0f)
+            arrow1Alpha.animateTo(1f, tween(arrowTween))
+            arrow1Alpha.animateTo(0.2f, tween(arrowTween))
+        }
+        launch {
+            delay(100)
+            arrow2Alpha.snapTo(0f)
+            arrow2Alpha.animateTo(1f, tween(arrowTween))
+            arrow2Alpha.animateTo(0.2f, tween(arrowTween))
+        }
+        launch {
+            delay(200)
+            arrow3Alpha.snapTo(0f)
+            arrow3Alpha.animateTo(1f, tween(arrowTween))
+            arrow3Alpha.animateTo(0.2f, tween(arrowTween))
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+                val rippleWidth = w * 0.45f
+                if (isLeft) {
+                    drawArc(
+                        color = Color.White.copy(alpha = alpha.value),
+                        startAngle = 90f,
+                        sweepAngle = 180f,
+                        useCenter = true,
+                        size = Size(rippleWidth * 2, h * 1.5f),
+                        topLeft = Offset(-rippleWidth, -h * 0.25f)
+                    )
+                } else {
+                    drawArc(
+                        color = Color.White.copy(alpha = alpha.value),
+                        startAngle = 270f,
+                        sweepAngle = 180f,
+                        useCenter = true,
+                        size = Size(rippleWidth * 2, h * 1.5f),
+                        topLeft = Offset(w - rippleWidth, -h * 0.25f)
+                    )
+                }
+            },
+        contentAlignment = if (isLeft) Alignment.CenterStart else Alignment.CenterEnd
+    ) {
+        Column(
+            modifier = Modifier
+                .width(120.dp)
+                .graphicsLayer {
+                    this.alpha = (alpha.value * 2.5f).coerceIn(0f, 1f)
+                    this.scaleX = scale.value
+                    this.scaleY = scale.value
+                },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(horizontalArrangement = Arrangement.Center) {
+                val icon = if (isLeft) Icons.Default.FastRewind else Icons.Default.FastForward
+                Icon(icon, null, tint = Color.White.copy(alpha = arrow1Alpha.value), modifier = Modifier.size(24.dp))
+                Icon(icon, null, tint = Color.White.copy(alpha = arrow2Alpha.value), modifier = Modifier.size(24.dp))
+                Icon(icon, null, tint = Color.White.copy(alpha = arrow3Alpha.value), modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "${if (isLeft) "-" else "+"}$amount s",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
         }
     }
 }
