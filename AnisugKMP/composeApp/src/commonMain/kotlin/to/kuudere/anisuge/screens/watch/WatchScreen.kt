@@ -38,6 +38,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusable
+import androidx.compose.ui.input.key.*
+import kotlinx.datetime.Clock
 import to.kuudere.anisuge.platform.LockScreenOrientation
 import to.kuudere.anisuge.platform.isDesktopPlatform
 import to.kuudere.anisuge.player.PlayerControls
@@ -774,6 +779,7 @@ fun WatchVideoPlayer(
     onBack: () -> Unit
 ) {
     var showWatchlistSheet by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
     if (uiState.isLoadingVideo) {
         Box(modifier = modifier.background(Color.Black)) {
@@ -806,6 +812,12 @@ fun WatchVideoPlayer(
                 showControls = useOsc,
                 autoPlay = uiState.autoPlay
             )
+
+            LaunchedEffect(Unit) {
+                if (to.kuudere.anisuge.platform.isDesktopPlatform) {
+                    focusRequester.requestFocus()
+                }
+            }
 
             // Skip button states mirroring Zen
             var skipIntroElapsed by remember(uiState.currentEpisodeNumber) { mutableStateOf(0L) }
@@ -983,7 +995,101 @@ fun WatchVideoPlayer(
                 }
             }
 
-            Box(modifier = modifier.background(Color.Black)) {
+            Box(
+                modifier = modifier
+                    .background(Color.Black)
+                    .focusRequester(focusRequester)
+                    .focusable()
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            val now = Clock.System.now().toEpochMilliseconds()
+                            when (event.key) {
+                                Key.Space, Key.K -> {
+                                    playerState.pauseRequested = !playerState.isPaused
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.DirectionLeft, Key.J -> {
+                                    val nPos = (playerState.position - 10).coerceAtLeast(0.0)
+                                    playerState.seekTarget = nPos
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.DirectionRight, Key.L -> {
+                                    val nPos = (playerState.position + 10).coerceAtMost(playerState.duration)
+                                    playerState.seekTarget = nPos
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.F -> {
+                                    onFullscreenToggle()
+                                    true
+                                }
+                                Key.M -> {
+                                    playerState.isMuted = !playerState.isMuted
+                                    playerState.indicatorText = if (playerState.isMuted) "Muted" else "Unmuted"
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.DirectionUp -> {
+                                    val newVol = (playerState.volume + 5.0).coerceIn(0.0, 130.0)
+                                    playerState.volume = newVol
+                                    playerState.indicatorText = "Volume: ${newVol.toInt()}%"
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.DirectionDown -> {
+                                    val newVol = (playerState.volume - 5.0).coerceIn(0.0, 130.0)
+                                    playerState.volume = newVol
+                                    playerState.indicatorText = "Volume: ${newVol.toInt()}%"
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.N -> {
+                                    if (playerState.hasNextEpisode) {
+                                        val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                                        if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                                        true
+                                    } else false
+                                }
+                                Key.P -> {
+                                    if (playerState.hasPrevEpisode) {
+                                        val prevEp = uiState.episodeData?.allEpisodes?.filter { it.number < uiState.currentEpisodeNumber }?.maxByOrNull { it.number }
+                                        if (prevEp != null) viewModel.onEpisodeSelected(prevEp.number)
+                                        true
+                                    } else false
+                                }
+                                Key.S -> {
+                                    val intro = uiState.streamingData?.intro
+                                    val outro = uiState.streamingData?.outro
+                                    val pos = playerState.position
+                                    
+                                    if (intro != null && intro.start != null && intro.end != null && pos >= intro.start && pos < intro.end) {
+                                        playerState.seekTarget = (intro.end + 0.5).toDouble()
+                                        true
+                                    } else if (outro != null && outro.start != null && outro.end != null && pos >= outro.start && pos < outro.end) {
+                                        val target = (outro.end + 0.5).toDouble()
+                                        playerState.seekTarget = if (playerState.duration > 0) target.coerceAtMost(playerState.duration - 0.5) else target
+                                        true
+                                    } else false
+                                }
+                                Key.Escape -> {
+                                    if (uiState.isFullscreen) {
+                                        onFullscreenToggle()
+                                        true
+                                    } else false
+                                }
+                                else -> false
+                            }
+                        } else false
+                    }
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusRequester.requestFocus()
+                    }
+            ) {
                 VideoPlayerSurface(
                     state = playerState,
                     modifier = Modifier.fillMaxSize(),
