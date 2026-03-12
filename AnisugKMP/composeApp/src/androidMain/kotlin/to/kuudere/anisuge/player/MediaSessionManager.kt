@@ -74,6 +74,15 @@ class MediaSessionManager(private val context: Context) {
     }
 
     /**
+     * Call this whenever the player's playback state changes externally (e.g. mpv fires a
+     * pause/resume event) so the MediaSession immediately reflects the new state.
+     * Without this, Android caches the stale state and the earphone play button feels laggy.
+     */
+    fun notifyStateChanged() {
+        playerAdapter?.notifyStateChanged()
+    }
+
+    /**
      * Release the media session and abandon audio focus. Call from DisposableEffect onDispose.
      */
     fun release() {
@@ -142,6 +151,14 @@ private class PlayerAdapter(
             .setPlaylist(listOf(mediaItemBuilder.build()))
             .setContentPositionMs { positionMs }
             .build()
+    }
+
+    /**
+     * Push the current mpv state to the MediaSession so Android always knows
+     * whether we're paused or playing. Called externally when mpv fires state events.
+     */
+    fun notifyStateChanged() {
+        invalidateState()
     }
 
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {

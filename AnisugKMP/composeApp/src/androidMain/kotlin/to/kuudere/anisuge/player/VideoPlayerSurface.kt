@@ -302,10 +302,13 @@ actual fun VideoPlayerSurface(
     }
 
     LaunchedEffect(state.pauseRequested) {
-        state.isPaused = state.pauseRequested 
+        state.isPaused = state.pauseRequested
         withContext(Dispatchers.IO) {
             MPVLib.setOptionString("pause", if (state.pauseRequested) "yes" else "no")
         }
+        // Tell the MediaSession about the new state immediately, so Android knows
+        // the player is paused and the earphone "play" button fires instantly next time.
+        mediaSessionManager.notifyStateChanged()
     }
 
     LaunchedEffect(state.isMuted) {
