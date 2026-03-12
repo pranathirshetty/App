@@ -58,6 +58,9 @@ kotlin {
             // Native libmpv for Android (has ASS support via libass)
             implementation("dev.jdtech.mpv:libmpv:0.5.1")
             implementation("net.java.dev.jna:jna:5.14.0@aar")
+            
+            // MediaSession for earphone/headphone media button support
+            implementation(libs.androidx.media3.session)
         }
 
         desktopMain.dependencies {
@@ -67,6 +70,10 @@ kotlin {
             implementation(libs.ktor.client.cio)
             // JNA for getting AWT canvas WID for MPV playback
             implementation(libs.jna)
+            
+            // JNativeHook for cross-platform global media keys (earphone play/pause)
+            implementation(libs.jnativehook)
+            implementation(libs.dbus.java)
             implementation(libs.jave.all.deps)
         }
 

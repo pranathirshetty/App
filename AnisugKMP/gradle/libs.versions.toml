@@ -36,6 +36,7 @@ androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
 androidx-media3-muxer = { module = "androidx.media3:media3-muxer", version.ref = "media3" }
+androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 rxffmpeg = { module = "com.github.microshow:RxFFmpeg", version = "4.9.0" }
 # Coroutines
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
@@ -64,6 +65,9 @@ jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 # Okio (path support for DataStore)
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+# JNativeHook for cross-platform media keys
+jnativehook = { module = "com.github.kwhat:jnativehook", version = "2.2.2" }
+dbus_java = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version = "4.3.1" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

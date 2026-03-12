@@ -1079,6 +1079,34 @@ fun WatchVideoPlayer(
                                         true
                                     } else false
                                 }
+                                // ── Earphone / headphone media buttons (cross-platform) ──
+                                // Linux:   XF86AudioPlay / XF86AudioPause / XF86AudioNext / XF86AudioPrev
+                                // Windows: VK_MEDIA_PLAY_PAUSE / VK_MEDIA_NEXT_TRACK / VK_MEDIA_PREV_TRACK
+                                // macOS:   NX_KEYTYPE_PLAY / NX_KEYTYPE_NEXT / NX_KEYTYPE_PREVIOUS
+                                Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
+                                    playerState.pauseRequested = !playerState.isPaused
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.MediaStop -> {
+                                    playerState.pauseRequested = true
+                                    playerState.canvasPointerMoved = now
+                                    true
+                                }
+                                Key.MediaNext -> {
+                                    if (playerState.hasNextEpisode) {
+                                        val nextEp = uiState.episodeData?.allEpisodes?.filter { it.number > uiState.currentEpisodeNumber }?.minByOrNull { it.number }
+                                        if (nextEp != null) viewModel.onEpisodeSelected(nextEp.number)
+                                        true
+                                    } else false
+                                }
+                                Key.MediaPrevious -> {
+                                    if (playerState.hasPrevEpisode) {
+                                        val prevEp = uiState.episodeData?.allEpisodes?.filter { it.number < uiState.currentEpisodeNumber }?.maxByOrNull { it.number }
+                                        if (prevEp != null) viewModel.onEpisodeSelected(prevEp.number)
+                                        true
+                                    } else false
+                                }
                                 else -> false
                             }
                         } else false

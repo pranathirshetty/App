@@ -287,6 +287,20 @@ actual fun VideoPlayerSurface(
         }
     }
 
+    // ── MediaSession for earphone/headphone media button support ──
+    val mediaSessionManager = remember(resolvedUrl) { MediaSessionManager(context) }
+    DisposableEffect(resolvedUrl) {
+        mediaSessionManager.start(
+            state = state,
+            onPlayPauseToggle = { shouldPause ->
+                state.pauseRequested = shouldPause
+            }
+        )
+        onDispose {
+            mediaSessionManager.release()
+        }
+    }
+
     LaunchedEffect(state.pauseRequested) {
         state.isPaused = state.pauseRequested 
         withContext(Dispatchers.IO) {
