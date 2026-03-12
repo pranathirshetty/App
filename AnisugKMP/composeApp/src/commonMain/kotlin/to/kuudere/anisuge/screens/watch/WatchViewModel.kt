@@ -61,6 +61,7 @@ class WatchViewModel(
     val uiState = _uiState.asStateFlow()
 
     private var currentAnimeId: String = ""
+    private var loadJob: kotlinx.coroutines.Job? = null
 
     init {
         viewModelScope.launch { settingsStore.autoPlayFlow.collect { v -> _uiState.update { it.copy(autoPlay = v) } } }
@@ -73,74 +74,79 @@ class WatchViewModel(
 
     fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null, offlineTitle: String? = null) {
         currentAnimeId = animeId
-        _uiState.update {
-            it.copy(
-                currentEpisodeNumber = episodeNumber,
-                isLoading = true,
-                loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
-                isLoadingVideo = false,
-                episodeData = null,  // Clear previous anime data
-                streamingData = null,
-                availableQualities = emptyList(),
-                availableSubtitles = emptyList(),
-                currentSubtitleUrl = null,
-                currentFontsDir = null,
-                savedWatchPosition = 0.0,
-                targetLang = null,
-                targetSubtitleLang = null,
-                targetSubtitleLangCode = null,
-                didMarkWatched = false,
-                offlinePath = offlinePath,
-                offlineTitle = offlineTitle
-            )
-        }
-        if (offlinePath != null) {
-            loadOfflineStream(offlinePath)
-        } else {
-            fetchEpisodeData(episodeNumber, server, lang)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    currentEpisodeNumber = episodeNumber,
+                    isLoading = true,
+                    loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
+                    isLoadingVideo = false,
+                    episodeData = null,
+                    streamingData = null,
+                    availableQualities = emptyList(),
+                    availableSubtitles = emptyList(),
+                    currentSubtitleUrl = null,
+                    currentFontsDir = null,
+                    savedWatchPosition = 0.0,
+                    targetLang = null,
+                    targetSubtitleLang = null,
+                    targetSubtitleLangCode = null,
+                    didMarkWatched = false,
+                    offlinePath = offlinePath,
+                    offlineTitle = offlineTitle
+                )
+            }
+            if (offlinePath != null) {
+                loadOfflineStream(offlinePath)
+            } else {
+                fetchEpisodeData(episodeNumber, server, lang)
+            }
         }
     }
 
-    private fun loadOfflineStream(path: String) {
-        viewModelScope.launch {
-            // Check for local subs/fonts in same dir
-            val dir = path.substringBeforeLast("/")
-            val subs = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
-            
+    private suspend fun loadOfflineStream(path: String) {
+        // Check for local subs/fonts in same dir
+        val dir = try { path.substringBeforeLast("/") } catch(e: Exception) { null }
+        val subs = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
+        
+        if (dir != null) {
             try {
-                val files = okio.FileSystem.SYSTEM.list(dir.toPath())
-                files.forEach { file ->
-                    val name = file.name
-                    if (name.startsWith("subtitle") && (name.endsWith(".ass") || name.endsWith(".vtt") || name.endsWith(".srt"))) {
-                        val label = name.substringAfter("subtitle_", "").substringBeforeLast(".").ifEmpty { "Default" }
-                        subs.add(to.kuudere.anisuge.data.models.SubtitleData(
-                            languageName = label,
-                            url = "file://${file.toString()}",
-                            format = name.substringAfterLast(".")
-                        ))
+                val dirPath = dir.toPath()
+                if (okio.FileSystem.SYSTEM.exists(dirPath)) {
+                    val files = okio.FileSystem.SYSTEM.list(dirPath)
+                    files.forEach { file ->
+                        val name = file.name
+                        if (name.startsWith("subtitle") && (name.endsWith(".ass") || name.endsWith(".vtt") || name.endsWith(".srt"))) {
+                            val label = name.substringAfter("subtitle_", "").substringBeforeLast(".").ifEmpty { "Default" }
+                            subs.add(to.kuudere.anisuge.data.models.SubtitleData(
+                                languageName = label,
+                                url = "file://${file.toString()}",
+                                format = name.substringAfterLast(".")
+                            ))
+                        }
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-
-            val defaultSub = subs.find { it.url?.contains("subtitle.ass") == true || it.url?.contains("subtitle.vtt") == true } ?: subs.firstOrNull()
-            
-            _uiState.update { it.copy(
-                isLoading = false,
-                isLoadingVideo = false,
-                currentQuality = "Offline",
-                availableQualities = listOf("Offline" to path),
-                availableSubtitles = subs,
-                currentSubtitleUrl = defaultSub?.url,
-                currentFontsDir = dir
-            ) }
         }
+
+        val defaultSub = subs.find { it.url?.contains("subtitle.ass") == true || it.url?.contains("subtitle.vtt") == true } ?: subs.firstOrNull()
+        
+        _uiState.update { it.copy(
+            isLoading = false,
+            isLoadingVideo = false,
+            currentQuality = "Offline",
+            availableQualities = listOf("Offline" to path),
+            availableSubtitles = subs,
+            currentSubtitleUrl = defaultSub?.url,
+            currentFontsDir = dir
+        ) }
     }
 
-    private fun fetchEpisodeData(episodeNumber: Int, reqServer: String? = null, reqLang: String? = null) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, loadingMessage = "Fetching episode data...") }
+    private suspend fun fetchEpisodeData(episodeNumber: Int, reqServer: String? = null, reqLang: String? = null) {
+        _uiState.update { it.copy(isLoading = true, loadingMessage = "Fetching episode data...") }
             val data = infoService.getEpisodes(currentAnimeId, episodeNumber)
             
             if (data != null) {
@@ -220,9 +226,8 @@ class WatchViewModel(
 
                 loadVideoStream(serverName)
             } else {
-                _uiState.update { it.copy(isLoading = false) } // Add error state in real app
+                _uiState.update { it.copy(isLoading = false) }
             }
-        }
     }
 
     private fun fetchThumbnails(anilistId: Int) {
@@ -234,13 +239,12 @@ class WatchViewModel(
         }
     }
 
-    fun loadVideoStream(serverName: String) {
+    private suspend fun loadVideoStream(serverName: String) {
         val currState = _uiState.value
         val anilistId = currState.episodeData?.animeInfo?.anilist ?: return
         val episodeNum = currState.currentEpisodeNumber
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
+        _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
 
             // Convert zen2 to zen-2 for kuudere API
             val apiServerName = if (serverName == "zen2") "zen-2" else serverName
@@ -356,7 +360,6 @@ class WatchViewModel(
             } else {
                 _uiState.update { it.copy(isLoadingVideo = false, loadingMessage = null) }
             }
-        }
     }
 
     fun setQuality(quality: String) {
@@ -379,7 +382,10 @@ class WatchViewModel(
 
     fun setServer(server: String) {
         _uiState.update { it.copy(showSettingsOverlay = false) }
-        loadVideoStream(server)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            loadVideoStream(server)
+        }
     }
 
     fun changeServerWithState(
@@ -398,7 +404,10 @@ class WatchViewModel(
                 showSettingsOverlay = false
             ) 
         }
-        loadVideoStream(newServer)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            loadVideoStream(newServer)
+        }
     }
 
     fun toggleSettingsOverlay(page: SettingsMenuPage? = null) {
@@ -419,8 +428,11 @@ class WatchViewModel(
     }
 
     fun onEpisodeSelected(episodeNumber: Int) {
-        _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null, didMarkWatched = false) }
-        fetchEpisodeData(episodeNumber)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null, didMarkWatched = false, offlinePath = null) }
+            fetchEpisodeData(episodeNumber)
+        }
     }
 
     fun saveProgress(currentTime: Double, duration: Double, language: String = "sub") {

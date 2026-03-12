@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusable
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.*
 import kotlinx.datetime.Clock
 import to.kuudere.anisuge.platform.LockScreenOrientation
@@ -1004,7 +1004,7 @@ fun WatchVideoPlayer(
                         if (event.type == KeyEventType.KeyDown) {
                             val now = Clock.System.now().toEpochMilliseconds()
                             when (event.key) {
-                                Key.Space, Key.K -> {
+                                Key.Spacebar, Key.K -> {
                                     playerState.pauseRequested = !playerState.isPaused
                                     playerState.canvasPointerMoved = now
                                     true
