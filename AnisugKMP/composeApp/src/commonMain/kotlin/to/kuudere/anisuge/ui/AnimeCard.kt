@@ -146,15 +146,17 @@ fun AnimeCard(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // .subtitle-badge → subtitles icon + epCount
+                val subCount = item.subbedCount ?: item.subbed ?: item.epCount ?: 0
                 EpisodeBadge(
                     icon = Icons.Default.ClosedCaption,
-                    count = item.subbedCount ?: item.epCount ?: 0
+                    count = subCount
                 )
                 // .dubbed-badge → mic icon + dubbedCount
-                if ((item.dubbedCount ?: 0) > 0) {
+                val dubCount = item.dubbedCount ?: item.dubbed ?: 0
+                if (dubCount > 0) {
                     EpisodeBadge(
                         icon = Icons.Default.Mic,
-                        count = item.dubbedCount ?: 0
+                        count = dubCount
                     )
                 }
             }

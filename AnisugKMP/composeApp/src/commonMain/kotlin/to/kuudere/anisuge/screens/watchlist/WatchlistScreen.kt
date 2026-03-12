@@ -180,7 +180,11 @@ fun WatchlistScreen(
                                     .background(Color.Transparent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                IconButton(onClick = { searchQuery = "" }) {
+                                IconButton(onClick = {
+                                    searchQuery = ""
+                                    selectedList = "All lists"
+                                    viewModel.resetAllFilters()
+                                }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
                                 }
                             }
@@ -275,7 +279,11 @@ fun WatchlistScreen(
                                     .background(Color.Transparent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                IconButton(onClick = { searchQuery = "" }) {
+                                IconButton(onClick = {
+                                    searchQuery = ""
+                                    selectedList = "All lists"
+                                    viewModel.resetAllFilters()
+                                }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
                                 }
                             }

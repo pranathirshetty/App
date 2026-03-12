@@ -91,6 +91,22 @@ class WatchlistViewModel : ViewModel() {
         fetchWatchlist(1)
     }
 
+    fun resetAllFilters() {
+        _uiState.update {
+            it.copy(
+                searchQuery = "",
+                sort = "Recently Updated",
+                selectedGenres = emptyList(),
+                format = "All formats",
+                status = "All statuses",
+                items = emptyList(),
+                currentPage = 1,
+                totalPages = 1
+            )
+        }
+        fetchWatchlist(1)
+    }
+
     fun loadNextPage() {
         val state = _uiState.value
         if (state.isLoading || state.isPaginating || state.currentPage >= state.totalPages) return
