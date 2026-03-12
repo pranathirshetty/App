@@ -158,8 +158,7 @@ fun SettingsScreen(
         SettingsNavItem(SettingsTab.Sync, "Sync", Icons.Default.Sync),
         SettingsNavItem(SettingsTab.Storage, "Storage", Icons.Default.Storage),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
-        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock),
-        SettingsNavItem(SettingsTab.About, "About", Icons.Default.Info)
+        SettingsNavItem(SettingsTab.Security, "Security", Icons.Default.Lock)
     )
 
     Scaffold(
@@ -604,7 +603,6 @@ private fun MobileSettingsDetail(
                     onNewPasswordChange = viewModel::setNewPassword,
                     onConfirmPasswordChange = viewModel::setConfirmPassword
                 )
-                is SettingsTab.About -> MobileAboutContent()
                 is SettingsTab.Sync -> MobileSyncContent(
                     uiState = uiState,
                     onConnect = { viewModel.getAniListAuthUrl() },
@@ -674,7 +672,6 @@ private fun SettingsContent(
                 onNewPasswordChange = viewModel::setNewPassword,
                 onConfirmPasswordChange = viewModel::setConfirmPassword
             )
-            is SettingsTab.About -> AboutTab()
             is SettingsTab.Sync -> SyncTab(
                 uiState = uiState,
                 onConnect = { viewModel.getAniListAuthUrl() },

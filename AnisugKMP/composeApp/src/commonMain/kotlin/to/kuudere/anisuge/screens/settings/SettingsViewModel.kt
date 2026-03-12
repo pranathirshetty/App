@@ -86,7 +86,6 @@ sealed class SettingsTab {
     data object Storage : SettingsTab()
     data object Sessions : SettingsTab()
     data object Security : SettingsTab()
-    data object About : SettingsTab()
 }
 
 class SettingsViewModel(
