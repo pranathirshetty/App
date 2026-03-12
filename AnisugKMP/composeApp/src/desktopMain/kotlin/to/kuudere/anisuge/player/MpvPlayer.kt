@@ -86,6 +86,17 @@ internal class MpvPlayer(
         // Always keep last frame visible to prevent white flash during navigation
         mpv.mpv_set_option_string(handle, "keep-open", "yes")
 
+        // Cache settings for faster streaming (HLS/m3u8 optimization)
+        mpv.mpv_set_option_string(handle, "cache", "yes")
+        mpv.mpv_set_option_string(handle, "cache-secs", "120")
+        mpv.mpv_set_option_string(handle, "demuxer-max-bytes", "50M")
+        mpv.mpv_set_option_string(handle, "demuxer-max-back-bytes", "25M")
+
+        // Network optimizations for HTTP streaming
+        mpv.mpv_set_option_string(handle, "network-timeout", "60")
+        mpv.mpv_set_option_string(handle, "http-persistent", "yes")
+        mpv.mpv_set_option_string(handle, "http-keepalive", "yes")
+
         val initResult = mpv.mpv_initialize(handle)
         println("[MpvPlayer] mpv_initialize() → $initResult")
         if (initResult != 0) {
@@ -201,6 +212,16 @@ internal class MpvPlayer(
                     // Only show buffering if we are NOT intentionally paused, OR if we are seeking
                     // Actually, if we are paused, paused-for-cache might still be true if it was buffering when paused
                     withContext(Dispatchers.Main) { state.isBuffering = isBuf }
+
+                    // Poll buffered position for progress bar (YouTube-style buffer display)
+                    val cacheTimePtr = mpv.mpv_get_property_string(handle, "demuxer-cache-time")
+                    if (cacheTimePtr != null) {
+                        val cacheTime = cacheTimePtr.getString(0).toDoubleOrNull()
+                        mpv.mpv_free(cacheTimePtr)
+                        val pos = state.position
+                        val bufferedPos = if (cacheTime != null && cacheTime > 0) pos + cacheTime else pos
+                        withContext(Dispatchers.Main) { state.bufferedPosition = bufferedPos }
+                    }
 
                     val pausePtr = mpv.mpv_get_property_string(handle, "pause")
                     if (pausePtr != null) {

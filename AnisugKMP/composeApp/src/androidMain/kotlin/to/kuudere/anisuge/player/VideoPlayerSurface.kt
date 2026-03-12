@@ -134,11 +134,21 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("osc", showOsc)
         MPVLib.setOptionString("osd-bar", showOsc)
         MPVLib.setOptionString("osd-level", if (state.config.showControls) "1" else "0")
-        MPVLib.setOptionString("keep-open", "yes") 
-        MPVLib.setOptionString("demuxer-seekable-cache", "no") 
-        MPVLib.setOptionString("hr-seek", "no") 
+        MPVLib.setOptionString("keep-open", "yes")
+        MPVLib.setOptionString("hr-seek", "no")
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
+
+        // Cache settings for faster streaming (HLS/m3u8 optimization)
+        MPVLib.setOptionString("cache", "yes")
+        MPVLib.setOptionString("cache-secs", "120")
+        MPVLib.setOptionString("demuxer-max-bytes", "50M")
+        MPVLib.setOptionString("demuxer-max-back-bytes", "25M")
+
+        // Network optimizations for HTTP streaming
+        MPVLib.setOptionString("network-timeout", "60")
+        MPVLib.setOptionString("http-persistent", "yes")
+        MPVLib.setOptionString("http-keepalive", "yes")
         
         if (state.config.muted) {
             MPVLib.setOptionString("mute", "yes")
@@ -371,7 +381,27 @@ actual fun VideoPlayerSurface(
         }
         isSeeking.value = false
     }
-    
+
+    // Poll buffered position for progress bar indicator (YouTube-style buffer display)
+    LaunchedEffect(state.isPlaying) {
+        while (state.isPlaying) {
+            val cacheTime = withContext(Dispatchers.IO) {
+                try {
+                    MPVLib.getPropertyDouble("demuxer-cache-time")
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            // demuxer-cache-time is relative to current position (how much ahead is buffered)
+            if (cacheTime != null && cacheTime > 0) {
+                state.bufferedPosition = state.position + cacheTime
+            } else {
+                state.bufferedPosition = state.position
+            }
+            delay(500)
+        }
+    }
+
     // Reactively update sub-fonts-dir when the API fonts dir becomes available (may arrive
     // after the player is already initialised since font download happens in the ViewModel).
     LaunchedEffect(state.config.fontsDir) {

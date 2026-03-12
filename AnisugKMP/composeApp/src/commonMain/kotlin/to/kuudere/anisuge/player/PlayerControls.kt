@@ -446,7 +446,7 @@ fun PlayerControls(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                
+
                                 Spacer(Modifier.width(12.dp))
 
                                 Box(
@@ -489,12 +489,17 @@ fun PlayerControls(
                                         },
                                     contentAlignment = Alignment.CenterStart
                                 ) {
+                                    val bufferedProgress = if (duration > 0) (playerState.bufferedPosition / duration).toFloat().coerceIn(0f, 1f) else 0f
                                     Canvas(Modifier.fillMaxWidth().height(3.dp)) {
                                         val w = size.width
                                         val h = size.height
 
-                                        // Background track
+                                        // Background track (dark)
                                         drawRoundRect(Color.White.copy(alpha = 0.25f), size = size, cornerRadius = CornerRadius(4.dp.toPx()))
+                                        // Buffered portion (light gray) - between background and progress
+                                        if (bufferedProgress > progress) {
+                                            drawRoundRect(Color.White.copy(alpha = 0.5f), size = Size(w * bufferedProgress, h), cornerRadius = CornerRadius(4.dp.toPx()))
+                                        }
                                         // White progress fill
                                         drawRoundRect(Color.White, size = Size(w * progress, h), cornerRadius = CornerRadius(4.dp.toPx()))
 

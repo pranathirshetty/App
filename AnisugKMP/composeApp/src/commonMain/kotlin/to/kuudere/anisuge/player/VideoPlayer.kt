@@ -23,6 +23,9 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     var isBuffering by mutableStateOf(false)
     var error       by mutableStateOf<String?>(null)
 
+    // Buffered position for progress bar indicator (YouTube-style light gray bar)
+    var bufferedPosition by mutableStateOf(0.0) // seconds, how far ahead is buffered
+
     // Commands from UI → player (platform impl watches these)
     var pauseRequested  by mutableStateOf(false)
     var seekTarget      by mutableStateOf<Double?>(null)
