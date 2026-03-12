@@ -123,7 +123,10 @@ fun WatchScreen(
 
                     Row(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f).fillMaxHeight()) {
-                            key("video_player") {
+                            // Use unique key so player FULLY resets when video changes
+                            // This prevents old video from persisting when switching online->offline
+                            val playerKey = "$animeId-${uiState.currentEpisodeNumber}-${offlinePath ?: "online"}"
+                            key(playerKey) {
                                 WatchVideoPlayer(
                                     uiState = uiState,
                                     viewModel = viewModel,

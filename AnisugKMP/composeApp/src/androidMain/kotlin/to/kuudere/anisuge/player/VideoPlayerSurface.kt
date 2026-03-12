@@ -65,7 +65,7 @@ actual fun VideoPlayerSurface(
                 override fun surfaceCreated(holder: SurfaceHolder) {
                     MPVLib.attachSurface(holder.surface)
                     MPVLib.setOptionString("force-window", "yes")
-                    
+
                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                         if (state.config.startPosition > 0.0) {
                             MPVLib.setOptionString("start", state.config.startPosition.toString())
@@ -278,12 +278,19 @@ actual fun VideoPlayerSurface(
 
         onDispose {
             MPVLib.removeObserver(observer)
-            // Synchronously stop and detach to avoid races in native rendering threads during re-init
+            // Fully destroy MPV when navigating away to prevent race conditions
+            // where old coroutines load wrong videos when switching online->offline
             MPVLib.command(arrayOf<String>("stop"))
             MPVLib.setPropertyString("vo", "null")
             MPVLib.detachSurface()
-            // We do NOT call MPVLib.destroy() here because we reuse it across videos
-            // to avoid the "pthread_mutex_lock called on a destroyed mutex" crash in libhwui.
+            // Destroy MPV to ensure clean state for next video
+            synchronized(MPVLibLock) {
+                if (isMPVInitialized) {
+                    MPVLib.destroy()
+                    isMPVInitialized = false
+                    isMPVInited = false
+                }
+            }
         }
     }
 

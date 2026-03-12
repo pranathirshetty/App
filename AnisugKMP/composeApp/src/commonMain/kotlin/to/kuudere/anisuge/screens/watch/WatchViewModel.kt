@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.isActive
 import to.kuudere.anisuge.data.models.EpisodeDataResponse
 import to.kuudere.anisuge.data.models.EpisodeLink
 import to.kuudere.anisuge.data.models.StreamingData
@@ -73,30 +75,38 @@ class WatchViewModel(
     }
 
     fun initialize(animeId: String, episodeNumber: Int, server: String? = null, lang: String? = null, offlinePath: String? = null, offlineTitle: String? = null) {
-        currentAnimeId = animeId
+        // Cancel any ongoing loading IMMEDIATELY before touching state
+        // This prevents race conditions when switching between videos
         loadJob?.cancel()
+
+        currentAnimeId = animeId
+
+        // Update state IMMEDIATELY (synchronously) to prevent stale data from being used
+        // before the coroutine starts. This fixes the bug where switching from online
+        // to offline would briefly show the old online video.
+        _uiState.update {
+            it.copy(
+                currentEpisodeNumber = episodeNumber,
+                isLoading = true,
+                loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
+                isLoadingVideo = false,
+                episodeData = null,
+                streamingData = null,
+                availableQualities = emptyList(),
+                availableSubtitles = emptyList(),
+                currentSubtitleUrl = null,
+                currentFontsDir = null,
+                savedWatchPosition = 0.0,
+                targetLang = null,
+                targetSubtitleLang = null,
+                targetSubtitleLangCode = null,
+                didMarkWatched = false,
+                offlinePath = offlinePath,
+                offlineTitle = offlineTitle
+            )
+        }
+
         loadJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    currentEpisodeNumber = episodeNumber,
-                    isLoading = true,
-                    loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",
-                    isLoadingVideo = false,
-                    episodeData = null,
-                    streamingData = null,
-                    availableQualities = emptyList(),
-                    availableSubtitles = emptyList(),
-                    currentSubtitleUrl = null,
-                    currentFontsDir = null,
-                    savedWatchPosition = 0.0,
-                    targetLang = null,
-                    targetSubtitleLang = null,
-                    targetSubtitleLangCode = null,
-                    didMarkWatched = false,
-                    offlinePath = offlinePath,
-                    offlineTitle = offlineTitle
-                )
-            }
             if (offlinePath != null) {
                 loadOfflineStream(offlinePath)
             } else {
@@ -106,10 +116,16 @@ class WatchViewModel(
     }
 
     private suspend fun loadOfflineStream(path: String) {
+        // Guard: if state shows we're not in offline mode anymore, abort
+        if (_uiState.value.offlinePath != path) {
+            println("[WatchVM] loadOfflineStream aborted - path mismatch: expected $path, got ${_uiState.value.offlinePath}")
+            return
+        }
+
         // Check for local subs/fonts in same dir
         val dir = try { path.substringBeforeLast("/") } catch(e: Exception) { null }
         val subs = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
-        
+
         if (dir != null) {
             try {
                 val dirPath = dir.toPath()
@@ -141,14 +157,28 @@ class WatchViewModel(
             availableQualities = listOf("Offline" to path),
             availableSubtitles = subs,
             currentSubtitleUrl = defaultSub?.url,
-            currentFontsDir = dir
+            currentFontsDir = dir,
+            streamingData = null,
+            currentServer = "offline"
         ) }
     }
 
     private suspend fun fetchEpisodeData(episodeNumber: Int, reqServer: String? = null, reqLang: String? = null) {
+        // Guard: if we're in offline mode, don't fetch online data
+        if (_uiState.value.offlinePath != null) {
+            println("[WatchVM] fetchEpisodeData aborted - offlinePath is set")
+            return
+        }
+
         _uiState.update { it.copy(isLoading = true, loadingMessage = "Fetching episode data...") }
             val data = infoService.getEpisodes(currentAnimeId, episodeNumber)
-            
+
+            // Check if cancelled or switched to offline before updating state
+            if (!coroutineContext.isActive || _uiState.value.offlinePath != null) {
+                println("[WatchVM] fetchEpisodeData aborted after API call - cancelled or switched to offline")
+                return
+            }
+
             if (data != null) {
                 _uiState.update { state ->
                     state.copy(
@@ -163,17 +193,20 @@ class WatchViewModel(
                     fetchThumbnails(anilistId)
                 }
 
+                // Check if cancelled before proceeding to load video
+                if (!coroutineContext.isActive) return
+
                 val fallbackPriority = listOf("zen2", "zen", "hiya", "hiya-dub")
                 var targetServerName: String? = null
                 var finalLang: String? = reqLang
                 val links = data.episodeLinks ?: emptyList()
                 val hasLinks = links.isNotEmpty()
-                
+
                 if (hasLinks && reqServer != null && reqLang != null) {
                     val rawServerName = if (reqServer.lowercase() == "zen-2") "Zen-2" else reqServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    val matchedLink = links.find { 
-                        it.serverName.equals(rawServerName, ignoreCase = true) && 
-                        it.dataType.equals(reqLang, ignoreCase = true) 
+                    val matchedLink = links.find {
+                        it.serverName.equals(rawServerName, ignoreCase = true) &&
+                        it.dataType.equals(reqLang, ignoreCase = true)
                     }
                     if (matchedLink != null) {
                         targetServerName = reqServer.lowercase()
@@ -181,7 +214,7 @@ class WatchViewModel(
                         finalLang = reqLang
                     }
                 }
-                
+
                 if (hasLinks && targetServerName == null) {
                     val fallbackLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
                     for (candidate in fallbackPriority) {
@@ -240,6 +273,12 @@ class WatchViewModel(
     }
 
     private suspend fun loadVideoStream(serverName: String) {
+        // Guard: if we're in offline mode, don't load online stream
+        if (_uiState.value.offlinePath != null) {
+            println("[WatchVM] loadVideoStream aborted - offlinePath is set, should not load online stream")
+            return
+        }
+
         val currState = _uiState.value
         val anilistId = currState.episodeData?.animeInfo?.anilist ?: return
         val episodeNum = currState.currentEpisodeNumber
@@ -249,7 +288,10 @@ class WatchViewModel(
             // Convert zen2 to zen-2 for kuudere API
             val apiServerName = if (serverName == "zen2") "zen-2" else serverName
             val response = infoService.getVideoStream(anilistId, episodeNum, apiServerName)
-            
+
+            // Check if cancelled before updating state
+            if (!coroutineContext.isActive) return
+
             val streamData = response?.directLink?.data ?: response?.data
             if (streamData != null) {
                 val qualities = mutableListOf<Pair<String, String>>()
@@ -344,6 +386,12 @@ class WatchViewModel(
                     }
                 }
 
+                // Final guard: if offlinePath was set while we were fetching, abort
+                if (_uiState.value.offlinePath != null) {
+                    println("[WatchVM] loadVideoStream aborted at final step - offlinePath was set")
+                    return
+                }
+
                 _uiState.update { state ->
                     state.copy(
                         isLoadingVideo = false,
@@ -353,12 +401,13 @@ class WatchViewModel(
                         currentQuality = qualities.firstOrNull()?.first ?: "Auto",
                         availableSubtitles = subtitles,
                         currentSubtitleUrl = selectedSubUrl,
-                        currentFontsDir = localFontsDir
+                        currentFontsDir = localFontsDir,
+                        offlinePath = null
                     )
                 }
                 println("[WatchVM] Selected sub=$selectedSubUrl, intro=${intro?.start}-${intro?.end}, outro=${outro?.start}-${outro?.end}")
             } else {
-                _uiState.update { it.copy(isLoadingVideo = false, loadingMessage = null) }
+                _uiState.update { it.copy(isLoadingVideo = false, loadingMessage = null, offlinePath = null) }
             }
     }
 
