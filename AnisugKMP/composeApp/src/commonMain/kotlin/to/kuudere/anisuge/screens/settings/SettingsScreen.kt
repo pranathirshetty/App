@@ -3377,37 +3377,11 @@ private fun MobileServersContent(
     onReset: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Header with reset button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Servers",
-                color = TEXT,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Reset button (outlined style like the design)
-            OutlinedButton(
-                onClick = onReset,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
-                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.3f))),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Reset", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
         Text(
             "Drag and drop the servers to change the order in which they are used to find streams.",
             color = MUTED,
             fontSize = 14.sp,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 8.dp)
         )
 
         if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
@@ -3518,5 +3492,20 @@ private fun MobileServersContent(
                 }
             }
         }
+
+        // Reset button at the bottom
+        Spacer(modifier = Modifier.height(24.dp))
+        OutlinedButton(
+            onClick = onReset,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.3f))),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text("Reset to Defaults", fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
