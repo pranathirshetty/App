@@ -71,6 +71,20 @@ class SettingsService(
         }
     }
 
+    /** Fetch user profile from the server */
+    suspend fun getUserProfile(): to.kuudere.anisuge.data.models.CurrentUserResponse? {
+        return try {
+            val stored = sessionStore.get() ?: return null
+            val response = httpClient.get("$BASE_URL/api/auth/user") {
+                header("Cookie", sessionToCookie(stored))
+            }
+            response.body<to.kuudere.anisuge.data.models.CurrentUserResponse>()
+        } catch (e: Exception) {
+            println("[SettingsService] getUserProfile error: ${e.message}")
+            null
+        }
+    }
+
     /** Update user preferences on the server */
     suspend fun updatePreferences(preferences: UserPreferences): PreferencesResponse? {
         return try {

@@ -78,8 +78,16 @@ data class UserProfile(
     val username: String? = null,
     val email: String? = null,
     val avatar: String? = null,
+    val name: String? = null,
+    val pfp: String? = null,
+    val bio: String? = null,
+    val location: String? = null,
+    val displayName: String? = null,
+    val joinDate: String? = null,
+    val ago: String? = null,
 ) {
     val effectiveId: String? get() = id ?: userId
+    val effectiveAvatar: String? get() = pfp ?: avatar
 }
 
 @Serializable

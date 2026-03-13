@@ -34,6 +34,10 @@ data class SettingsUiState(
     val preferences: UserPreferences = UserPreferences(),
     val hasPreferencesChanges: Boolean = false,
 
+    // Profile
+    val userProfile: to.kuudere.anisuge.data.models.UserProfile? = null,
+    val isLoadingProfile: Boolean = false,
+
     // Sessions
     val sessions: List<SessionInfoResponse> = emptyList(),
     val currentSession: SessionInfoResponse? = null,
@@ -88,6 +92,7 @@ data class SettingsUiState(
 )
 
 sealed class SettingsTab {
+    data object Profile : SettingsTab()
     data object Preferences : SettingsTab()
     data object Sync : SettingsTab()
     data object Storage : SettingsTab()
@@ -204,11 +209,36 @@ class SettingsViewModel(
 
     fun onTabSelected(tab: SettingsTab) {
         when (tab) {
+            is SettingsTab.Profile -> loadUserProfile()
             is SettingsTab.Sessions -> loadSessions()
             is SettingsTab.Security -> loadMfaStatus()
             is SettingsTab.Sync -> loadAniListStatus()
             is SettingsTab.Servers -> loadServerPriority()
             else -> {}
+        }
+    }
+
+    // ==================== Profile ====================
+
+    fun loadUserProfile() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingProfile = true) }
+            val response = settingsService.getUserProfile()
+            if (response?.success == true && response.user != null) {
+                _uiState.update {
+                    it.copy(
+                        userProfile = response.user,
+                        isLoadingProfile = false
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoadingProfile = false,
+                        errorMessage = "Failed to load user profile"
+                    )
+                }
+            }
         }
     }
 

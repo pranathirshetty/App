@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Security
@@ -163,6 +164,7 @@ fun SettingsScreen(
 
 
     val navItems = listOf(
+        SettingsNavItem(SettingsTab.Profile, "Profile", Icons.Default.Person),
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
         SettingsNavItem(SettingsTab.Servers, "Servers", Icons.Default.Dns),
         SettingsNavItem(SettingsTab.Sync, "Sync", Icons.Default.Sync),
@@ -244,6 +246,7 @@ fun SettingsScreen(
                                 showDetail = it
                                 // Load data when opening detail
                                 when (it) {
+                                    is SettingsTab.Profile -> viewModel.loadUserProfile()
                                     is SettingsTab.Sessions -> viewModel.loadSessions()
                                     is SettingsTab.Security -> viewModel.loadMfaStatus()
                                     is SettingsTab.Sync -> viewModel.loadAniListStatus()
@@ -585,6 +588,7 @@ private fun MobileSettingsDetail(
                 .padding(top = 8.dp, bottom = 16.dp)
         ) {
             when (tab) {
+                is SettingsTab.Profile -> MobileProfileContent(uiState = uiState)
                 is SettingsTab.Preferences -> MobilePreferencesContent(
                     uiState = uiState,
                     onAutoPlayChange = viewModel::setAutoPlay,
@@ -660,6 +664,7 @@ private fun SettingsContent(
         modifier = modifier
     ) { tab ->
         when (tab) {
+            is SettingsTab.Profile -> ProfileTab(uiState = uiState)
             is SettingsTab.Preferences -> PreferencesTab(
                 uiState = uiState,
                 onAutoPlayChange = viewModel::setAutoPlay,
@@ -3503,5 +3508,264 @@ private fun MobileServersContent(
             Text("Reset to Defaults", fontWeight = FontWeight.SemiBold)
         }
         Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+// ── Profile Tab ──────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ProfileTab(
+    uiState: SettingsUiState
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "Profile",
+            color = TEXT,
+            fontSize = 42.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            "Your account information and profile details",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        if (uiState.isLoadingProfile) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else if (uiState.userProfile != null) {
+            val user = uiState.userProfile
+            
+            // Profile Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BG_CARD)
+                    .padding(32.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Avatar
+                        val avatarUrl = user.effectiveAvatar
+                        if (avatarUrl != null) {
+                            AsyncImage(
+                                model = avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, BORDER, CircleShape)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(CircleShape)
+                                    .background(BG_HOVER),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = MUTED,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(32.dp))
+
+                        Column {
+                            Text(
+                                user.displayName ?: user.username ?: "Anonymous",
+                                color = TEXT,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "@${user.username}",
+                                color = MUTED,
+                                fontSize = 16.sp
+                            )
+                            if (!user.location.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MUTED, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(user.location, color = MUTED, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                    HorizontalDivider(color = BORDER)
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Bio
+                    if (!user.bio.isNullOrBlank()) {
+                        Text("About", color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(user.bio, color = MUTED, fontSize = 14.sp, lineHeight = 20.sp)
+                        Spacer(modifier = Modifier.height(32.dp))
+                    }
+
+                    // Details Grid
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(48.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        maxItemsInEachRow = 3
+                    ) {
+                        ProfileDetailItem("Email", user.email ?: "Not provided")
+                        ProfileDetailItem("Joined", user.joinDate?.let { it.split("T").first() } ?: user.ago ?: "Unknown")
+                        ProfileDetailItem("Timezone", "UTC") // Hardcoded from example but could be dynamic
+                    }
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Failed to load profile", color = Color(0xFFEF5350))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileDetailItem(label: String, value: String) {
+    Column {
+        Text(label, color = MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(value, color = TEXT, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// ── Mobile Profile Content ───────────────────────────────────────────────────────
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MobileProfileContent(
+    uiState: SettingsUiState
+) {
+    if (uiState.isLoadingProfile) {
+        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color.White)
+        }
+    } else if (uiState.userProfile != null) {
+        val user = uiState.userProfile
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Profile Header
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val avatarUrl = user.effectiveAvatar
+                if (avatarUrl != null) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, BORDER, CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(BG_HOVER),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MUTED,
+                            modifier = Modifier.size(60.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    user.displayName ?: user.username ?: "Anonymous",
+                    color = TEXT,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "@${user.username}",
+                    color = MUTED,
+                    fontSize = 14.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Bio
+            if (!user.bio.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(BG_CARD)
+                        .padding(16.dp)
+                ) {
+                    Column {
+                        Text("About", color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(user.bio, color = MUTED, fontSize = 14.sp, lineHeight = 20.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Mobile Details List
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(BG_CARD)
+            ) {
+                Column {
+                    MobileProfileInfoItem("Email", user.email ?: "Not provided")
+                    HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
+                    MobileProfileInfoItem("Joined", user.joinDate?.let { it.split("T").first() } ?: user.ago ?: "Unknown")
+                    HorizontalDivider(color = BORDER, modifier = Modifier.padding(horizontal = 16.dp))
+                    MobileProfileInfoItem("Location", user.location ?: "Not provided")
+                }
+            }
+        }
+    } else {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Failed to load profile", color = Color(0xFFEF5350))
+        }
+    }
+}
+
+@Composable
+private fun MobileProfileInfoItem(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = MUTED, fontSize = 14.sp)
+        Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
