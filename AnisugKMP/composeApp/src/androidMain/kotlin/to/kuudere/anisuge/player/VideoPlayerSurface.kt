@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.io.File
 
 @Composable
@@ -28,6 +29,7 @@ actual fun VideoPlayerSurface(
 ) {
     val context = LocalContext.current
     val currentOnFinished by rememberUpdatedState(onFinished)
+    val coroutineScope = rememberCoroutineScope()
 
     val resolvedUrl = remember(state.config.url) {
         val url = state.config.url
@@ -66,11 +68,15 @@ actual fun VideoPlayerSurface(
                     MPVLib.attachSurface(holder.surface)
                     MPVLib.setOptionString("force-window", "yes")
 
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                        if (state.config.startPosition > 0.0) {
-                            MPVLib.setOptionString("start", state.config.startPosition.toString())
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            if (state.config.startPosition > 0.0) {
+                                MPVLib.setOptionString("start", state.config.startPosition.toString())
+                            }
+                            MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
-                        MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
                     }
                 }
 
@@ -257,12 +263,17 @@ actual fun VideoPlayerSurface(
                         }
                         
                         state.allSubUrls?.let { subs ->
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val currentUrlCopy = resolvedUrl
                                 subs.forEach { (url, name, isDefault) ->
                                     val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                                    if (localPath != null) {
-                                        val flag = if (isDefault) "select" else "auto"
-                                        MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                                    if (localPath != null && isActive) {
+                                        try {
+                                            val flag = if (isDefault) "select" else "auto"
+                                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
                                     }
                                 }
                             }
@@ -288,19 +299,17 @@ actual fun VideoPlayerSurface(
 
         onDispose {
             MPVLib.removeObserver(observer)
-            // Fully destroy MPV when navigating away to prevent race conditions
-            // where old coroutines load wrong videos when switching online->offline
-            MPVLib.command(arrayOf<String>("stop"))
-            MPVLib.setPropertyString("vo", "null")
-            MPVLib.detachSurface()
-            // Destroy MPV to ensure clean state for next video
-            synchronized(MPVLibLock) {
-                if (isMPVInitialized) {
-                    MPVLib.destroy()
-                    isMPVInitialized = false
-                    isMPVInited = false
-                }
+            try {
+                // Fully wipe state on navigate away to prevent race conditions
+                MPVLib.command(arrayOf<String>("stop"))
+                MPVLib.setPropertyString("vo", "null")
+                MPVLib.detachSurface()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+            // We NO LONGER call MPVLib.destroy() here.
+            // Destroying the MPVLib singleton while its native threads (e.g. decoder, event loop)
+            // are active causes the app to natively crash with SIGABRT (pthread_mutex_lock on destroyed mutex).
         }
     }
 
@@ -438,12 +447,14 @@ actual fun VideoPlayerSurface(
     // after MPVLib.init().
     LaunchedEffect(state.allSubUrls) {
         state.allSubUrls?.let { subs ->
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            withContext(Dispatchers.IO) {
                 subs.forEach { (url, name, isDefault) ->
                     val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                    if (localPath != null) {
-                        val flag = if (isDefault) "select" else "auto"
-                        MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                    if (localPath != null && isActive) {
+                        try {
+                            val flag = if (isDefault) "select" else "auto"
+                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                        } catch (e: Exception) { }
                     }
                 }
             }
