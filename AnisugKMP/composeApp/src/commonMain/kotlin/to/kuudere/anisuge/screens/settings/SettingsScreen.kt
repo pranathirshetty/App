@@ -3306,7 +3306,7 @@ private fun DraggableServerItem(
                     if (isDragging) BG_HOVER else BG_CARD,
                     RoundedCornerShape(12.dp)
                 )
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -3381,7 +3381,7 @@ private fun MobileServersContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -3407,7 +3407,7 @@ private fun MobileServersContent(
             "Drag and drop the servers to change the order in which they are used to find streams.",
             color = MUTED,
             fontSize = 14.sp,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
         )
 
         if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
@@ -3462,8 +3462,8 @@ private fun MobileServersContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 localServerList.forEachIndexed { currentIndex, server ->
                     val isDragging = draggingItemIndex == currentIndex
