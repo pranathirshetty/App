@@ -289,7 +289,13 @@ fun HomeScreen(
                                         onWatchClick = onWatchClick,
                                         onWatchlistClick = { showWatchlistFor = it },
                                         onRefresh = { homeViewModel.refresh() },
-                                        onViewLatestMore = onViewLatestMore
+                                        onViewLatestMore = onViewLatestMore,
+                                        onViewNewOnAppMore = {
+                                            searchViewModel.onSortChange("Latest")
+                                            searchViewModel.search()
+                                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                                            currentTab = AnisugTab.Search
+                                        }
                                     )
                                 }
                             }
@@ -356,6 +362,7 @@ private fun HomeContent(
     onWatchlistClick: (AnimeItem) -> Unit,
     onRefresh: () -> Unit = {},
     onViewLatestMore: () -> Unit = {},
+    onViewNewOnAppMore: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     
@@ -399,6 +406,7 @@ private fun HomeContent(
                 title = "New On App",
                 items = state.newOnSite,
                 onItemClick = { item -> onAnimeClick(item.id) },
+                onViewMoreClick = onViewNewOnAppMore,
             )
         }
 
