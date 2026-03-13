@@ -34,6 +34,8 @@ import to.kuudere.anisuge.screens.watchlist.WatchlistViewModel
 import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
 import to.kuudere.anisuge.screens.settings.SettingsScreen
 import to.kuudere.anisuge.screens.settings.SettingsViewModel
+import to.kuudere.anisuge.screens.latest.LatestEpisodesScreen
+import to.kuudere.anisuge.screens.latest.LatestViewModel
 import to.kuudere.anisuge.theme.AnisugTheme
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
@@ -53,6 +55,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val watchlistVm = remember { WatchlistViewModel() }
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
         val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository) }
+        val latestVm = remember { LatestViewModel(AppComponent.latestService) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -103,6 +106,7 @@ fun App(onAppExit: () -> Unit = {}) {
                         watchlistViewModel = watchlistVm,
                         scheduleViewModel = scheduleVm,
                         settingsViewModel = settingsVm,
+                        latestViewModel = latestVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
                         onWatchOffline = { id, ep, path, title ->
@@ -114,6 +118,7 @@ fun App(onAppExit: () -> Unit = {}) {
                             }
                         },
                         onExit = onAppExit,
+                        onViewLatestMore = { navController.navigate(Screen.Latest.route) },
                         startOnDownloads = downloadsArg || (splashVm.destination.value == SplashDestination.GoHomeOffline)
                     )
                 }
@@ -178,6 +183,14 @@ fun App(onAppExit: () -> Unit = {}) {
                         offlinePath = offlinePath,
                         offlineTitle = offlineTitle,
                         viewModel = watchVm,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Screen.Latest.route) {
+                    LatestEpisodesScreen(
+                        viewModel = latestVm,
+                        onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onBack = { navController.popBackStack() }
                     )
                 }

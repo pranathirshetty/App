@@ -163,7 +163,7 @@ import to.kuudere.anisuge.screens.settings.SettingsScreen
 import to.kuudere.anisuge.screens.settings.SettingsViewModel
 import to.kuudere.anisuge.ui.ConfirmDialog
 
-enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
+enum class AnisugTab { Home, Search, Latest, Calendar, Bookmarks, Downloads, Settings }
 
 @Composable
 fun HomeScreen(
@@ -172,11 +172,13 @@ fun HomeScreen(
     watchlistViewModel: WatchlistViewModel,
     scheduleViewModel: ScheduleViewModel,
     settingsViewModel: SettingsViewModel,
+    latestViewModel: to.kuudere.anisuge.screens.latest.LatestViewModel,
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
     onWatchOffline: (String, Int, String, String) -> Unit = { _, _, _, _ -> },
     onLogout: () -> Unit = {},
     onExit: () -> Unit = {},
+    onViewLatestMore: () -> Unit = {},
     startOnDownloads: Boolean = false,
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
@@ -197,6 +199,7 @@ fun HomeScreen(
         val room = when (currentTab) {
             AnisugTab.Home -> "home"
             AnisugTab.Search -> "search"
+            AnisugTab.Latest -> "recently-updated"
             AnisugTab.Calendar -> "countdowns"
             AnisugTab.Bookmarks -> "watchlist"
             AnisugTab.Downloads -> "downloads"
@@ -287,7 +290,8 @@ fun HomeScreen(
                                         onAnimeClick = onAnimeClick,
                                         onWatchClick = onWatchClick,
                                         onWatchlistClick = { showWatchlistFor = it },
-                                        onRefresh = { homeViewModel.refresh() }
+                                        onRefresh = { homeViewModel.refresh() },
+                                        onViewLatestMore = onViewLatestMore
                                     )
                                 }
                             }
@@ -298,6 +302,11 @@ fun HomeScreen(
                             AnisugTab.Settings -> SettingsScreen(
                                 viewModel = settingsViewModel,
                                 onLogout = onLogout
+                            )
+                            AnisugTab.Latest -> to.kuudere.anisuge.screens.latest.LatestEpisodesScreen(
+                                viewModel = latestViewModel,
+                                onAnimeClick = onAnimeClick,
+                                onBack = { currentTab = AnisugTab.Home }
                             )
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)
@@ -352,7 +361,8 @@ private fun HomeContent(
     onAnimeClick: (String) -> Unit,
     onWatchClick: (String, String, Int, String?) -> Unit,
     onWatchlistClick: (AnimeItem) -> Unit,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    onViewLatestMore: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     
@@ -386,6 +396,7 @@ private fun HomeContent(
                 title = "Latest Episodes",
                 items = state.latestEpisodes,
                 onItemClick = { item -> onAnimeClick(item.id) },
+                onViewMoreClick = onViewLatestMore,
             )
         }
 
@@ -1045,11 +1056,12 @@ private fun AnimeSection(
     items: List<AnimeItem>,
     onItemClick: (AnimeItem) -> Unit,
     showViewMore: Boolean = true,
+    onViewMoreClick: () -> Unit = {},
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val isXlScreen = maxWidth >= 1280.dp
         Column {
-            SectionHeader(title = title, onViewMore = if (showViewMore) ({ }) else null)
+            SectionHeader(title = title, onViewMore = if (showViewMore) onViewMoreClick else null)
             val listState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
             LazyRow(
@@ -1464,6 +1476,11 @@ private fun AnisugBottomBar(
             Icons.Outlined.Explore,
             isSelected = selectedTab == AnisugTab.Search,
             onClick = { onTabSelect(AnisugTab.Search) }
+        )
+        BottomBarIcon(
+            Icons.Default.WatchLater,
+            isSelected = selectedTab == AnisugTab.Latest,
+            onClick = { onTabSelect(AnisugTab.Latest) }
         )
         BottomBarIcon(
             Icons.Outlined.Bookmarks,
