@@ -10,6 +10,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,6 +55,7 @@ import androidx.compose.material.icons.filled.TabletAndroid
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -3123,7 +3129,7 @@ private fun ServersTab(
     onReset: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Header with title and actions
+        // Header with title and reset button
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -3133,27 +3139,25 @@ private fun ServersTab(
                 "Servers",
                 color = TEXT,
                 fontSize = 42.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
+                fontWeight = FontWeight.Bold
             )
 
-            // Save button (only show if there are changes)
-            if (uiState.hasServerPriorityChanges) {
-                Button(
-                    onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Save Changes", color = Color.Black, fontWeight = FontWeight.SemiBold)
-                }
+            // Reset button (outlined style like the design)
+            OutlinedButton(
+                onClick = onReset,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.3f))),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Reset", fontWeight = FontWeight.SemiBold)
             }
         }
 
         Text(
-            "Drag to reorder server priority. The first available server will be used when resuming playback.",
+            "Drag and drop the servers to change the order in which they are used to find streams.",
             color = MUTED,
             fontSize = 14.sp,
-            modifier = Modifier.padding(bottom = 24.dp)
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
 
         if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
@@ -3193,47 +3197,74 @@ private fun ServersTab(
                 localServerList = serverList
             }
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                localServerList.forEachIndexed { index, server ->
+            // Auto-save on reorder
+            val autoSaveReorder = { newList: List<to.kuudere.anisuge.data.models.ServerInfo> ->
+                localServerList = newList
+                onReorder(newList.map { it.id })
+                onSave()
+            }
+
+            // Track drag state
+            var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
+            var dragOffset by remember { mutableStateOf(0f) }
+            val itemHeightPx = 58f // card height + spacing in pixels
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                localServerList.forEachIndexed { currentIndex, server ->
+                    val isDragging = draggingItemIndex == currentIndex
+                    val visualOffset = if (isDragging) dragOffset.dp else 0.dp
+
                     DraggableServerItem(
                         server = server,
-                        position = index + 1,
+                        isDragging = isDragging,
+                        offsetY = visualOffset,
+                        onDragStart = { draggingItemIndex = currentIndex },
+                        onDrag = { delta ->
+                            dragOffset += delta
+
+                            if (draggingItemIndex != null) {
+                                val currentDragIndex = draggingItemIndex!!
+                                // Calculate target index based on drag distance
+                                val dragItems = (dragOffset / itemHeightPx).toInt()
+                                val targetIndex = (currentDragIndex + dragItems)
+                                    .coerceIn(0, localServerList.size - 1)
+
+                                if (targetIndex != currentDragIndex) {
+                                    val newList = localServerList.toMutableList()
+                                    val item = newList.removeAt(currentDragIndex)
+                                    newList.add(targetIndex, item)
+                                    localServerList = newList
+                                    draggingItemIndex = targetIndex
+                                    // Adjust offset to account for the position change
+                                    dragOffset = dragOffset - (dragItems * itemHeightPx)
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            draggingItemIndex = null
+                            dragOffset = 0f
+                            autoSaveReorder(localServerList)
+                        },
                         onMoveUp = {
-                            if (index > 0) {
+                            if (currentIndex > 0) {
                                 val newList = localServerList.toMutableList()
-                                val item = newList.removeAt(index)
-                                newList.add(index - 1, item)
-                                localServerList = newList
-                                onReorder(localServerList.map { it.id })
+                                val item = newList.removeAt(currentIndex)
+                                newList.add(currentIndex - 1, item)
+                                autoSaveReorder(newList)
                             }
                         },
                         onMoveDown = {
-                            if (index < localServerList.size - 1) {
+                            if (currentIndex < localServerList.size - 1) {
                                 val newList = localServerList.toMutableList()
-                                val item = newList.removeAt(index)
-                                newList.add(index + 1, item)
-                                localServerList = newList
-                                onReorder(localServerList.map { it.id })
+                                val item = newList.removeAt(currentIndex)
+                                newList.add(currentIndex + 1, item)
+                                autoSaveReorder(newList)
                             }
                         }
                     )
-
-                    if (index < localServerList.size - 1) {
-                        HorizontalDivider(thickness = 1.dp, color = BORDER)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Reset button
-                OutlinedButton(
-                    onClick = onReset,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MUTED),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text("Reset to Default")
                 }
             }
         }
@@ -3243,89 +3274,95 @@ private fun ServersTab(
 @Composable
 private fun DraggableServerItem(
     server: to.kuudere.anisuge.data.models.ServerInfo,
-    position: Int,
+    isDragging: Boolean,
+    offsetY: androidx.compose.ui.unit.Dp,
+    onDragStart: () -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
-    Row(
+    val elevation by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isDragging) 8f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(150)
+    )
+
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isDragging) 1.02f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(150)
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(BG_CARD)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .offset(y = offsetY)
+            .scale(scale)
+            .zIndex(if (isDragging) 1f else 0f)
     ) {
-        // Position number
-        Box(
+        Row(
             modifier = Modifier
-                .size(28.dp)
-                .background(BG_HOVER, CircleShape),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .background(
+                    if (isDragging) BG_HOVER else BG_CARD,
+                    RoundedCornerShape(12.dp)
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Drag handle icon (6 dots) - now actually draggable
+            Icon(
+                imageVector = Icons.Default.DragIndicator,
+                contentDescription = "Drag to reorder",
+                tint = MUTED,
+                modifier = Modifier
+                    .size(20.dp)
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onDrag = { change, dragAmount ->
+                                onDrag(dragAmount.y)
+                            }
+                        )
+                    }
+                    .clickable { /* Consume clicks */ }
+            )
+
+            // Server name
             Text(
-                position.toString(),
+                server.displayName,
                 color = TEXT,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
             )
-        }
 
-        // Server type indicator
-        val typeColor = when (server.type) {
-            "dual" -> Color(0xFF8B5CF6)
-            "sub" -> Color(0xFF3B82F6)
-            "dub" -> Color(0xFF10B981)
-            else -> Color.Gray
-        }
-
-        Box(
-            modifier = Modifier
-                .width(48.dp)
-                .height(24.dp)
-                .background(typeColor.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                .border(1.dp, typeColor, RoundedCornerShape(4.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                server.type.uppercase(),
-                color = typeColor,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        // Server name
-        Text(
-            server.displayName,
-            color = TEXT,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-
-        // Reorder buttons
-        Column {
-            IconButton(
-                onClick = onMoveUp,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Move Up",
-                    tint = MUTED,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            IconButton(
-                onClick = onMoveDown,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Move Down",
-                    tint = MUTED,
-                    modifier = Modifier.size(20.dp)
-                )
+            // Reorder buttons (up/down arrows)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = onMoveUp,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Move Up",
+                        tint = MUTED,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(
+                    onClick = onMoveDown,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Move Down",
+                        tint = MUTED,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -3340,7 +3377,7 @@ private fun MobileServersContent(
     onReset: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Header with save button
+        // Header with reset button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3349,31 +3386,29 @@ private fun MobileServersContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Server Priority",
+                "Servers",
                 color = TEXT,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            if (uiState.hasServerPriorityChanges) {
-                Button(
-                    onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Save", color = Color.Black, fontWeight = FontWeight.SemiBold)
-                }
+            // Reset button (outlined style like the design)
+            OutlinedButton(
+                onClick = onReset,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
+                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.3f))),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Reset", fontWeight = FontWeight.SemiBold)
             }
         }
 
         Text(
-            "Reorder servers by priority. First available server will be used when resuming playback.",
+            "Drag and drop the servers to change the order in which they are used to find streams.",
             color = MUTED,
             fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
             Box(
@@ -3412,47 +3447,74 @@ private fun MobileServersContent(
                 localServerList = serverList
             }
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                localServerList.forEachIndexed { index, server ->
+            // Auto-save on reorder
+            val autoSaveReorder = { newList: List<to.kuudere.anisuge.data.models.ServerInfo> ->
+                localServerList = newList
+                onReorder(newList.map { it.id })
+                onSave()
+            }
+
+            // Track drag state
+            var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
+            var dragOffset by remember { mutableStateOf(0f) }
+            val itemHeightPxMobile = 58f
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                localServerList.forEachIndexed { currentIndex, server ->
+                    val isDragging = draggingItemIndex == currentIndex
+                    val visualOffset = if (isDragging) dragOffset.dp else 0.dp
+
                     DraggableServerItem(
                         server = server,
-                        position = index + 1,
+                        isDragging = isDragging,
+                        offsetY = visualOffset,
+                        onDragStart = { draggingItemIndex = currentIndex },
+                        onDrag = { delta ->
+                            dragOffset += delta
+
+                            if (draggingItemIndex != null) {
+                                val currentDragIndex = draggingItemIndex!!
+                                val dragItems = (dragOffset / itemHeightPxMobile).toInt()
+                                val targetIndex = (currentDragIndex + dragItems)
+                                    .coerceIn(0, localServerList.size - 1)
+
+                                if (targetIndex != currentDragIndex) {
+                                    val newList = localServerList.toMutableList()
+                                    val item = newList.removeAt(currentDragIndex)
+                                    newList.add(targetIndex, item)
+                                    localServerList = newList
+                                    draggingItemIndex = targetIndex
+                                    dragOffset = dragOffset - (dragItems * itemHeightPxMobile)
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            draggingItemIndex = null
+                            dragOffset = 0f
+                            autoSaveReorder(localServerList)
+                        },
                         onMoveUp = {
-                            if (index > 0) {
+                            if (currentIndex > 0) {
                                 val newList = localServerList.toMutableList()
-                                val item = newList.removeAt(index)
-                                newList.add(index - 1, item)
-                                localServerList = newList
-                                onReorder(localServerList.map { it.id })
+                                val item = newList.removeAt(currentIndex)
+                                newList.add(currentIndex - 1, item)
+                                autoSaveReorder(newList)
                             }
                         },
                         onMoveDown = {
-                            if (index < localServerList.size - 1) {
+                            if (currentIndex < localServerList.size - 1) {
                                 val newList = localServerList.toMutableList()
-                                val item = newList.removeAt(index)
-                                newList.add(index + 1, item)
-                                localServerList = newList
-                                onReorder(localServerList.map { it.id })
+                                val item = newList.removeAt(currentIndex)
+                                newList.add(currentIndex + 1, item)
+                                autoSaveReorder(newList)
                             }
                         }
                     )
-
-                    if (index < localServerList.size - 1) {
-                        HorizontalDivider(thickness = 1.dp, color = BORDER)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Reset button
-                OutlinedButton(
-                    onClick = onReset,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MUTED),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text("Reset to Default")
                 }
             }
         }
