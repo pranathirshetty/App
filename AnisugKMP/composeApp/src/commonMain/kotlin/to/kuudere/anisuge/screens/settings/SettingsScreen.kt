@@ -3381,7 +3381,7 @@ private fun MobileServersContent(
             "Drag and drop the servers to change the order in which they are used to find streams.",
             color = MUTED,
             fontSize = 14.sp,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
         )
 
         if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
@@ -3434,9 +3434,7 @@ private fun MobileServersContent(
             val itemHeightPxMobile = 58f
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 localServerList.forEachIndexed { currentIndex, server ->
@@ -3497,9 +3495,7 @@ private fun MobileServersContent(
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedButton(
             onClick = onReset,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.3f))),
             shape = RoundedCornerShape(8.dp)
