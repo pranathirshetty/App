@@ -6,6 +6,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.AuthService
 import to.kuudere.anisuge.data.services.SessionStore
 import to.kuudere.anisuge.platform.createDataStore
@@ -82,5 +83,9 @@ object AppComponent {
 
     val realtimeService: to.kuudere.anisuge.data.services.RealtimeService by lazy {
         to.kuudere.anisuge.data.services.RealtimeService(httpClient, authService)
+    }
+
+    val serverRepository: ServerRepository by lazy {
+        ServerRepository(httpClient, dataStore)
     }
 }

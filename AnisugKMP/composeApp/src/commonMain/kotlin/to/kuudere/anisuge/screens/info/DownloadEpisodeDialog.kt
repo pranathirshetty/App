@@ -3,6 +3,7 @@ package to.kuudere.anisuge.screens.info
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -19,7 +20,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
+import to.kuudere.anisuge.data.models.ServerInfo
 import to.kuudere.anisuge.data.models.WatchServerResponse
+import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.InfoService
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.get
@@ -33,6 +36,7 @@ fun DownloadEpisodeDialog(
     anilistId: Int,
     durationMins: Int,
     infoService: InfoService,
+    serverRepository: ServerRepository,
     onDismiss: () -> Unit,
     onStartDownload: (server: String, subLang: String?, audioLang: String?, downloadFonts: Boolean) -> Unit
 ) {
@@ -48,11 +52,22 @@ fun DownloadEpisodeDialog(
     val downloadTasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
     val currentTask = downloadTasks.find { it.animeId == animeId && it.episodeNumber == episodeNumber }
 
+    val availableServers = serverRepository.servers.collectAsState()
+    val defaultServer = availableServers.value.firstOrNull()?.id ?: "zen2"
+
+    // Update selected server when repository loads
+    LaunchedEffect(availableServers.value) {
+        if (selectedServer !in availableServers.value.map { it.id } && availableServers.value.isNotEmpty()) {
+            selectedServer = defaultServer
+        }
+    }
+
     LaunchedEffect(selectedServer) {
         isLoadingSubs = true
         estimatedSizeBytes = 0L
         try {
-            val apiServer = if (selectedServer == "zen2") "zen-2" else selectedServer
+            val serverInfo = availableServers.value.find { it.id == selectedServer }
+            val apiServer = serverInfo?.apiName ?: if (selectedServer == "zen2") "zen-2" else selectedServer
             val response = infoService.getVideoStream(anilistId, episodeNumber, apiServer)
             val streamData = response?.directLink?.data ?: response?.data
             
@@ -112,8 +127,6 @@ fun DownloadEpisodeDialog(
         }
     }
 
-    val servers = listOf("hiya", "hiya-dub", "zen", "zen2")
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF141414),
@@ -137,27 +150,27 @@ fun DownloadEpisodeDialog(
             // Server Selection
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Select Server", color = Color.Gray, fontSize = 14.sp)
-                Row(
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    servers.forEach { server ->
-                        val isSelected = server == selectedServer
+                    items(availableServers.value.size) { index ->
+                        val server = availableServers.value[index]
+                        val isSelected = server.id == selectedServer
                         Box(
                             modifier = Modifier
-                                .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(if (isSelected) Color.White else Color(0xFF222222))
-                                .clickable { 
-                                    selectedServer = server 
-                                    if (server == "hiya-dub") selectedAudioLang = "dub"
-                                    if (server == "hiya") selectedAudioLang = "sub"
+                                .clickable {
+                                    selectedServer = server.id
+                                    if (server.id == "hiya-dub") selectedAudioLang = "dub"
+                                    if (server.id == "hiya") selectedAudioLang = "sub"
                                 }
-                                .padding(vertical = 10.dp),
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = server.replaceFirstChar { it.uppercase() },
+                                text = server.displayName,
                                 color = if (isSelected) Color.Black else Color.White,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold

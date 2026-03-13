@@ -10,7 +10,9 @@ import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.isActive
 import to.kuudere.anisuge.data.models.EpisodeDataResponse
 import to.kuudere.anisuge.data.models.EpisodeLink
+import to.kuudere.anisuge.data.models.ServerInfo
 import to.kuudere.anisuge.data.models.StreamingData
+import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.InfoService
 import okio.Path.Companion.toPath
 import to.kuudere.anisuge.player.VideoPlayerConfig
@@ -57,7 +59,8 @@ data class WatchUiState(
 class WatchViewModel(
     private val infoService: InfoService,
     private val settingsStore: to.kuudere.anisuge.data.services.SettingsStore,
-    private val settingsService: to.kuudere.anisuge.data.services.SettingsService
+    private val settingsService: to.kuudere.anisuge.data.services.SettingsService,
+    private val serverRepository: ServerRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WatchUiState())
     val uiState = _uiState.asStateFlow()
@@ -196,7 +199,7 @@ class WatchViewModel(
                 // Check if cancelled before proceeding to load video
                 if (!coroutineContext.isActive) return
 
-                val fallbackPriority = listOf("zen2", "zen", "hiya", "hiya-dub")
+                val fallbackPriority = serverRepository.getFallbackPriority()
                 var targetServerName: String? = null
                 var finalLang: String? = reqLang
                 val links = data.episodeLinks ?: emptyList()
@@ -218,19 +221,15 @@ class WatchViewModel(
                 if (hasLinks && targetServerName == null) {
                     val fallbackLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
                     for (candidate in fallbackPriority) {
-                        val apiServerName = when (candidate) {
-                            "zen2" -> "Zen-2"
-                            "zen" -> "Zen"
-                            "hiya", "hiya-dub" -> "Hiya"
-                            else -> candidate
-                        }
+                        val serverInfo = serverRepository.getServerById(candidate)
+                        val apiServerName = serverInfo?.apiName ?: candidate.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                         val apiLang = if (candidate.endsWith("-dub")) "dub" else fallbackLang
-                        
-                        val matched = links.find { 
-                            it.serverName.equals(apiServerName, ignoreCase = true) && 
-                            it.dataType.equals(apiLang, ignoreCase = true) 
+
+                        val matched = links.find {
+                            it.serverName.equals(apiServerName, ignoreCase = true) &&
+                            it.dataType.equals(apiLang, ignoreCase = true)
                         }
-                        
+
                         if (matched != null) {
                             targetServerName = if (candidate == "hiya" && apiLang == "dub") "hiya-dub" else candidate
                             finalLang = apiLang
@@ -285,8 +284,9 @@ class WatchViewModel(
 
         _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
 
-            // Convert zen2 to zen-2 for kuudere API
-            val apiServerName = if (serverName == "zen2") "zen-2" else serverName
+            // Convert server ID to API name (e.g., "zen2" -> "Zen-2")
+            val serverInfo = serverRepository.getServerById(serverName)
+            val apiServerName = serverInfo?.apiName ?: if (serverName == "zen2") "zen-2" else serverName
             val response = infoService.getVideoStream(anilistId, episodeNum, apiServerName)
 
             // Check if cancelled before updating state
@@ -459,6 +459,20 @@ class WatchViewModel(
         }
     }
 
+    /**
+     * Get the list of available server IDs for UI display
+     */
+    fun getAvailableServers(): List<String> {
+        return serverRepository.serverIds
+    }
+
+    /**
+     * Get server info by ID
+     */
+    fun getServerInfo(serverId: String): ServerInfo? {
+        return serverRepository.getServerById(serverId)
+    }
+
     fun toggleSettingsOverlay(page: SettingsMenuPage? = null) {
         _uiState.update { 
             it.copy(
@@ -487,8 +501,8 @@ class WatchViewModel(
     fun saveProgress(currentTime: Double, duration: Double, language: String = "sub") {
         val currState = _uiState.value
         val episodeId = currState.episodeData?.episodeId ?: return
-        var server = currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-        if (server == "Zen2") server = "Zen-2"
+        val serverInfo = serverRepository.getServerById(currState.currentServer)
+        val server = serverInfo?.apiName ?: currState.currentServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }.let { if (it == "Zen2") "Zen-2" else it }
 
         if (currentAnimeId.isEmpty() || duration <= 0) return
 

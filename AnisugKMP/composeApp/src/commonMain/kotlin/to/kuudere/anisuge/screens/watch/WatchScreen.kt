@@ -1303,7 +1303,7 @@ fun WatchVideoPlayer(
             
             if (uiState.showSettingsOverlay) {
                 val isOffline = uiState.offlinePath != null
-                val servers = if (isOffline) emptyList() else listOf("hiya", "hiya-dub", "zen", "zen2")
+                val servers = if (isOffline) emptyList() else viewModel.getAvailableServers()
                 SettingsOverlay(
                     uiState = uiState,
                     servers = servers,
@@ -1416,7 +1416,7 @@ fun WatchVideoPlayer(
             }
 
             if (uiState.showSettingsOverlay) {
-                val servers = listOf("hiya", "hiya-dub", "zen", "zen2")
+                val servers = viewModel.getAvailableServers()
                 SettingsOverlay(
                     uiState = uiState,
                     servers = servers,
