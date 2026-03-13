@@ -57,6 +57,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -108,6 +110,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import anisugkmp.composeapp.generated.resources.Res
@@ -240,7 +243,7 @@ fun SettingsScreen(
                     if (detailTab == null) {
                         // Main settings list
                         MobileSettingsList(
-                            navItems = navItems,
+                            navItems = navItems.filter { it.tab != SettingsTab.Profile },
                             uiState = uiState,
                             onItemClick = {
                                 showDetail = it
@@ -353,15 +356,8 @@ private fun Sidebar(
             .background(BG)
             .padding(horizontal = 16.dp, vertical = 24.dp)
     ) {
-        // Header
-        Text(
-            "SETTINGS",
-            color = MUTED,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 1.2.sp,
-            modifier = Modifier.padding(start = 12.dp, bottom = 16.dp)
-        )
+        // No overall header as per user request
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Nav Items
         navItems.forEach { item ->
@@ -462,14 +458,92 @@ private fun MobileSettingsList(
             .padding(horizontal = 20.dp)
             .padding(top = 8.dp, bottom = 16.dp)
     ) {
-        // Header - just title, no back (it's a tab)
-        Text(
-            "Settings",
-            color = TEXT,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        // Profile Card at the Top
+        if (!uiState.isLoadingProfile && uiState.userProfile != null) {
+            val user = uiState.userProfile
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BG_CARD)
+                    .padding(20.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val avatarUrl = user.effectiveAvatar
+                    if (avatarUrl != null) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, BORDER, CircleShape)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(BG_HOVER),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MUTED,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                user.displayName ?: user.username ?: "Anonymous",
+                                color = TEXT,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (user.isEmailVerified == true) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                VerifiedBadge(size = 13.dp)
+                            }
+                        }
+                        user.username?.let {
+                            Text(
+                                "@$it",
+                                color = MUTED,
+                                fontSize = 13.sp
+                            )
+                        }
+                        user.joinDate?.let {
+                            Text(
+                                "Joined ${it.split("T").first()}",
+                                color = MUTED,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        } else if (uiState.isLoadingProfile) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MUTED, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            }
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Menu Items
         navItems.forEach { item ->
@@ -3580,12 +3654,18 @@ private fun ProfileTab(
                         Spacer(modifier = Modifier.width(32.dp))
 
                         Column {
-                            Text(
-                                user.displayName ?: user.username ?: "Anonymous",
-                                color = TEXT,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    user.displayName ?: user.username ?: "Anonymous",
+                                    color = TEXT,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (user.isEmailVerified == true) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    VerifiedBadge(size = 18.dp)
+                                }
+                            }
                             Text(
                                 "@${user.username}",
                                 color = MUTED,
@@ -3767,5 +3847,23 @@ private fun MobileProfileInfoItem(label: String, value: String) {
     ) {
         Text(label, color = MUTED, fontSize = 14.sp)
         Text(value, color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun VerifiedBadge(size: Dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = "Verified",
+            tint = Color.Black,
+            modifier = Modifier.size(size * 0.65f)
+        )
     }
 }

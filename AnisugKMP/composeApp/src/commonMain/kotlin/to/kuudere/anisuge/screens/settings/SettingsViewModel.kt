@@ -116,6 +116,7 @@ class SettingsViewModel(
     private var exportJob: Job? = null
 
     init {
+        loadUserProfile()
         loadPreferences()
         loadSessions()
         

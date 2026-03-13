@@ -85,6 +85,7 @@ data class UserProfile(
     val displayName: String? = null,
     val joinDate: String? = null,
     val ago: String? = null,
+    val isEmailVerified: Boolean? = null,
 ) {
     val effectiveId: String? get() = id ?: userId
     val effectiveAvatar: String? get() = pfp ?: avatar
