@@ -76,3 +76,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-plugin" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kmpAppIconGenerator = { id = "io.github.qamarelsafadi.kmp.app.icon.generator", version = "1.2.6" }

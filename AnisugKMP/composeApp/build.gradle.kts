@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.androidApplication)
+    alias(libs.plugins.kmpAppIconGenerator)
 }
 
 kotlin {
@@ -126,3 +127,5 @@ compose.desktop {
         }
     }
 }
+
+
