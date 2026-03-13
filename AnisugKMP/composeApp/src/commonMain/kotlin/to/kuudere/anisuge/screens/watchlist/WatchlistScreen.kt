@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -117,13 +119,16 @@ fun WatchlistScreen(
                                 ) {
                                     folderOptions.forEach { folder ->
                                         val isSelected = selectedList == folder
+                                        val interactionSource = remember { MutableInteractionSource() }
+                                        val isHovered by interactionSource.collectIsHoveredAsState()
+
                                         DropdownMenuItem(
                                             text = { 
                                                 Text(
                                                     text = folder, 
-                                                    color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                                    color = if (isHovered || isSelected) Color(0xFFEF4444) else Color(0xFFD4D4D8),
                                                     fontSize = 13.sp,
-                                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                    fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
                                                 ) 
                                             },
                                             onClick = {
@@ -131,9 +136,19 @@ fun WatchlistScreen(
                                                 viewModel.onFolderChange(if (folder == "All lists") "All" else folder)
                                                 showFolderDropdown = false
                                             },
-                                            modifier = Modifier.background(
-                                                if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
-                                            )
+                                            modifier = Modifier
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            interactionSource = interactionSource,
+                                            trailingIcon = {
+                                                if (isSelected) {
+                                                    Icon(
+                                                        Icons.Default.CheckCircle, null,
+                                                        tint = Color(0xFFEF4444),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -337,13 +352,16 @@ fun WatchlistScreen(
                                     ) {
                                         folderOptions.forEach { folder ->
                                             val isSelected = selectedList == folder
+                                            val interactionSource = remember { MutableInteractionSource() }
+                                            val isHovered by interactionSource.collectIsHoveredAsState()
+
                                             DropdownMenuItem(
                                                 text = { 
                                                     Text(
                                                         text = folder, 
-                                                        color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                                        color = if (isHovered || isSelected) Color(0xFFEF4444) else Color(0xFFD4D4D8),
                                                         fontSize = 13.sp,
-                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                        fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
                                                     ) 
                                                 },
                                                 onClick = {
@@ -351,9 +369,19 @@ fun WatchlistScreen(
                                                     viewModel.onFolderChange(if (folder == "All lists") "All" else folder)
                                                     showFolderDropdownMobile = false
                                                 },
-                                                modifier = Modifier.background(
-                                                    if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
-                                                )
+                                                modifier = Modifier
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    .clip(RoundedCornerShape(8.dp)),
+                                                interactionSource = interactionSource,
+                                                trailingIcon = {
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            Icons.Default.CheckCircle, null,
+                                                            tint = Color(0xFFEF4444),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                },
                                             )
                                         }
                                     }
@@ -606,32 +634,47 @@ fun AdvancedFilterDropdown(
             shadowElevation = 8.dp,
             tonalElevation = 0.dp,
         ) {
-            options.forEach { option ->
-                val isSelected = if (multiSelect) selectedItems.contains(option) else option == value
+            val fullOptions = if (!multiSelect && !options.contains(hint) && hint.isNotEmpty()) {
+                listOf(hint) + options
+            } else {
+                options
+            }
+
+            fullOptions.forEach { option ->
+                val isHintOption = option == hint && !options.contains(hint)
+                val isSelected = if (multiSelect) selectedItems.contains(option) else (option == value || (value.isNullOrBlank() && (isHintOption || option == hint)))
+                val interactionSource = remember { MutableInteractionSource() }
+                val isHovered by interactionSource.collectIsHoveredAsState()
+
                 DropdownMenuItem(
                     text = { 
                         Text(
                             text = option, 
-                            color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                            color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFEF4444) else if (isSelected) Color.White else Color(0xFFD4D4D8),
                             fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
                         ) 
                     },
                     onClick = {
-                        onOptionSelected(option)
+                        if (isHintOption) {
+                            onOptionSelected(hint)
+                        } else {
+                            onOptionSelected(option)
+                        }
                         if (!multiSelect) expanded = false
                     },
-                    modifier = Modifier.background(
-                        if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
-                    ),
-                    trailingIcon = if (multiSelect) {
-                        {
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    interactionSource = interactionSource,
+                    trailingIcon = {
+                        if (multiSelect) {
                             Box(
                                 Modifier
                                     .size(18.dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(
-                                        if (isSelected) Color.White
+                                        if (isSelected) Color(0xFFEF4444)
                                         else Color.White.copy(alpha = 0.12f)
                                     ),
                                 contentAlignment = Alignment.Center
@@ -639,13 +682,24 @@ fun AdvancedFilterDropdown(
                                 if (isSelected) {
                                     Icon(
                                         Icons.Default.Check, null,
-                                        tint = Color.Black,
+                                        tint = Color.White,
                                         modifier = Modifier.size(12.dp)
                                     )
                                 }
                             }
+                        } else if (isSelected) {
+                            Icon(
+                                Icons.Default.CheckCircle, null,
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
-                    } else null
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = Color.White,
+                        disabledTextColor = Color.Gray,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 )
             }
         }
