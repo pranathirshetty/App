@@ -106,7 +106,6 @@ fun App(onAppExit: () -> Unit = {}) {
                         watchlistViewModel = watchlistVm,
                         scheduleViewModel = scheduleVm,
                         settingsViewModel = settingsVm,
-                        latestViewModel = latestVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onWatchClick = { id, lang, ep, server -> navController.navigate(Screen.Watch(id, ep, server, lang).route) },
                         onWatchOffline = { id, ep, path, title ->
