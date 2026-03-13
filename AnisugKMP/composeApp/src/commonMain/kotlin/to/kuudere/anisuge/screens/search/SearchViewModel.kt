@@ -24,6 +24,7 @@ data class SearchUiState(
     val selectedStatus: String? = null,
     val selectedLanguage: String? = null,
     val selectedRating: String? = null,
+    val selectedSort: String? = null,
     val isOffline: Boolean = false,
 )
 
@@ -74,6 +75,10 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
         _uiState.value = _uiState.value.copy(selectedRating = rating)
     }
 
+    fun onSortChange(sort: String?) {
+        _uiState.value = _uiState.value.copy(selectedSort = sort)
+    }
+
     fun clearFilters() {
         _uiState.value = _uiState.value.copy(
             selectedGenres = emptyList(),
@@ -82,7 +87,8 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
             selectedType = null,
             selectedStatus = null,
             selectedLanguage = null,
-            selectedRating = null
+            selectedRating = null,
+            selectedSort = null
         )
         search()
     }
@@ -107,7 +113,8 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
                 type = currentState.selectedType,
                 status = currentState.selectedStatus,
                 language = currentState.selectedLanguage,
-                rating = currentState.selectedRating
+                rating = currentState.selectedRating,
+                sort = currentState.selectedSort
             )
 
             if (response != null && response.success) {

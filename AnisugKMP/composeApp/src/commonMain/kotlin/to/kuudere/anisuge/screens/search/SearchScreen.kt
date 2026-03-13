@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.CircleShape
@@ -207,7 +208,7 @@ private fun LargeScreenFilterSection(state: SearchUiState, viewModel: SearchView
             FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
                 if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
             }
-            FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
+            FilterDropdown("Sort by", "Popularity", state.selectedSort, KUUDERE_SORTS, Modifier.weight(1f)) { viewModel.onSortChange(it) }
             FilterDropdown("Year", "Any", state.selectedYear, KUUDERE_YEARS, Modifier.weight(1f)) { viewModel.onYearChange(it) }
             FilterDropdown("Status", "Any", state.selectedStatus, KUUDERE_STATUSES, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
             FilterDropdown("Format", "Any", state.selectedType, KUUDERE_FORMATS, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
@@ -290,7 +291,7 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
                     FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
                         if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
                     }
-                    FilterDropdown("Sort by", "Popularity", null, KUUDERE_SORTS, Modifier.weight(1f)) {}
+                    FilterDropdown("Sort by", "Popularity", state.selectedSort, KUUDERE_SORTS, Modifier.weight(1f)) { viewModel.onSortChange(it) }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     FilterDropdown("Season", "Any", state.selectedSeason, KUUDERE_SEASONS, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
@@ -460,32 +461,47 @@ private fun FilterDropdown(
                 shadowElevation = 8.dp,
                 tonalElevation = 0.dp,
             ) {
-                items.forEach { item ->
-                    val isSelected = selectedItems.contains(item)
+                val fullItems = if (!multiSelect && !items.contains(hint) && hint.isNotEmpty()) {
+                    listOf(hint) + items
+                } else {
+                    items
+                }
+
+                fullItems.forEach { item ->
+                    val isHintItem = item == hint && !items.contains(hint)
+                    val isSelected = selectedItems.contains(item) || (!multiSelect && selected.isNullOrBlank() && (isHintItem || item == hint))
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isHovered by interactionSource.collectIsHoveredAsState()
+
                     DropdownMenuItem(
                         text = {
                             Text(
                                 item,
-                                color = if (isSelected) Color.White else Color(0xFFD4D4D8),
+                                color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFEF4444) else if (isSelected) Color.White else Color(0xFFD4D4D8),
                                 fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
                             )
                         },
                         onClick = {
-                            onItemSelected(item)
+                            if (isHintItem) {
+                                onItemSelected(null)
+                            } else {
+                                onItemSelected(item)
+                            }
                             if (!multiSelect) expanded = false
                         },
-                        modifier = Modifier.background(
-                            if (isSelected) Color.White.copy(alpha = 0.07f) else Color.Transparent
-                        ),
-                        trailingIcon = if (multiSelect) {
-                            {
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        interactionSource = interactionSource,
+                        trailingIcon = {
+                            if (multiSelect) {
                                 Box(
                                     Modifier
                                         .size(18.dp)
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(
-                                            if (isSelected) Color.White
+                                            if (isSelected) Color(0xFFEF4444)
                                             else Color.White.copy(alpha = 0.12f)
                                         ),
                                     contentAlignment = Alignment.Center
@@ -493,18 +509,24 @@ private fun FilterDropdown(
                                     if (isSelected) {
                                         Icon(
                                             Icons.Default.Check, null,
-                                            tint = Color.Black,
+                                            tint = Color.White,
                                             modifier = Modifier.size(12.dp)
                                         )
                                     }
                                 }
+                            } else if (isSelected) {
+                                Icon(
+                                    Icons.Default.CheckCircle, null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
-                        } else null,
+                        },
                         colors = MenuDefaults.itemColors(
                             textColor = Color.White,
                             disabledTextColor = Color.Gray,
                         ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 2.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             }
