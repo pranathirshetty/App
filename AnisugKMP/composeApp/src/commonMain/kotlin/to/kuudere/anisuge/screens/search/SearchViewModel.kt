@@ -24,7 +24,7 @@ data class SearchUiState(
     val selectedStatus: String? = null,
     val selectedLanguage: String? = null,
     val selectedRating: String? = null,
-    val selectedSort: String? = null,
+    val selectedSort: String? = "Popularity",
     val isOffline: Boolean = false,
 )
 
@@ -88,7 +88,7 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
             selectedStatus = null,
             selectedLanguage = null,
             selectedRating = null,
-            selectedSort = null
+            selectedSort = "Popularity"
         )
         search()
     }
