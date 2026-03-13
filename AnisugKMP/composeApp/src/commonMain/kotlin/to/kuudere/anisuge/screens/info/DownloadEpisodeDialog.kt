@@ -66,9 +66,8 @@ fun DownloadEpisodeDialog(
         isLoadingSubs = true
         estimatedSizeBytes = 0L
         try {
-            val serverInfo = availableServers.value.find { it.id == selectedServer }
-            val apiServer = serverInfo?.apiName ?: if (selectedServer == "zen2") "zen-2" else selectedServer
-            val response = infoService.getVideoStream(anilistId, episodeNumber, apiServer)
+            // Use server ID directly (e.g., "zen2", "zen", "hiya")
+            val response = infoService.getVideoStream(anilistId, episodeNumber, selectedServer)
             val streamData = response?.directLink?.data ?: response?.data
             
             // 1. Subtitles

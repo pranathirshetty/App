@@ -52,7 +52,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val watchVm  = remember { WatchViewModel(AppComponent.infoService, AppComponent.settingsStore, AppComponent.settingsService, AppComponent.serverRepository) }
         val watchlistVm = remember { WatchlistViewModel() }
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
-        val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore) }
+        val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {

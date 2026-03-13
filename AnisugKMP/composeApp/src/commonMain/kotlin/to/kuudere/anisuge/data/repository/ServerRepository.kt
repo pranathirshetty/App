@@ -24,14 +24,17 @@ import kotlinx.serialization.json.Json
 import to.kuudere.anisuge.data.models.FALLBACK_SERVERS
 import to.kuudere.anisuge.data.models.ServerInfo
 import to.kuudere.anisuge.data.models.ServersResponse
+import to.kuudere.anisuge.data.services.SettingsStore
 
 /**
  * Repository for managing streaming servers.
  * Fetches servers from API, caches them locally, and provides fallback.
+ * Also manages user-defined server priority.
  */
 class ServerRepository(
     private val httpClient: HttpClient,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val settingsStore: SettingsStore
 ) {
     companion object {
         private const val BASE_URL = "https://kuudere.to"
@@ -81,8 +84,35 @@ class ServerRepository(
     }
 
     /**
-     * Get the fallback priority list for auto-selecting servers
-     * Prefers zen2, then zen, then others
+     * User-defined server priority (empty = use default)
+     */
+    private val _userPriority = MutableStateFlow<List<String>>(emptyList())
+    val userPriority: StateFlow<List<String>> = _userPriority.asStateFlow()
+
+    init {
+        // Load user priority from settings
+        scope.launch {
+            settingsStore.serverPriorityFlow.collect { priority ->
+                _userPriority.value = priority
+                println("[ServerRepository] Loaded user priority: $priority")
+            }
+        }
+
+        // Load cached servers immediately
+        scope.launch {
+            loadCachedServers()
+            // Fetch fresh servers on launch
+            fetchServers()
+        }
+
+        // Start background refresh
+        startBackgroundRefresh()
+    }
+
+    /**
+     * Get the fallback priority list for auto-selecting servers.
+     * Uses user-defined priority if set, otherwise uses default (zen2 > zen > others).
+     * Filters out servers that no longer exist in the available servers list.
      */
     fun getFallbackPriority(): List<String> {
         val currentServers = _servers.value.map { it.id }
@@ -90,13 +120,40 @@ class ServerRepository(
             return FALLBACK_SERVERS.map { it.id }
         }
 
-        // Priority order: zen2 > zen > others
-        val priority = mutableListOf<String>()
-        if (currentServers.contains("zen2")) priority.add("zen2")
-        if (currentServers.contains("zen")) priority.add("zen")
-        priority.addAll(currentServers.filter { it != "zen2" && it != "zen" })
+        val userPriorityList = _userPriority.value
 
-        return priority
+        return if (userPriorityList.isNotEmpty()) {
+            // Use user's priority, but only include servers that still exist
+            val filtered = userPriorityList.filter { it in currentServers }
+            // Add any new servers not in user's list at the end
+            val newServers = currentServers.filter { it !in userPriorityList }
+            filtered + newServers
+        } else {
+            // Default priority order: zen2 > zen > others
+            val priority = mutableListOf<String>()
+            if (currentServers.contains("zen2")) priority.add("zen2")
+            if (currentServers.contains("zen")) priority.add("zen")
+            priority.addAll(currentServers.filter { it != "zen2" && it != "zen" })
+            priority
+        }
+    }
+
+    /**
+     * Update user-defined server priority
+     */
+    suspend fun setUserPriority(priority: List<String>) {
+        _userPriority.value = priority
+        settingsStore.setServerPriority(priority)
+        println("[ServerRepository] Saved user priority: $priority")
+    }
+
+    /**
+     * Reset user priority to default (empty = use default logic)
+     */
+    suspend fun resetUserPriority() {
+        _userPriority.value = emptyList()
+        settingsStore.setServerPriority(emptyList())
+        println("[ServerRepository] Reset user priority to default")
     }
 
     /**

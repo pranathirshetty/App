@@ -202,56 +202,36 @@ class WatchViewModel(
                 val fallbackPriority = serverRepository.getFallbackPriority()
                 var targetServerName: String? = null
                 var finalLang: String? = reqLang
-                val links = data.episodeLinks ?: emptyList()
-                val hasLinks = links.isNotEmpty()
 
-                if (hasLinks && reqServer != null && reqLang != null) {
-                    val rawServerName = if (reqServer.lowercase() == "zen-2") "Zen-2" else reqServer.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    val matchedLink = links.find {
-                        it.serverName.equals(rawServerName, ignoreCase = true) &&
-                        it.dataType.equals(reqLang, ignoreCase = true)
-                    }
-                    if (matchedLink != null) {
-                        targetServerName = reqServer.lowercase()
-                        if (targetServerName == "zen-2") targetServerName = "zen2"
-                        finalLang = reqLang
-                    }
+                // Use requested server if specified
+                if (reqServer != null && reqLang != null) {
+                    targetServerName = reqServer.lowercase().let { if (it == "zen-2") "zen2" else it }
+                    finalLang = reqLang
                 }
 
-                if (hasLinks && targetServerName == null) {
-                    val fallbackLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
+                // Otherwise use priority list directly (episodeLinks are deprecated)
+                if (targetServerName == null) {
+                    val priorityLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
                     for (candidate in fallbackPriority) {
                         val serverInfo = serverRepository.getServerById(candidate)
-                        val apiServerName = serverInfo?.apiName ?: candidate.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                        val apiLang = if (candidate.endsWith("-dub")) "dub" else fallbackLang
+                        val candidateLang = if (candidate.endsWith("-dub")) "dub" else priorityLang
 
-                        val matched = links.find {
-                            it.serverName.equals(apiServerName, ignoreCase = true) &&
-                            it.dataType.equals(apiLang, ignoreCase = true)
+                        // Check if server supports this language
+                        val supportsLang = when (candidateLang) {
+                            "dub" -> serverInfo?.supportsDub ?: (candidate.endsWith("-dub"))
+                            "sub" -> serverInfo?.supportsSub ?: (!candidate.endsWith("-dub"))
+                            else -> true
                         }
 
-                        if (matched != null) {
-                            targetServerName = if (candidate == "hiya" && apiLang == "dub") "hiya-dub" else candidate
-                            finalLang = apiLang
+                        if (supportsLang) {
+                            targetServerName = if (candidate == "hiya" && candidateLang == "dub") "hiya-dub" else candidate
+                            finalLang = candidateLang
                             break
                         }
                     }
                 }
 
-                if (!hasLinks) {
-                    targetServerName = when {
-                        !reqServer.isNullOrBlank() -> reqServer.lowercase().let { if (it == "zen-2") "zen2" else it }
-                        reqLang.equals("dub", ignoreCase = true) -> "hiya-dub"
-                        else -> fallbackPriority.first()
-                    }
-                    finalLang = when {
-                        !reqLang.isNullOrBlank() -> reqLang
-                        targetServerName == "hiya-dub" -> "dub"
-                        else -> "sub"
-                    }
-                }
-
-                val serverName = targetServerName ?: "zen2"
+                val serverName = targetServerName ?: fallbackPriority.firstOrNull() ?: "zen2"
                 println("[WatchVM] Selected server: $serverName (requested: $reqServer, lang: $reqLang, targetLang: $finalLang)")
                 
                 _uiState.update { it.copy(targetLang = finalLang) }
@@ -284,10 +264,8 @@ class WatchViewModel(
 
         _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
 
-            // Convert server ID to API name (e.g., "zen2" -> "Zen-2")
-            val serverInfo = serverRepository.getServerById(serverName)
-            val apiServerName = serverInfo?.apiName ?: if (serverName == "zen2") "zen-2" else serverName
-            val response = infoService.getVideoStream(anilistId, episodeNum, apiServerName)
+            // Use server ID directly (e.g., "zen2", "zen", "hiya")
+            val response = infoService.getVideoStream(anilistId, episodeNum, serverName)
 
             // Check if cancelled before updating state
             if (!coroutineContext.isActive) return

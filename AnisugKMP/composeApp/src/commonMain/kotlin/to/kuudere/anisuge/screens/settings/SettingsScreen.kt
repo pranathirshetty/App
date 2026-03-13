@@ -47,6 +47,9 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.TabletAndroid
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
@@ -155,6 +158,7 @@ fun SettingsScreen(
 
     val navItems = listOf(
         SettingsNavItem(SettingsTab.Preferences, "Preferences", Icons.Default.Settings),
+        SettingsNavItem(SettingsTab.Servers, "Servers", Icons.Default.Dns),
         SettingsNavItem(SettingsTab.Sync, "Sync", Icons.Default.Sync),
         SettingsNavItem(SettingsTab.Storage, "Storage", Icons.Default.Storage),
         SettingsNavItem(SettingsTab.Sessions, "Sessions", Icons.Default.Devices),
@@ -237,6 +241,7 @@ fun SettingsScreen(
                                     is SettingsTab.Sessions -> viewModel.loadSessions()
                                     is SettingsTab.Security -> viewModel.loadMfaStatus()
                                     is SettingsTab.Sync -> viewModel.loadAniListStatus()
+                                    is SettingsTab.Servers -> viewModel.loadServerPriority()
                                     else -> {}
                                 }
                             }
@@ -615,11 +620,17 @@ private fun MobileSettingsDetail(
                     uiState = uiState,
                     onRefresh = viewModel::loadStorageInfo,
                     onClearFontCache = { viewModel.setShowClearCacheConfirm(true) },
-                    onDeleteAnime = { id, title -> 
+                    onDeleteAnime = { id, title ->
                         viewModel.setDeleteAnime(id, title)
                     },
                     formatBytes = viewModel::formatBytes,
                     formatBytesCompact = viewModel::formatBytesCompact
+                )
+                is SettingsTab.Servers -> MobileServersContent(
+                    uiState = uiState,
+                    onReorder = viewModel::updateServerPriority,
+                    onSave = viewModel::saveServerPriority,
+                    onReset = viewModel::resetServerPriority
                 )
             }
         }
@@ -684,11 +695,17 @@ private fun SettingsContent(
                 uiState = uiState,
                 onRefresh = viewModel::loadStorageInfo,
                 onClearFontCache = { viewModel.setShowClearCacheConfirm(true) },
-                onDeleteAnime = { id, title -> 
+                onDeleteAnime = { id, title ->
                     viewModel.setDeleteAnime(id, title)
                 },
                 formatBytes = viewModel::formatBytes,
                 formatBytesCompact = viewModel::formatBytesCompact
+            )
+            is SettingsTab.Servers -> ServersTab(
+                uiState = uiState,
+                onReorder = viewModel::updateServerPriority,
+                onSave = viewModel::saveServerPriority,
+                onReset = viewModel::resetServerPriority
             )
         }
     }
@@ -3092,6 +3109,351 @@ private fun MobileStorageOverview(
                     label = "Settings",
                     value = formatBytesCompact(storageInfo.settings.size)
                 )
+            }
+        }
+    }
+}
+
+// ── Servers Tab ────────────────────────────────────────────────────────────────
+@Composable
+private fun ServersTab(
+    uiState: SettingsUiState,
+    onReorder: (List<String>) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header with title and actions
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Servers",
+                color = TEXT,
+                fontSize = 42.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Save button (only show if there are changes)
+            if (uiState.hasServerPriorityChanges) {
+                Button(
+                    onClick = onSave,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save Changes", color = Color.Black, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Text(
+            "Drag to reorder server priority. The first available server will be used when resuming playback.",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else {
+            // Compute sorted servers based on priority
+            val serverList = remember(uiState.availableServers, uiState.serverPriority) {
+                val priority = uiState.serverPriority
+                if (priority.isEmpty()) {
+                    // Default sort: zen2, zen, then others
+                    uiState.availableServers.sortedWith(compareBy(
+                        { it.id != "zen2" },
+                        { it.id != "zen" },
+                        { it.id }
+                    ))
+                } else {
+                    // User priority
+                    uiState.availableServers.sortedBy { server ->
+                        val index = priority.indexOf(server.id)
+                        if (index == -1) Int.MAX_VALUE else index
+                    }
+                }
+            }
+
+            // Local mutable state for reordering
+            var localServerList by remember(serverList) {
+                mutableStateOf(serverList)
+            }
+
+            // Update when priority changes
+            LaunchedEffect(uiState.serverPriority) {
+                localServerList = serverList
+            }
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                localServerList.forEachIndexed { index, server ->
+                    DraggableServerItem(
+                        server = server,
+                        position = index + 1,
+                        onMoveUp = {
+                            if (index > 0) {
+                                val newList = localServerList.toMutableList()
+                                val item = newList.removeAt(index)
+                                newList.add(index - 1, item)
+                                localServerList = newList
+                                onReorder(localServerList.map { it.id })
+                            }
+                        },
+                        onMoveDown = {
+                            if (index < localServerList.size - 1) {
+                                val newList = localServerList.toMutableList()
+                                val item = newList.removeAt(index)
+                                newList.add(index + 1, item)
+                                localServerList = newList
+                                onReorder(localServerList.map { it.id })
+                            }
+                        }
+                    )
+
+                    if (index < localServerList.size - 1) {
+                        HorizontalDivider(thickness = 1.dp, color = BORDER)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Reset button
+                OutlinedButton(
+                    onClick = onReset,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MUTED),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Reset to Default")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DraggableServerItem(
+    server: to.kuudere.anisuge.data.models.ServerInfo,
+    position: Int,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BG_CARD)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Position number
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(BG_HOVER, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                position.toString(),
+                color = TEXT,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Server type indicator
+        val typeColor = when (server.type) {
+            "dual" -> Color(0xFF8B5CF6)
+            "sub" -> Color(0xFF3B82F6)
+            "dub" -> Color(0xFF10B981)
+            else -> Color.Gray
+        }
+
+        Box(
+            modifier = Modifier
+                .width(48.dp)
+                .height(24.dp)
+                .background(typeColor.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                .border(1.dp, typeColor, RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                server.type.uppercase(),
+                color = typeColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        // Server name
+        Text(
+            server.displayName,
+            color = TEXT,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+
+        // Reorder buttons
+        Column {
+            IconButton(
+                onClick = onMoveUp,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Move Up",
+                    tint = MUTED,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(
+                onClick = onMoveDown,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Move Down",
+                    tint = MUTED,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+// ── Mobile Servers Content ─────────────────────────────────────────────────────
+@Composable
+private fun MobileServersContent(
+    uiState: SettingsUiState,
+    onReorder: (List<String>) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header with save button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Server Priority",
+                color = TEXT,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (uiState.hasServerPriorityChanges) {
+                Button(
+                    onClick = onSave,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save", color = Color.Black, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Text(
+            "Reorder servers by priority. First available server will be used when resuming playback.",
+            color = MUTED,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (uiState.isLoadingServers || uiState.availableServers.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        } else {
+            // Compute sorted servers based on priority
+            val serverList = remember(uiState.availableServers, uiState.serverPriority) {
+                val priority = uiState.serverPriority
+                if (priority.isEmpty()) {
+                    // Default sort: zen2, zen, then others
+                    uiState.availableServers.sortedWith(compareBy(
+                        { it.id != "zen2" },
+                        { it.id != "zen" },
+                        { it.id }
+                    ))
+                } else {
+                    // User priority
+                    uiState.availableServers.sortedBy { server ->
+                        val index = priority.indexOf(server.id)
+                        if (index == -1) Int.MAX_VALUE else index
+                    }
+                }
+            }
+
+            // Local mutable state for reordering
+            var localServerList by remember(serverList) {
+                mutableStateOf(serverList)
+            }
+
+            // Update when priority changes
+            LaunchedEffect(uiState.serverPriority) {
+                localServerList = serverList
+            }
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                localServerList.forEachIndexed { index, server ->
+                    DraggableServerItem(
+                        server = server,
+                        position = index + 1,
+                        onMoveUp = {
+                            if (index > 0) {
+                                val newList = localServerList.toMutableList()
+                                val item = newList.removeAt(index)
+                                newList.add(index - 1, item)
+                                localServerList = newList
+                                onReorder(localServerList.map { it.id })
+                            }
+                        },
+                        onMoveDown = {
+                            if (index < localServerList.size - 1) {
+                                val newList = localServerList.toMutableList()
+                                val item = newList.removeAt(index)
+                                newList.add(index + 1, item)
+                                localServerList = newList
+                                onReorder(localServerList.map { it.id })
+                            }
+                        }
+                    )
+
+                    if (index < localServerList.size - 1) {
+                        HorizontalDivider(thickness = 1.dp, color = BORDER)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Reset button
+                OutlinedButton(
+                    onClick = onReset,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MUTED),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Reset to Default")
+                }
             }
         }
     }

@@ -86,6 +86,6 @@ object AppComponent {
     }
 
     val serverRepository: ServerRepository by lazy {
-        ServerRepository(httpClient, dataStore)
+        ServerRepository(httpClient, dataStore, settingsStore)
     }
 }

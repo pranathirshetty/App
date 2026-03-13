@@ -18,6 +18,7 @@ import to.kuudere.anisuge.data.models.SessionInfoResponse
 import to.kuudere.anisuge.data.models.StorageInfo
 import to.kuudere.anisuge.data.models.TotpSetupData
 import to.kuudere.anisuge.data.models.UserPreferences
+import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.SettingsService
 import to.kuudere.anisuge.data.services.SettingsStore
 import to.kuudere.anisuge.data.services.StorageService
@@ -70,7 +71,13 @@ data class SettingsUiState(
     val storageInfo: StorageInfo? = null,
     val downloadStorageInfo: DownloadStorageInfo? = null,
     val isLoadingStorage: Boolean = false,
-    
+
+    // Server Priority
+    val serverPriority: List<String> = emptyList(),
+    val hasServerPriorityChanges: Boolean = false,
+    val isLoadingServers: Boolean = false,
+    val availableServers: List<to.kuudere.anisuge.data.models.ServerInfo> = emptyList(),
+
     // Confirmation States
     val showDisconnectConfirm: Boolean = false,
     val showDeleteAllSessionsConfirm: Boolean = false,
@@ -86,11 +93,13 @@ sealed class SettingsTab {
     data object Storage : SettingsTab()
     data object Sessions : SettingsTab()
     data object Security : SettingsTab()
+    data object Servers : SettingsTab()
 }
 
 class SettingsViewModel(
     private val settingsService: SettingsService,
     private val settingsStore: SettingsStore,
+    private val serverRepository: ServerRepository,
     private val storageService: StorageService = StorageService(),
 ) : ViewModel() {
 
@@ -142,10 +151,29 @@ class SettingsViewModel(
             }
         }
         viewModelScope.launch {
-            settingsStore.syncPercentageFlow.collect { v -> 
+            settingsStore.syncPercentageFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(syncPercentage = v)) }
                 }
+            }
+        }
+
+        // Watch server priority changes
+        viewModelScope.launch {
+            serverRepository.userPriority.collect { priority ->
+                _uiState.update {
+                    it.copy(
+                        serverPriority = priority,
+                        hasServerPriorityChanges = false
+                    )
+                }
+            }
+        }
+
+        // Watch available servers
+        viewModelScope.launch {
+            serverRepository.servers.collect { servers ->
+                _uiState.update { it.copy(availableServers = servers) }
             }
         }
     }
@@ -179,7 +207,64 @@ class SettingsViewModel(
             is SettingsTab.Sessions -> loadSessions()
             is SettingsTab.Security -> loadMfaStatus()
             is SettingsTab.Sync -> loadAniListStatus()
+            is SettingsTab.Servers -> loadServerPriority()
             else -> {}
+        }
+    }
+
+    // ==================== Server Priority ====================
+
+    private var originalServerPriority: List<String> = emptyList()
+
+    fun loadServerPriority() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingServers = true) }
+            val priority = serverRepository.userPriority.value
+            originalServerPriority = priority
+            _uiState.update {
+                it.copy(
+                    serverPriority = priority,
+                    hasServerPriorityChanges = false,
+                    isLoadingServers = false
+                )
+            }
+        }
+    }
+
+    fun updateServerPriority(newPriority: List<String>) {
+        _uiState.update { state ->
+            state.copy(
+                serverPriority = newPriority,
+                hasServerPriorityChanges = newPriority != originalServerPriority
+            )
+        }
+    }
+
+    fun saveServerPriority() {
+        viewModelScope.launch {
+            val priority = _uiState.value.serverPriority
+            serverRepository.setUserPriority(priority)
+            originalServerPriority = priority
+            _uiState.update {
+                it.copy(
+                    hasServerPriorityChanges = false,
+                    successMessage = "Server priority saved"
+                )
+            }
+        }
+    }
+
+    fun resetServerPriority() {
+        viewModelScope.launch {
+            serverRepository.resetUserPriority()
+            originalServerPriority = emptyList()
+            _uiState.update {
+                it.copy(
+                    serverPriority = emptyList(),
+                    hasServerPriorityChanges = false,
+                    successMessage = "Reset to default priority"
+                )
+            }
         }
     }
 
