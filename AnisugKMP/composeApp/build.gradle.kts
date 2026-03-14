@@ -7,6 +7,9 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
+val appVersionName = project.findProperty("appVersion")?.toString() ?: libs.versions.app.version.get()
+val appBuildNum = project.findProperty("appBuildNumber")?.toString()?.toIntOrNull() ?: libs.versions.app.buildNumber.get().toInt()
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -94,8 +97,8 @@ kotlin {
 
 buildConfig {
     packageName("to.kuudere.anisuge")
-    buildConfigField("APP_VERSION", libs.versions.app.version.get())
-    buildConfigField("APP_BUILD_NUMBER", libs.versions.app.buildNumber.get().toInt())
+    buildConfigField("APP_VERSION", appVersionName)
+    buildConfigField("APP_BUILD_NUMBER", appBuildNum)
 }
 
 android {
@@ -109,8 +112,8 @@ android {
         applicationId = "to.kuudere.anisuge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = libs.versions.app.buildNumber.get().toInt()
-        versionName = libs.versions.app.version.get()
+        versionCode = appBuildNum
+        versionName = appVersionName
     }
 
     compileOptions {
@@ -157,9 +160,9 @@ compose.desktop {
         mainClass = "to.kuudere.anisuge.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.AppImage)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
             packageName = "AnisugKMP"
-            packageVersion = libs.versions.app.version.get()
+            packageVersion = appVersionName
             description = "Anisuge — KMP Edition"
             copyright = "© 2026 Kuudere"
             vendor = "Kuudere"
