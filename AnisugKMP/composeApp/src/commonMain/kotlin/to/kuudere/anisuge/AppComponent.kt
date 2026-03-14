@@ -92,4 +92,8 @@ object AppComponent {
     val latestService: to.kuudere.anisuge.data.services.LatestService by lazy {
         to.kuudere.anisuge.data.services.LatestService(sessionStore, httpClient)
     }
+
+    val updateService: to.kuudere.anisuge.data.services.UpdateService by lazy {
+        to.kuudere.anisuge.data.services.UpdateService(httpClient)
+    }
 }

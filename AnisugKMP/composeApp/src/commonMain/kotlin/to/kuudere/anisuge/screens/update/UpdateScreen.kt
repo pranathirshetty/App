@@ -34,6 +34,7 @@ import to.kuudere.anisuge.theme.Background
 import to.kuudere.anisuge.theme.KuudereRed
 import to.kuudere.anisuge.theme.Muted
 import to.kuudere.anisuge.theme.Surface
+import to.kuudere.anisuge.platform.openUrl
 
 @Composable
 fun UpdateScreen(
@@ -43,6 +44,7 @@ fun UpdateScreen(
 ) {
     var startAnimation by remember { mutableStateOf(false) }
     var isFinishing by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         startAnimation = true
@@ -52,6 +54,12 @@ fun UpdateScreen(
         targetValue = if (startAnimation) 1f else 0f,
         animationSpec = tween(1000)
     )
+
+    LaunchedEffect(state.isUpdateAvailable) {
+        if (state.isUpdateAvailable == false) {
+            onUpdateLater()
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -87,7 +95,14 @@ fun UpdateScreen(
                 .alpha(alpha),
             contentAlignment = Alignment.Center
         ) {
-            if (isWide) {
+            if (state.isUpdateAvailable == null) {
+                // Checking for updates
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Checking for updates...", color = Muted)
+                }
+            } else if (isWide) {
                 // Wide screen: Two-column layout
                 Row(
                     modifier = Modifier
@@ -105,14 +120,28 @@ fun UpdateScreen(
                         UpdateHeader(state = state, isWide = true)
                         
                         UpdateActions(
-                            onUpdateNow = onUpdateNow,
+                            onUpdateNow = {
+                                isDownloading = true
+                                state.downloadUrl?.let { openUrl(it) }
+                                onUpdateNow()
+                            },
                             onUpdateLater = {
                                 isFinishing = true
                                 onUpdateLater()
                             },
                             isFinishing = isFinishing,
+                            isDownloading = isDownloading,
                             modifier = Modifier.padding(top = 40.dp)
                         )
+
+                        if (isDownloading) {
+                            TextButton(
+                                onClick = onUpdateLater,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text("Back to App", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                     }
 
                     // Right Column: Changelog
@@ -138,14 +167,28 @@ fun UpdateScreen(
                     ChangelogCard(state = state)
                     Spacer(modifier = Modifier.height(48.dp))
                     UpdateActions(
-                        onUpdateNow = onUpdateNow,
+                        onUpdateNow = {
+                            isDownloading = true
+                            state.downloadUrl?.let { openUrl(it) }
+                            onUpdateNow()
+                        },
                         onUpdateLater = {
                             isFinishing = true
                             onUpdateLater()
                         },
                         isFinishing = isFinishing,
+                        isDownloading = isDownloading,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    if (isDownloading) {
+                        TextButton(
+                            onClick = onUpdateLater,
+                            modifier = Modifier.padding(top = 12.dp)
+                        ) {
+                            Text("Back to App", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
@@ -273,12 +316,13 @@ private fun UpdateActions(
     onUpdateNow: () -> Unit, 
     onUpdateLater: () -> Unit,
     isFinishing: Boolean,
+    isDownloading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
         Button(
             onClick = onUpdateNow,
-            enabled = !isFinishing,
+            enabled = !isFinishing && !isDownloading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -289,19 +333,20 @@ private fun UpdateActions(
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                text = "Update Now",
+                text = if (isDownloading) "Opening Browser..." else "Update Now",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        if (!isDownloading) {
+            Spacer(modifier = Modifier.height(12.dp))
 
-        TextButton(
-            onClick = onUpdateLater,
-            enabled = !isFinishing,
-            modifier = Modifier.fillMaxWidth().height(48.dp)
-        ) {
+            TextButton(
+                onClick = onUpdateLater,
+                enabled = !isFinishing,
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) {
             if (isFinishing) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
@@ -317,4 +362,6 @@ private fun UpdateActions(
             }
         }
     }
+}
+
 }

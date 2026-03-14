@@ -6,21 +6,42 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import to.kuudere.anisuge.platform.AppVersion
 import to.kuudere.anisuge.platform.AppBuildNumber
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import to.kuudere.anisuge.data.services.UpdateService
 
 data class UpdateState(
     val currentVersion: String = "$AppVersion ($AppBuildNumber)",
-    val newVersion: String = "v1.1.0 (2)",
-    val changelog: List<String> = listOf(
-        "Smoother playback on Linux and Windows",
-        "New 'Latest' tab for recently aired anime",
-        "Improved search with better genre filtering",
-        "Fixed memory leak in video player",
-        "Added support for external subtitles"
-    ),
-    val isUpdateAvailable: Boolean = true
+    val newVersion: String = "",
+    val changelog: List<String> = emptyList(),
+    val isUpdateAvailable: Boolean? = null, // null = checking, true = yes, false = no
+    val downloadUrl: String? = null
 )
 
-class UpdateViewModel : ViewModel() {
+class UpdateViewModel(private val updateService: UpdateService) : ViewModel() {
     private val _state = MutableStateFlow(UpdateState())
     val state: StateFlow<UpdateState> = _state.asStateFlow()
+
+    init {
+        checkUpdate()
+    }
+
+    private fun checkUpdate() = viewModelScope.launch {
+        val response = updateService.checkUpdate()
+        
+        if (response == null || response.success == false) {
+            _state.value = _state.value.copy(isUpdateAvailable = false)
+            return@launch
+        }
+
+        val remoteBuild = response.build ?: 0
+        val isAvailable = remoteBuild > AppBuildNumber
+
+        _state.value = _state.value.copy(
+            newVersion = "${response.version ?: ""} (${response.build ?: ""})",
+            changelog = response.changelog ?: response.message ?: emptyList(),
+            isUpdateAvailable = isAvailable,
+            downloadUrl = response.downloadUrl
+        )
+    }
 }

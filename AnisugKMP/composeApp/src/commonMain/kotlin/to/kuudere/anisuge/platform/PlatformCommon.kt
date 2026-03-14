@@ -17,3 +17,10 @@ expect fun PlatformBackHandler(enabled: Boolean = true, onBack: () -> Unit)
 /** Syncs app fullscreen state with window-level fullscreen on desktop */
 @Composable
 expect fun SyncFullscreen(isFullscreen: Boolean)
+
+/** Opens a URL in the platform's default browser */
+fun openUrl(url: String) {
+    internalOpenUrl(url)
+}
+
+internal expect fun internalOpenUrl(url: String)

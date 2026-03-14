@@ -58,3 +58,16 @@ actual fun SyncFullscreen(isFullscreen: Boolean) {
         windowState.placement = if (isFullscreen) WindowPlacement.Fullscreen else WindowPlacement.Floating
     }
 }
+
+internal actual fun internalOpenUrl(url: String) {
+    val os = System.getProperty("os.name").lowercase()
+    try {
+        if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+        } else if ("linux" in os) {
+            Runtime.getRuntime().exec(arrayOf("xdg-open", url))
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}

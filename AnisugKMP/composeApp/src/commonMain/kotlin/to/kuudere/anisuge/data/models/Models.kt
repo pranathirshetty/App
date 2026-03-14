@@ -97,6 +97,25 @@ data class CurrentUserResponse(
     val user: UserProfile? = null,
 )
 
+@Serializable
+data class UpdateResponse(
+    val success: Boolean? = true,
+    val message: List<String>? = null,
+    val version: String? = null,
+    val build: Int? = null,
+    val title: String? = null,
+    val changelog: List<String>? = null,
+    val downloadUrl: String? = null,
+    val social: SocialLinks? = null,
+)
+
+@Serializable
+data class SocialLinks(
+    val discord: String? = null,
+    val telegram: String? = null,
+    val reddit: String? = null,
+)
+
 sealed interface SessionCheckResult {
     data object NoSession     : SessionCheckResult
     data object Expired       : SessionCheckResult

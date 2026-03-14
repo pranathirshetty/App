@@ -6,7 +6,11 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import android.net.Uri
+import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
+import to.kuudere.anisuge.MainActivity
+import to.kuudere.anisuge.androidAppContext
 
 actual val isDesktopPlatform: Boolean = false
 actual val PlatformName: String = "Android"
@@ -49,6 +53,13 @@ actual fun LockScreenOrientation(landscape: Boolean) {
             insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
+}
+
+internal actual fun internalOpenUrl(url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    androidAppContext.startActivity(intent)
 }
 
 internal fun Context.findActivity(): Activity? {

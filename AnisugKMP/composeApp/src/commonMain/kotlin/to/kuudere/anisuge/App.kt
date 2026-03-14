@@ -58,7 +58,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
         val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository) }
         val latestVm = remember { LatestViewModel(AppComponent.latestService) }
-        val updateVm = remember { UpdateViewModel() }
+        val updateVm = remember { UpdateViewModel(AppComponent.updateService) }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -213,10 +213,8 @@ fun App(onAppExit: () -> Unit = {}) {
                             }
                         },
                         onUpdateNow = {
-                            // Dummy: just navigate to next screen
-                            navController.navigate(next) {
-                                popUpTo(Screen.Update.route) { inclusive = true }
-                            }
+                            // Link is opened in UpdateScreen.kt, 
+                            // we stay here so user can finish download/install
                         }
                     )
                 }
