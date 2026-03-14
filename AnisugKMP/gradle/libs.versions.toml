@@ -5,6 +5,8 @@ compose-plugin = "1.8.0-beta02"
 android-compileSdk = "35"
 android-minSdk = "26"
 android-targetSdk = "35"
+app-version = "1.0.0"
+app-buildNumber = "1"
 androidx-activity = "1.10.1"
 androidx-activityCompose = "1.10.1"
 androidx-lifecycle = "2.8.4"
@@ -77,3 +79,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-pl
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kmpAppIconGenerator = { id = "io.github.qamarelsafadi.kmp.app.icon.generator", version = "1.2.6" }
+buildConfig = { id = "com.github.gmazzo.buildconfig", version = "5.5.1" }

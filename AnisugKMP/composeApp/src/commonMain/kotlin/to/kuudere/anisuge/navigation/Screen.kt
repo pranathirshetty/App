@@ -42,4 +42,9 @@ sealed class Screen(val route: String) {
 
     data object Settings : Screen("settings")
     data object Latest : Screen("latest")
+    data class Update(val nextRoute: String) : Screen("update?next=${nextRoute.replace("/", "_")}") {
+        companion object {
+            const val route = "update?next={next}"
+        }
+    }
 }

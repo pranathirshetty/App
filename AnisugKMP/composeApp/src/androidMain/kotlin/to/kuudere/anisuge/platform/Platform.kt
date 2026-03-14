@@ -11,6 +11,21 @@ import androidx.compose.ui.platform.LocalContext
 actual val isDesktopPlatform: Boolean = false
 actual val PlatformName: String = "Android"
 
+actual val AppVersion: String by lazy {
+    val packageInfo = androidAppContext.packageManager.getPackageInfo(androidAppContext.packageName, 0)
+    packageInfo.versionName!!
+}
+
+actual val AppBuildNumber: Int by lazy {
+    val packageInfo = androidAppContext.packageManager.getPackageInfo(androidAppContext.packageName, 0)
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        packageInfo.longVersionCode.toInt()
+    } else {
+        @Suppress("DEPRECATION")
+        packageInfo.versionCode
+    }
+}
+
 @Composable
 actual fun LockScreenOrientation(landscape: Boolean) {
     val context = LocalContext.current

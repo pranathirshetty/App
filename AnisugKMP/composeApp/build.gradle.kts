@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kmpAppIconGenerator)
+    alias(libs.plugins.buildConfig)
 }
 
 kotlin {
@@ -84,6 +85,12 @@ kotlin {
     }
 }
 
+buildConfig {
+    packageName("to.kuudere.anisuge")
+    buildConfigField("APP_VERSION", libs.versions.app.version.get())
+    buildConfigField("APP_BUILD_NUMBER", libs.versions.app.buildNumber.get().toInt())
+}
+
 android {
     namespace = "to.kuudere.anisuge"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -95,8 +102,8 @@ android {
         applicationId = "to.kuudere.anisuge"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = libs.versions.app.buildNumber.get().toInt()
+        versionName = libs.versions.app.version.get()
     }
 
     compileOptions {
@@ -116,7 +123,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.AppImage)
             packageName = "AnisugKMP"
-            packageVersion = "1.0.0"
+            packageVersion = libs.versions.app.version.get()
             description = "Anisuge — KMP Edition"
             copyright = "© 2026 Kuudere"
             vendor = "Kuudere"

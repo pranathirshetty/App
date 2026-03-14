@@ -1,4 +1,5 @@
 package to.kuudere.anisuge.platform
+import to.kuudere.anisuge.BuildConfig
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -18,6 +19,25 @@ actual val PlatformName: String = System.getProperty("os.name").let { os ->
         "linux" in lower   -> "Linux"
         "mac" in lower     -> "macOS"
         else               -> "Desktop"
+    }
+}
+
+actual val AppVersion: String by lazy {
+    // Priority 1: System property set by jpackage launcher (Windows/Linux/macOS)
+    System.getProperty("jpackage.app-version") 
+        // Priority 2: Linux AppImage metadata
+        ?: System.getenv("APPIMAGE_VERSION")
+        // Fallback: Internal build metadata (IDE/Dev)
+        ?: BuildConfig.APP_VERSION
+}
+
+actual val AppBuildNumber: Int by lazy {
+    // If we have a jpackage version, it might be in format 1.0.0+1
+    val fullVersion = System.getProperty("jpackage.app-version") ?: ""
+    if ("+" in fullVersion) {
+        fullVersion.substringAfterLast("+").toIntOrNull() ?: BuildConfig.APP_BUILD_NUMBER
+    } else {
+        BuildConfig.APP_BUILD_NUMBER
     }
 }
 

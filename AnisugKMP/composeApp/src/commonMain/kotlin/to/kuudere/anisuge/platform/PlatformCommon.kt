@@ -3,8 +3,8 @@ import androidx.compose.runtime.Composable
 
 expect val isDesktopPlatform: Boolean
 expect val PlatformName: String
-
-val AppVersion: String = "1.0.0"
+expect val AppVersion: String
+expect val AppBuildNumber: Int
 
 /** Requests landscape on Android, ignored/different on desktop */
 @Composable

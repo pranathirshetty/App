@@ -41,6 +41,8 @@ import androidx.navigation.NamedNavArgument
 import androidx.navigation.navArgument
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import to.kuudere.anisuge.screens.update.UpdateScreen
+import to.kuudere.anisuge.screens.update.UpdateViewModel
 
 @Composable
 fun App(onAppExit: () -> Unit = {}) {
@@ -56,6 +58,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
         val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository) }
         val latestVm = remember { LatestViewModel(AppComponent.latestService) }
+        val updateVm = remember { UpdateViewModel() }
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -70,12 +73,12 @@ fun App(onAppExit: () -> Unit = {}) {
                     SplashScreen(
                         viewModel        = splashVm,
                         onNavigateToAuth = {
-                            navController.navigate(Screen.Auth.route) {
+                            navController.navigate(Screen.Update(Screen.Auth.route).route) {
                                 popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         },
                         onNavigateToHome = {
-                            navController.navigate(Screen.Home().route) {
+                            navController.navigate(Screen.Update(Screen.Home().route).route) {
                                 popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         },
@@ -191,6 +194,30 @@ fun App(onAppExit: () -> Unit = {}) {
                         viewModel = latestVm,
                         onAnimeClick = { animeId -> navController.navigate(Screen.Info(animeId).route) },
                         onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(
+                    route = Screen.Update.route,
+                    arguments = listOf(
+                        navArgument("next") { type = androidx.navigation.NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val next = backStackEntry.arguments?.getString("next")?.replace("_", "/") ?: Screen.Home().route
+                    val state by updateVm.state.collectAsState()
+                    UpdateScreen(
+                        state = state,
+                        onUpdateLater = {
+                            navController.navigate(next) {
+                                popUpTo(Screen.Update.route) { inclusive = true }
+                            }
+                        },
+                        onUpdateNow = {
+                            // Dummy: just navigate to next screen
+                            navController.navigate(next) {
+                                popUpTo(Screen.Update.route) { inclusive = true }
+                            }
+                        }
                     )
                 }
             }
