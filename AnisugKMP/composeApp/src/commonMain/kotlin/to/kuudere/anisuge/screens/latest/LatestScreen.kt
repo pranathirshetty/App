@@ -72,7 +72,7 @@ fun LatestEpisodesScreen(
                 .padding(paddingValues)
         ) {
             val isSmall = maxWidth < 800.dp
-            val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 180.dp)
+            val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
             val hPadding = if (isSmall) 12.dp else 24.dp
             val itemSpacing = if (isSmall) 8.dp else 16.dp
             val showOffline = state.isOffline && state.results.isEmpty()
