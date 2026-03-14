@@ -51,6 +51,9 @@ extract.dart
 # Signing
 key.properties
 **/*.jks
+**/*.pfx
+AnisugKMP/signing/*.jks
+AnisugKMP/signing/*.pfx
 signing_secrets.txt
 sample.json
 .env

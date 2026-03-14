@@ -1286,7 +1286,7 @@ private fun AboutTab() {
                 ) {
                     Column {
                         Text("Anisuge", color = TEXT, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("v1.0.0", color = MUTED, fontSize = 14.sp)
+                        Text("v$AppVersion", color = MUTED, fontSize = 14.sp)
                     }
                 }
 
@@ -1326,7 +1326,7 @@ private fun AboutTab() {
                 HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
                 DesktopAboutStatRow("Backend", "Kuudere API")
                 HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 12.dp))
-                DesktopAboutStatRow("Version", "1.0.0")
+                DesktopAboutStatRow("Version", AppVersion)
             }
         }
     }
@@ -2424,7 +2424,7 @@ private fun MobileAboutContent() {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "v1.0.0",
+                    "v$AppVersion",
                     color = MUTED,
                     fontSize = 14.sp
                 )
@@ -2445,7 +2445,7 @@ private fun MobileAboutContent() {
 
         AboutStatItem("Hostname", "kuudere.to")
         AboutStatItem("Backend", "Kuudere API")
-        AboutStatItem("Version", "1.0.0")
+        AboutStatItem("Version", AppVersion)
 
         Spacer(modifier = Modifier.height(24.dp))
 

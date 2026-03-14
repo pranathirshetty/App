@@ -10,7 +10,6 @@ import android.net.Uri
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import to.kuudere.anisuge.MainActivity
-import to.kuudere.anisuge.androidAppContext
 
 actual val isDesktopPlatform: Boolean = false
 actual val PlatformName: String = "Android"
