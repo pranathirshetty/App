@@ -9,6 +9,8 @@ import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.data.services.SearchService
 import to.kuudere.anisuge.utils.isNetworkError
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 data class SearchUiState(
     val results: List<AnimeItem> = emptyList(),
@@ -32,6 +34,8 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
+    private var searchJob: Job? = null
+
     init {
         // Initial search
         search()
@@ -39,44 +43,58 @@ class SearchViewModel(private val searchService: SearchService) : ViewModel() {
 
     fun onKeywordChange(keyword: String) {
         _uiState.value = _uiState.value.copy(keyword = keyword)
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(500)
+            search()
+        }
     }
 
     fun onGenreToggle(genre: String) {
         val current = _uiState.value.selectedGenres
         val next = if (current.contains(genre)) current - genre else current + genre
         _uiState.value = _uiState.value.copy(selectedGenres = next)
+        search()
     }
 
     fun clearGenres() {
         _uiState.value = _uiState.value.copy(selectedGenres = emptyList())
+        search()
     }
 
     fun onSeasonChange(season: String?) {
         _uiState.value = _uiState.value.copy(selectedSeason = season)
+        search()
     }
 
     fun onYearChange(year: String?) {
         _uiState.value = _uiState.value.copy(selectedYear = year)
+        search()
     }
 
     fun onTypeChange(type: String?) {
         _uiState.value = _uiState.value.copy(selectedType = type)
+        search()
     }
 
     fun onStatusChange(status: String?) {
         _uiState.value = _uiState.value.copy(selectedStatus = status)
+        search()
     }
 
     fun onLanguageChange(lang: String?) {
         _uiState.value = _uiState.value.copy(selectedLanguage = lang)
+        search()
     }
 
     fun onRatingChange(rating: String?) {
         _uiState.value = _uiState.value.copy(selectedRating = rating)
+        search()
     }
 
     fun onSortChange(sort: String?) {
         _uiState.value = _uiState.value.copy(selectedSort = sort)
+        search()
     }
 
     fun clearFilters() {

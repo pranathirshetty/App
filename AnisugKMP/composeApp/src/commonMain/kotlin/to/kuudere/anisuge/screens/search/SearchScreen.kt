@@ -71,9 +71,9 @@ fun SearchScreen(
     ) { _ ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val isSmall = maxWidth < 800.dp
-            val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 180.dp)
+            val columns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
             val hPadding = if (isSmall) 12.dp else 24.dp
-            val itemSpacing = if (isSmall) 8.dp else 16.dp
+            val itemSpacing = if (isSmall) 12.dp else 16.dp
             val showOffline = state.isOffline && state.results.isEmpty()
 
             if (showOffline) {
@@ -95,9 +95,9 @@ fun SearchScreen(
                     Text(
                         text = "Results: ${state.results.size}",
                         color = Color.White,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 16.dp)
+                        modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }
 
@@ -192,67 +192,87 @@ private val KUUDERE_ORIGINS  = listOf("Japan", "South Korea", "China", "Taiwan")
 // ─── Large screen layout ─────────────────────────────────────────────────────
 @Composable
 private fun LargeScreenFilterSection(state: SearchUiState, viewModel: SearchViewModel) {
-    var isExpanded by remember { mutableStateOf(false) }
-
     Column(Modifier.fillMaxWidth()) {
-        Text("Search", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
+        Text("Search", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(20.dp))
 
-        // Row 1: Search | Genres | Sort by | Year | Status | Format  (equal weights)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("Search", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                KSearchInput(state.keyword, viewModel::onKeywordChange, onSearch = { viewModel.search() })
-            }
-            FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
-                if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
-            }
-            FilterDropdown("Sort by", "Popularity", state.selectedSort, KUUDERE_SORTS, Modifier.weight(1f)) { viewModel.onSortChange(it) }
-            FilterDropdown("Year", "Any", state.selectedYear, KUUDERE_YEARS, Modifier.weight(1f)) { viewModel.onYearChange(it) }
-            FilterDropdown("Status", "Any", state.selectedStatus, KUUDERE_STATUSES, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
-            FilterDropdown("Format", "Any", state.selectedType, KUUDERE_FORMATS, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
+        // Row 1: Search | Genres | Sort by | Reset
         Row(
-            Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(vertical = 6.dp),
+            Modifier.fillMaxWidth(), 
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("More filters", color = Color.Gray, fontSize = 13.sp)
-            Spacer(Modifier.weight(1f))
-            Icon(
-                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                null, tint = Color.Gray, modifier = Modifier.size(18.dp)
+            KSearchInput(
+                state.keyword, 
+                viewModel::onKeywordChange, 
+                onSearch = { viewModel.search() },
+                modifier = Modifier.weight(1.5f)
             )
-        }
 
-        AnimatedVisibility(visible = isExpanded) {
-            Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                // Row 2: Season | Origin (partial row, left-aligned with same column width)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Season", "Any", state.selectedSeason, KUUDERE_SEASONS, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
-                    FilterDropdown("Origin", "Any", state.selectedLanguage, KUUDERE_ORIGINS, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
-                    // empty slots to push dropdowns to same width as row above
-                    Spacer(Modifier.weight(1f))
-                    Spacer(Modifier.weight(1f))
-                    Spacer(Modifier.weight(1f))
-                    Spacer(Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    KActionButton("Apply") { viewModel.search() }
-                    KActionButton("Reset", secondary = true) { viewModel.clearFilters() }
-                }
+            KAdvancedFilterDropdown(
+                label = "Genres",
+                hint = "Any genre",
+                selected = state.selectedGenres.joinToString(", ").ifBlank { null },
+                items = KUUDERE_GENRES,
+                icon = Icons.Default.Style,
+                modifier = Modifier.weight(1f),
+                multiSelect = true
+            ) {
+                if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
+            }
+
+            KAdvancedFilterDropdown(
+                label = "Sort by",
+                hint = "Popularity",
+                selected = state.selectedSort,
+                items = KUUDERE_SORTS,
+                icon = Icons.Default.Sort,
+                modifier = Modifier.weight(1f)
+            ) { 
+                viewModel.onSortChange(it) 
+            }
+
+            // Reset Button
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                    .background(Color.Transparent)
+                    .clickable { viewModel.clearFilters() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
             }
         }
 
-        AnimatedVisibility(visible = !isExpanded) {
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                KActionButton("Apply") { viewModel.search() }
-                KActionButton("Reset", secondary = true) { viewModel.clearFilters() }
-            }
+        Spacer(Modifier.height(16.dp))
+
+        // Row 2: Year | Status | Format | Season | Origin
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            KAdvancedFilterDropdown(
+                "Year", "Any year", state.selectedYear, KUUDERE_YEARS, 
+                Icons.Default.Event, Modifier.weight(1f)
+            ) { viewModel.onYearChange(it) }
+            
+            KAdvancedFilterDropdown(
+                "Status", "Any status", state.selectedStatus, KUUDERE_STATUSES, 
+                Icons.Default.SignalCellularAlt, Modifier.weight(1f)
+            ) { viewModel.onStatusChange(it) }
+            
+            KAdvancedFilterDropdown(
+                "Format", "Any format", state.selectedType, KUUDERE_FORMATS, 
+                Icons.Default.Tv, Modifier.weight(1f)
+            ) { viewModel.onTypeChange(it) }
+            
+            KAdvancedFilterDropdown(
+                "Season", "Any season", state.selectedSeason, KUUDERE_SEASONS, 
+                Icons.Default.WbSunny, Modifier.weight(1f)
+            ) { viewModel.onSeasonChange(it) }
+            
+            KAdvancedFilterDropdown(
+                "Origin", "Any origin", state.selectedLanguage, KUUDERE_ORIGINS, 
+                Icons.Default.Public, Modifier.weight(1f)
+            ) { viewModel.onLanguageChange(it) }
         }
     }
 }
@@ -286,28 +306,25 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
         }
 
         AnimatedVisibility(visible = isExpanded) {
-            Column(Modifier.fillMaxWidth().padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Genres", "Any", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Modifier.weight(1f), multiSelect = true) {
+            Column(Modifier.fillMaxWidth().padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KAdvancedFilterDropdown("Genres", "Any genre", state.selectedGenres.joinToString(", ").ifBlank { null }, KUUDERE_GENRES, Icons.Default.Style, Modifier.weight(1f), multiSelect = true) {
                         if (it != null) viewModel.onGenreToggle(it) else viewModel.clearGenres()
                     }
-                    FilterDropdown("Sort by", "Popularity", state.selectedSort, KUUDERE_SORTS, Modifier.weight(1f)) { viewModel.onSortChange(it) }
+                    KAdvancedFilterDropdown("Sort by", "Popularity", state.selectedSort, KUUDERE_SORTS, Icons.Default.Sort, Modifier.weight(1f)) { viewModel.onSortChange(it) }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Season", "Any", state.selectedSeason, KUUDERE_SEASONS, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
-                    FilterDropdown("Year", "Any", state.selectedYear, KUUDERE_YEARS, Modifier.weight(1f)) { viewModel.onYearChange(it) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KAdvancedFilterDropdown("Season", "Any season", state.selectedSeason, KUUDERE_SEASONS, Icons.Default.WbSunny, Modifier.weight(1f)) { viewModel.onSeasonChange(it) }
+                    KAdvancedFilterDropdown("Year", "Any year", state.selectedYear, KUUDERE_YEARS, Icons.Default.Event, Modifier.weight(1f)) { viewModel.onYearChange(it) }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Status", "Any", state.selectedStatus, KUUDERE_STATUSES, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
-                    FilterDropdown("Format", "Any", state.selectedType, KUUDERE_FORMATS, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KAdvancedFilterDropdown("Status", "Any status", state.selectedStatus, KUUDERE_STATUSES, Icons.Default.SignalCellularAlt, Modifier.weight(1f)) { viewModel.onStatusChange(it) }
+                    KAdvancedFilterDropdown("Format", "Any format", state.selectedType, KUUDERE_FORMATS, Icons.Default.Tv, Modifier.weight(1f)) { viewModel.onTypeChange(it) }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    FilterDropdown("Origin", "Any", state.selectedLanguage, KUUDERE_ORIGINS, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
-                    Column(Modifier.weight(1f)) {
-                        Text("", color = Color.Transparent, fontSize = 14.sp)
-                        Spacer(Modifier.height(8.dp))
-                        KApplyButton { isExpanded = false; viewModel.search() }
-                    }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    KAdvancedFilterDropdown("Origin", "Any origin", state.selectedLanguage, KUUDERE_ORIGINS, Icons.Default.Public, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
+                    // Spacer to keep layout balanced
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
@@ -352,46 +369,14 @@ private fun KSearchInput(
     }
 }
 
-@Composable
-private fun KActionButton(label: String, secondary: Boolean = false, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .height(36.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (secondary) Color.Transparent else Color.White)
-            .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(label, color = if (secondary) Color.White else Color.Black, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
 
 @Composable
-private fun KApplyButton(onClick: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.White)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Search, null, tint = Color.Black, modifier = Modifier.size(14.dp))
-            Text("Apply", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-private fun FilterDropdown(
-    title: String,
+private fun KAdvancedFilterDropdown(
+    label: String,
     hint: String,
     selected: String?,
     items: List<String>,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
     multiSelect: Boolean = false,
     onItemSelected: (String?) -> Unit
@@ -402,133 +387,136 @@ private fun FilterDropdown(
     val triggerWidthDp: Dp = with(density) { triggerWidthPx.toDp() }
     val selectedItems = selected?.split(", ")?.filter { it.isNotBlank() } ?: emptyList()
 
-    Column(modifier = modifier) {
-        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Box {
-            // ── Trigger ────────────────────────────────────────────────────
-            Box(
-                Modifier
-                    .height(44.dp)
-                    .fillMaxWidth()
-                    .onSizeChanged { triggerWidthPx = it.width }
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF1C1C1E))
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = selected ?: hint,
-                        color = if (selected == null) Color(0xFF71717A) else Color.White,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (selected != null) {
+    Box(modifier = modifier) {
+        // ── Trigger ────────────────────────────────────────────────────
+        Box(
+            Modifier
+                .height(44.dp)
+                .fillMaxWidth()
+                .onSizeChanged { triggerWidthPx = it.width }
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF1C1C1E))
+                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = selected ?: hint,
+                    color = if (selected == null) Color(0xFF71717A) else Color.White,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (selected != null) {
+                    IconButton(
+                        onClick = { 
+                            onItemSelected(null)
+                            expanded = false
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
                         Icon(
                             Icons.Default.Close, "Clear",
                             tint = Color(0xFF71717A),
-                            modifier = Modifier.size(14.dp).clickable {
-                                onItemSelected(null)
-                                expanded = false
-                            }
+                            modifier = Modifier.size(14.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
                     }
-                    Icon(
-                        if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        null,
-                        tint = Color(0xFF71717A),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Spacer(Modifier.width(4.dp))
                 }
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    null,
+                    tint = Color(0xFF71717A),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(triggerWidthDp.coerceAtLeast(160.dp))
+                .heightIn(max = 280.dp),
+            offset = DpOffset(0.dp, 6.dp),
+            containerColor = Color(0xFF1C1C1E),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+            shadowElevation = 8.dp,
+            tonalElevation = 0.dp,
+        ) {
+            val fullItems = if (!multiSelect && !items.contains(hint) && hint.isNotEmpty()) {
+                listOf(hint) + items
+            } else {
+                items
             }
 
-            // ── DropdownMenu (built-in animated expand/collapse) ────────────────
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier
-                    .width(triggerWidthDp.coerceAtLeast(150.dp))
-                    .heightIn(max = 280.dp),
-                offset = DpOffset(0.dp, 6.dp),
-                containerColor = Color(0xFF1C1C1E),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                shadowElevation = 8.dp,
-                tonalElevation = 0.dp,
-            ) {
-                val fullItems = if (!multiSelect && !items.contains(hint) && hint.isNotEmpty()) {
-                    listOf(hint) + items
-                } else {
-                    items
-                }
+            fullItems.forEach { item ->
+                val isHintItem = item == hint && !items.contains(hint)
+                val isSelected = if (multiSelect) selectedItems.contains(item) else (item == selected || (selected.isNullOrBlank() && (isHintItem || item == hint)))
+                val interactionSource = remember { MutableInteractionSource() }
+                val isHovered by interactionSource.collectIsHoveredAsState()
 
-                fullItems.forEach { item ->
-                    val isHintItem = item == hint && !items.contains(hint)
-                    val isSelected = selectedItems.contains(item) || (!multiSelect && selected.isNullOrBlank() && (isHintItem || item == hint))
-                    val interactionSource = remember { MutableInteractionSource() }
-                    val isHovered by interactionSource.collectIsHoveredAsState()
-
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                item,
-                                color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFEF4444) else if (isSelected) Color.White else Color(0xFFD4D4D8),
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        },
-                        onClick = {
-                            if (isHintItem) {
-                                onItemSelected(null)
-                            } else {
-                                onItemSelected(item)
-                            }
-                            if (!multiSelect) expanded = false
-                        },
-                        modifier = Modifier
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        interactionSource = interactionSource,
-                        trailingIcon = {
-                            if (multiSelect) {
-                                Box(
-                                    Modifier
-                                        .size(18.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(
-                                            if (isSelected) Color(0xFFEF4444)
-                                            else Color.White.copy(alpha = 0.12f)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            Icons.Default.Check, null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            item,
+                            color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFEF4444) else if (isSelected) Color.White else Color(0xFFD4D4D8),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                    },
+                    onClick = {
+                        if (isHintItem) {
+                            onItemSelected(null)
+                        } else {
+                            onItemSelected(item)
+                        }
+                        if (!multiSelect) expanded = false
+                    },
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    interactionSource = interactionSource,
+                    trailingIcon = {
+                        if (multiSelect) {
+                            Box(
+                                Modifier
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (isSelected) Color(0xFFEF4444)
+                                        else Color.White.copy(alpha = 0.12f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check, null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(12.dp)
+                                    )
                                 }
-                            } else if (isSelected) {
-                                Icon(
-                                    Icons.Default.CheckCircle, null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
-                        },
-                        colors = MenuDefaults.itemColors(
-                            textColor = Color.White,
-                            disabledTextColor = Color.Gray,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                    )
-                }
+                        } else if (isSelected) {
+                            Icon(
+                                Icons.Default.CheckCircle, null,
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    },
+                    colors = MenuDefaults.itemColors(
+                        textColor = Color.White,
+                        disabledTextColor = Color.Gray,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                )
             }
         }
     }
