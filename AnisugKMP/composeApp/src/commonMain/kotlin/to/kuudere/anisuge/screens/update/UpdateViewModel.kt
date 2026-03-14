@@ -15,7 +15,8 @@ data class UpdateState(
     val newVersion: String = "",
     val changelog: List<String> = emptyList(),
     val isUpdateAvailable: Boolean? = null, // null = checking, true = yes, false = no
-    val downloadUrl: String? = null
+    val downloadUrl: String? = null,
+    val isCritical: Boolean = false
 )
 
 class UpdateViewModel(private val updateService: UpdateService) : ViewModel() {
@@ -41,7 +42,8 @@ class UpdateViewModel(private val updateService: UpdateService) : ViewModel() {
             newVersion = "${response.version ?: ""} (${response.build ?: ""})",
             changelog = response.changelog ?: response.message ?: emptyList(),
             isUpdateAvailable = isAvailable,
-            downloadUrl = response.downloadUrl
+            downloadUrl = response.downloadUrl,
+            isCritical = response.critical == true
         )
     }
 }

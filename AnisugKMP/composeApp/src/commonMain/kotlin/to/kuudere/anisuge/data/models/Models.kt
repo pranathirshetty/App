@@ -100,6 +100,7 @@ data class CurrentUserResponse(
 @Serializable
 data class UpdateResponse(
     val success: Boolean? = true,
+    val critical: Boolean? = false,
     val message: List<String>? = null,
     val version: String? = null,
     val build: Int? = null,

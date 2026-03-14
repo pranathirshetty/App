@@ -131,10 +131,11 @@ fun UpdateScreen(
                             },
                             isFinishing = isFinishing,
                             isDownloading = isDownloading,
+                            isCritical = state.isCritical,
                             modifier = Modifier.padding(top = 40.dp)
                         )
 
-                        if (isDownloading) {
+                        if (isDownloading && !state.isCritical) {
                             TextButton(
                                 onClick = onUpdateLater,
                                 modifier = Modifier.padding(top = 8.dp)
@@ -178,10 +179,11 @@ fun UpdateScreen(
                         },
                         isFinishing = isFinishing,
                         isDownloading = isDownloading,
+                        isCritical = state.isCritical,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    if (isDownloading) {
+                    if (isDownloading && !state.isCritical) {
                         TextButton(
                             onClick = onUpdateLater,
                             modifier = Modifier.padding(top = 12.dp)
@@ -317,6 +319,7 @@ private fun UpdateActions(
     onUpdateLater: () -> Unit,
     isFinishing: Boolean,
     isDownloading: Boolean = false,
+    isCritical: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -339,7 +342,7 @@ private fun UpdateActions(
             )
         }
 
-        if (!isDownloading) {
+        if (!isDownloading && !isCritical) {
             Spacer(modifier = Modifier.height(12.dp))
 
             TextButton(
@@ -347,21 +350,20 @@ private fun UpdateActions(
                 enabled = !isFinishing,
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
-            if (isFinishing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Muted
-                )
-            } else {
-                Text(
-                    text = "Maybe Later",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Muted
-                )
+                if (isFinishing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Muted
+                    )
+                } else {
+                    Text(
+                        text = "Maybe Later",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Muted
+                    )
+                }
             }
         }
     }
-}
-
 }
