@@ -191,4 +191,13 @@ compose.desktop {
     }
 }
 
+tasks.register<Zip>("createPortableZip") {
+    group = "compose desktop"
+    description = "Creates a portable zip of the application"
+    from("build/compose/binaries/main/app")
+    archiveFileName.set("AnisugKMP-${appVersionName}-portable.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    dependsOn("packageApp")
+}
+
 

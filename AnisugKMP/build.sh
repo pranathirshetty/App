@@ -36,28 +36,55 @@ fi
 
 # Run the build
 echo "🔨 Compiling Android, Linux, and Windows packages..."
-./gradlew :composeApp:assembleRelease packageDeb packageRpm packageAppImage packageMsi packageExe --no-daemon \
+# We always create the Portable Zip now
+BUILD_TASKS=":composeApp:assembleRelease packageDeb packageRpm packageAppImage createPortableZip"
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    BUILD_TASKS="$BUILD_TASKS packageMsi packageExe"
+fi
+
+./gradlew $BUILD_TASKS --no-daemon \
     -PappVersion="$VERSION_NAME" \
     -PappBuildNumber="$BUILD_NUMBER" \
     $WIN_SIGNING_ARGS
 
 echo "----------------------------------------------------"
-echo "✅ Build Successful!"
+echo "✅ Build Process Finished!"
 echo "----------------------------------------------------"
-echo "📂 Android APKs:"
-echo "   - $SCRIPT_DIR/composeApp/build/outputs/apk/release/"
+
+echo "📱 Android APKs:"
+find "$SCRIPT_DIR/composeApp/build/outputs/apk/release" -name "*.apk" -not -name "*universal*" -exec echo "   - {}" \;
+echo "   - (Universal) $(find "$SCRIPT_DIR/composeApp/build/outputs/apk/release" -name "*universal-release.apk")"
+
 echo ""
-echo "📂 Linux Packages (DEB/RPM):"
-echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/deb/"
-echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/rpm/"
+echo "🐧 Linux Packages:"
+find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/deb" -name "*.deb" -exec echo "   - DEB: {}" \;
+find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/rpm" -name "*.rpm" -exec echo "   - RPM: {}" \;
+
+# Check if AppImage was actually created or just the AppDir
+APPIMAGE_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/appimage" -name "*.AppImage" 2>/dev/null)
+if [ -z "$APPIMAGE_FILE" ]; then
+    echo "   - AppDir (Raw Folder): $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/AnisugKMP/"
+    echo "     (Note: Install 'appimagetool' to generate a single .AppImage file)"
+else
+    echo "   - AppImage: $APPIMAGE_FILE"
+fi
+
 echo ""
-echo "📂 Windows Installers (MSI/EXE):"
-echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/msi/"
-echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/exe/"
+echo "🪟 Windows Installers:"
+MSI_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/msi" -name "*.msi" 2>/dev/null)
+EXE_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/exe" -name "*.exe" 2>/dev/null)
+if [[ -n "$MSI_FILE" || -n "$EXE_FILE" ]]; then
+    echo "   - MSI: $MSI_FILE"
+    echo "   - EXE: $EXE_FILE"
+else
+    echo "   - (Note: Windows builds must be run on a Windows machine or via GitHub Actions)"
+fi
+
 echo ""
-echo "📂 AppImage (AppDir):"
-echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/AnisugKMP/"
+echo "🚀 Portable ZIP (Windows/Linux):"
+find "$SCRIPT_DIR/composeApp/build/distributions" -name "*.zip" -exec echo "   - {}" \;
+
 echo ""
-echo "📂 Arch Linux Build:"
+echo "🏗️ Arch Linux Build Dir:"
 echo "   - $SCRIPT_DIR/arch_build/"
 echo "----------------------------------------------------"
