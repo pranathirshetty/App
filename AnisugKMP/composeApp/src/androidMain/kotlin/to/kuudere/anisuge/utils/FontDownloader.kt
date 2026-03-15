@@ -14,37 +14,40 @@ actual suspend fun downloadFontsAndGetDir(fonts: List<FontData>, onProgress: ((S
         val fontsDir = File("$cacheDir/sub-fonts")
         if (!fontsDir.exists()) fontsDir.mkdirs()
         
-        var count = 1
-        val total = fonts.size
-        
-        for (font in fonts) {
-            val urlStr = font.url ?: continue
-            val name = font.name ?: continue
-            
-            var extension = ".ttf"
-            try {
-                val path = URL(urlStr).path
-                if (path.contains(".")) {
-                    extension = path.substring(path.lastIndexOf("."))
-                }
-            } catch (e: Exception) {}
-            
-            val finalName = if (name.endsWith(extension, ignoreCase = true)) name else name + extension
-            val fontFile = File(fontsDir, finalName)
-            
-            if (!fontFile.exists()) {
-                withContext(Dispatchers.Main) { onProgress?.invoke("Downloading font ($count/$total): $finalName") }
+        // Download fonts in parallel for better performance
+        fonts.map { font ->
+            async {
+                val urlStr = font.url ?: return@async
+                val name = font.name ?: return@async
+                
+                var extension = ".ttf"
                 try {
-                    val conn = URL(urlStr).openConnection()
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-                    val stream = conn.getInputStream()
-                    val bytes = stream.readBytes()
-                    fontFile.writeBytes(bytes)
-                    stream.close()
+                    val path = URL(urlStr).path
+                    if (path.contains(".")) {
+                        extension = path.substring(path.lastIndexOf("."))
+                    }
                 } catch (e: Exception) {}
+                
+                val finalName = if (name.endsWith(extension, ignoreCase = true)) name else name + extension
+                val fontFile = File(fontsDir, finalName)
+                
+                if (!fontFile.exists()) {
+                    try {
+                        val conn = URL(urlStr).openConnection()
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        conn.getInputStream().use { input ->
+                            fontFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
-            count++
-        }
+        }.awaitAll()
         
         fontsDir.absolutePath
     } catch (e: Exception) {

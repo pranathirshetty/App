@@ -17,6 +17,8 @@ import dev.jdtech.mpv.MPVLib
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.io.File
@@ -70,10 +72,28 @@ actual fun VideoPlayerSurface(
 
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
-                            if (state.config.startPosition > 0.0) {
-                                MPVLib.setOptionString("start", state.config.startPosition.toString())
+                            // Restore Video Output (Crucial for returning from background)
+                            MPVLib.setPropertyString("vo", "gpu")
+
+                            // Check if the file is already loaded to avoid unnecessary reloads
+                            val currentPath = try { MPVLib.getPropertyString("path") } catch (e: Exception) { null }
+
+                            if (currentPath != resolvedUrl) {
+                                // Resume from the last known position if we are returning to the same URL context
+                                // but for some reason mpv lost its state (or it's the first load).
+                                val resumePos = if (state.position > 0.1) state.position else state.config.startPosition
+                                if (resumePos > 0.0) {
+                                    MPVLib.setOptionString("start", resumePos.toString())
+                                }
+                                MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
+                            } else {
+                                // Already loaded correct file, just force a redraw.
+                                // If it was paused, it stays paused; if it was playing, it resumes rendering.
+                                MPVLib.command(arrayOf("video-redraw"))
+                                if (!state.isPaused) {
+                                    MPVLib.setPropertyString("pause", "no")
+                                }
                             }
-                            MPVLib.command(arrayOf<String>("loadfile", resolvedUrl))
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -264,18 +284,19 @@ actual fun VideoPlayerSurface(
                         
                         state.allSubUrls?.let { subs ->
                             coroutineScope.launch(Dispatchers.IO) {
-                                val currentUrlCopy = resolvedUrl
-                                subs.forEach { (url, name, isDefault) ->
-                                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                                    if (localPath != null && isActive) {
-                                        try {
-                                            val flag = if (isDefault) "select" else "auto"
-                                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
+                                subs.map { (url, name, isDefault) ->
+                                    async {
+                                        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                                        if (localPath != null && isActive) {
+                                            try {
+                                                val flag = if (isDefault) "select" else "auto"
+                                                MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
                                         }
                                     }
-                                }
+                                }.awaitAll()
                             }
                             state.allSubUrls = null
                         }
@@ -448,15 +469,17 @@ actual fun VideoPlayerSurface(
     LaunchedEffect(state.allSubUrls) {
         state.allSubUrls?.let { subs ->
             withContext(Dispatchers.IO) {
-                subs.forEach { (url, name, isDefault) ->
-                    val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
-                    if (localPath != null && isActive) {
-                        try {
-                            val flag = if (isDefault) "select" else "auto"
-                            MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
-                        } catch (e: Exception) { }
+                subs.map { (url, name, isDefault) ->
+                    async {
+                        val localPath = to.kuudere.anisuge.utils.SubtitleUtils.prepareSubtitle(url)
+                        if (localPath != null && isActive) {
+                            try {
+                                val flag = if (isDefault) "select" else "auto"
+                                MPVLib.command(arrayOf<String>("sub-add", localPath, flag))
+                            } catch (e: Exception) { }
+                        }
                     }
-                }
+                }.awaitAll()
             }
             state.allSubUrls = null
         }

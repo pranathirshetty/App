@@ -355,12 +355,13 @@ class WatchViewModel(
 
                 val finalStreamData = streamData.copy(intro = intro, outro = outro)
 
-                // Download fonts if available
-                var localFontsDir: String? = null
+                // Download fonts in background so we don't block the player from starting.
+                // VideoPlayerSurface will reactively update sub-fonts-dir when this completes.
                 if (!streamData.fonts.isNullOrEmpty()) {
-                    _uiState.update { it.copy(loadingMessage = "Downloading fonts...") }
-                    localFontsDir = to.kuudere.anisuge.utils.downloadFontsAndGetDir(streamData.fonts) { fontMsg ->
-                        _uiState.update { it.copy(loadingMessage = fontMsg) }
+                    viewModelScope.launch {
+                        val localFontsDir = to.kuudere.anisuge.utils.downloadFontsAndGetDir(streamData.fonts)
+                        _uiState.update { it.copy(currentFontsDir = localFontsDir) }
+                        println("[WatchVM] Background font download complete: $localFontsDir")
                     }
                 }
 
@@ -379,7 +380,6 @@ class WatchViewModel(
                         currentQuality = qualities.firstOrNull()?.first ?: "Auto",
                         availableSubtitles = subtitles,
                         currentSubtitleUrl = selectedSubUrl,
-                        currentFontsDir = localFontsDir,
                         offlinePath = null
                     )
                 }
