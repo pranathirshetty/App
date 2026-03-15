@@ -61,7 +61,13 @@ find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/deb" -name "*.deb" -exe
 find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/rpm" -name "*.rpm" -exec echo "   - RPM: {}" \;
 
 # Check if AppImage was actually created or just the AppDir
-APPIMAGE_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/appimage" -name "*.AppImage" 2>/dev/null)
+APPIMAGE_DIR="$SCRIPT_DIR/composeApp/build/compose/binaries/main/appimage"
+if [ -d "$APPIMAGE_DIR" ]; then
+    APPIMAGE_FILE=$(find "$APPIMAGE_DIR" -name "*.AppImage" 2>/dev/null)
+else
+    APPIMAGE_FILE=""
+fi
+
 if [ -z "$APPIMAGE_FILE" ]; then
     echo "   - AppDir (Raw Folder): $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/AnisugKMP/"
     echo "     (Note: Install 'appimagetool' to generate a single .AppImage file)"
@@ -71,18 +77,26 @@ fi
 
 echo ""
 echo "🪟 Windows Installers:"
-MSI_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/msi" -name "*.msi" 2>/dev/null)
-EXE_FILE=$(find "$SCRIPT_DIR/composeApp/build/compose/binaries/main/exe" -name "*.exe" 2>/dev/null)
+MSI_DIR="$SCRIPT_DIR/composeApp/build/compose/binaries/main/msi"
+EXE_DIR="$SCRIPT_DIR/composeApp/build/compose/binaries/main/exe"
+MSI_FILE=$( [ -d "$MSI_DIR" ] && find "$MSI_DIR" -name "*.msi" 2>/dev/null || echo "" )
+EXE_FILE=$( [ -d "$EXE_DIR" ] && find "$EXE_DIR" -name "*.exe" 2>/dev/null || echo "" )
+
 if [[ -n "$MSI_FILE" || -n "$EXE_FILE" ]]; then
-    echo "   - MSI: $MSI_FILE"
-    echo "   - EXE: $EXE_FILE"
+    [ -n "$MSI_FILE" ] && echo "   - MSI: $MSI_FILE"
+    [ -n "$EXE_FILE" ] && echo "   - EXE: $EXE_FILE"
 else
     echo "   - (Note: Windows builds must be run on a Windows machine or via GitHub Actions)"
 fi
 
 echo ""
 echo "🚀 Portable ZIP (Windows/Linux):"
-find "$SCRIPT_DIR/composeApp/build/distributions" -name "*.zip" -exec echo "   - {}" \;
+DIST_DIR="$SCRIPT_DIR/composeApp/build/distributions"
+if [ -d "$DIST_DIR" ]; then
+    find "$DIST_DIR" -name "*.zip" -exec echo "   - {}" \;
+else
+    echo "   - (Not found)"
+fi
 
 echo ""
 echo "🏗️ Arch Linux Build Dir:"

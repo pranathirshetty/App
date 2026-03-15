@@ -168,7 +168,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "Anisurge"
+            packageName = "AnisugKMP"
             packageVersion = appVersionName
             description = "Anisuge — KMP Edition"
             copyright = "© 2026 Kuudere"
@@ -195,9 +195,9 @@ tasks.register<Zip>("createPortableZip") {
     group = "compose desktop"
     description = "Creates a portable zip of the application"
     from("build/compose/binaries/main/app")
-    archiveFileName.set("AnisugKMP-${appVersionName}-portable.zip")
+    archiveFileName.set("AnisugKMP-${appVersionName}.${appBuildNum}-portable.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
-    dependsOn("packageApp")
+    dependsOn("createDistributable", "packageAppImage")
 }
 
 
