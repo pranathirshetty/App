@@ -97,6 +97,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.Alignment
@@ -145,11 +147,17 @@ data class SettingsNavItem(
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onLogout: () -> Unit,
+    onRefresh: () -> Unit = {},
     isLoggingOut: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf<SettingsTab>(SettingsTab.Preferences) }
+
+    LaunchedEffect(Unit) {
+        onRefresh()
+        viewModel.refresh()
+    }
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
         uiState.errorMessage?.let {
@@ -159,6 +167,12 @@ fun SettingsScreen(
         uiState.successMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
+            // Refresh global session on success for security/profile stuff
+            if (it.contains("Password", ignoreCase = true) || 
+                it.contains("MFA", ignoreCase = true) || 
+                it.contains("Profile", ignoreCase = true)) {
+                onRefresh()
+            }
         }
     }
 
@@ -251,14 +265,7 @@ fun SettingsScreen(
                             onItemClick = {
                                 showDetail = it
                                 // Load data when opening detail
-                                when (it) {
-                                    is SettingsTab.Profile -> viewModel.loadUserProfile()
-                                    is SettingsTab.Sessions -> viewModel.loadSessions()
-                                    is SettingsTab.Security -> viewModel.loadMfaStatus()
-                                    is SettingsTab.Sync -> viewModel.loadAniListStatus()
-                                    is SettingsTab.Servers -> viewModel.loadServerPriority()
-                                    else -> {}
-                                }
+                                viewModel.onTabSelected(it)
                             }
                         )
                     } else {

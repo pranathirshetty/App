@@ -306,6 +306,7 @@ fun HomeScreen(
                             AnisugTab.Settings -> SettingsScreen(
                                 viewModel = settingsViewModel,
                                 onLogout = { showLogoutConfirm = true },
+                                onRefresh = { homeViewModel.refresh() },
                                 isLoggingOut = homeState.isLoggingOut
                             )
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -184,6 +184,12 @@ class SettingsViewModel(
         }
     }
 
+    fun refresh() {
+        loadUserProfile()
+        loadPreferences()
+        loadSessions()
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
