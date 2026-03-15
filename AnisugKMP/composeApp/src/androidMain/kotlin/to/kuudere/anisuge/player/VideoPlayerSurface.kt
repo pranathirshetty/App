@@ -165,16 +165,27 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
 
-        // Cache settings for faster streaming (HLS/m3u8 optimization)
+        // Cache settings for faster streaming (Aggressive fast-start)
         MPVLib.setOptionString("cache", "yes")
+        MPVLib.setOptionString("cache-pause", "no")
+        MPVLib.setOptionString("cache-pause-initial", "no")
+        MPVLib.setOptionString("demuxer-cache-wait", "no")
         MPVLib.setOptionString("cache-secs", "120")
-        MPVLib.setOptionString("demuxer-max-bytes", "50M")
-        MPVLib.setOptionString("demuxer-max-back-bytes", "25M")
+        MPVLib.setOptionString("demuxer-readahead-secs", "20")
+        MPVLib.setOptionString("demuxer-max-bytes", "100M")
+        MPVLib.setOptionString("demuxer-max-back-bytes", "50M")
 
-        // Network optimizations for HTTP streaming
-        MPVLib.setOptionString("network-timeout", "60")
+        // Network optimizations for HTTP/HLS streaming
+        MPVLib.setOptionString("network-timeout", "30")
         MPVLib.setOptionString("http-persistent", "yes")
         MPVLib.setOptionString("http-keepalive", "yes")
+        MPVLib.setOptionString("hls-bitrate", "max") // Avoid switching segments during start
+        MPVLib.setOptionString("stream-buffer-size", "1M") // Smaller initial buffer for faster start
+        MPVLib.setOptionString("prefetch-playlist", "yes")
+
+        // Video decoding optimizations
+        MPVLib.setOptionString("vd-lavc-fast", "yes")
+        MPVLib.setOptionString("vd-lavc-threads", "4")
         
         if (state.config.muted) {
             MPVLib.setOptionString("mute", "yes")

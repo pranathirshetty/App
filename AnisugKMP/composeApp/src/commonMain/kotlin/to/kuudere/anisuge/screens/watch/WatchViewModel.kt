@@ -174,31 +174,60 @@ class WatchViewModel(
         }
 
         _uiState.update { it.copy(isLoading = true, loadingMessage = "Fetching episode data...") }
-            val data = infoService.getEpisodes(currentAnimeId, episodeNumber)
+        
+        // Speculative parallel fetch: if animeId is an integer, we can start loading video immediately
+        val speculativeAnilistId = currentAnimeId.toIntOrNull()
+        var streamLoadingJob: kotlinx.coroutines.Job? = null
+        
+        if (speculativeAnilistId != null) {
+            val priorityLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
+            var speculativeServer: String? = reqServer
+            
+            if (speculativeServer == null) {
+                for (candidate in serverRepository.getFallbackPriority()) {
+                    val serverInfo = serverRepository.getServerById(candidate)
+                    val supportsLang = when (priorityLang) {
+                        "dub" -> serverInfo?.supportsDub ?: (candidate.endsWith("-dub"))
+                        "sub" -> serverInfo?.supportsSub ?: (!candidate.endsWith("-dub"))
+                        else -> true
+                    }
+                    if (supportsLang) {
+                        speculativeServer = candidate
+                        break
+                    }
+                }
+            }
+            
+            val finalSpeculativeServer = speculativeServer ?: "zen2"
+            streamLoadingJob = viewModelScope.launch {
+                loadVideoStream(finalSpeculativeServer, speculativeAnilistId)
+            }
+        }
 
-            // Check if cancelled or switched to offline before updating state
-            if (!coroutineContext.isActive || _uiState.value.offlinePath != null) {
-                println("[WatchVM] fetchEpisodeData aborted after API call - cancelled or switched to offline")
-                return
+        val data = infoService.getEpisodes(currentAnimeId, episodeNumber)
+
+        // Check if cancelled or switched to offline before updating state
+        if (!coroutineContext.isActive || _uiState.value.offlinePath != null) {
+            streamLoadingJob?.cancel()
+            return
+        }
+
+        if (data != null) {
+            _uiState.update { state ->
+                state.copy(
+                    isLoading = false,
+                    loadingMessage = if (streamLoadingJob != null) null else "Switching servers...",
+                    episodeData = data,
+                    savedWatchPosition = data.current?.toDouble() ?: 0.0
+                )
             }
 
-            if (data != null) {
-                _uiState.update { state ->
-                    state.copy(
-                        isLoading = false,
-                        loadingMessage = "Switching servers...",
-                        episodeData = data,
-                        savedWatchPosition = data.current?.toDouble() ?: 0.0
-                    )
-                }
+            data.animeInfo?.anilist?.let { anilistId ->
+                fetchThumbnails(anilistId)
+            }
 
-                data.animeInfo?.anilist?.let { anilistId ->
-                    fetchThumbnails(anilistId)
-                }
-
-                // Check if cancelled before proceeding to load video
-                if (!coroutineContext.isActive) return
-
+            // If we didn't start speculative loading (or it's the wrong anilistId), start it now
+            if (streamLoadingJob == null) {
                 val fallbackPriority = serverRepository.getFallbackPriority()
                 var targetServerName: String? = null
                 var finalLang: String? = reqLang
@@ -209,14 +238,13 @@ class WatchViewModel(
                     finalLang = reqLang
                 }
 
-                // Otherwise use priority list directly (episodeLinks are deprecated)
+                // Otherwise use priority list
                 if (targetServerName == null) {
                     val priorityLang = reqLang ?: if (_uiState.value.defaultLang) "dub" else "sub"
                     for (candidate in fallbackPriority) {
                         val serverInfo = serverRepository.getServerById(candidate)
                         val candidateLang = if (candidate.endsWith("-dub")) "dub" else priorityLang
 
-                        // Check if server supports this language
                         val supportsLang = when (candidateLang) {
                             "dub" -> serverInfo?.supportsDub ?: (candidate.endsWith("-dub"))
                             "sub" -> serverInfo?.supportsSub ?: (!candidate.endsWith("-dub"))
@@ -232,14 +260,13 @@ class WatchViewModel(
                 }
 
                 val serverName = targetServerName ?: fallbackPriority.firstOrNull() ?: "zen2"
-                println("[WatchVM] Selected server: $serverName (requested: $reqServer, lang: $reqLang, targetLang: $finalLang)")
-                
                 _uiState.update { it.copy(targetLang = finalLang) }
-
                 loadVideoStream(serverName)
-            } else {
-                _uiState.update { it.copy(isLoading = false) }
             }
+        } else {
+            streamLoadingJob?.cancel()
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 
     private fun fetchThumbnails(anilistId: Int) {
@@ -251,7 +278,7 @@ class WatchViewModel(
         }
     }
 
-    private suspend fun loadVideoStream(serverName: String) {
+    private suspend fun loadVideoStream(serverName: String, explicitAnilistId: Int? = null) {
         // Guard: if we're in offline mode, don't load online stream
         if (_uiState.value.offlinePath != null) {
             println("[WatchVM] loadVideoStream aborted - offlinePath is set, should not load online stream")
@@ -259,7 +286,7 @@ class WatchViewModel(
         }
 
         val currState = _uiState.value
-        val anilistId = currState.episodeData?.animeInfo?.anilist ?: return
+        val anilistId = explicitAnilistId ?: currState.episodeData?.animeInfo?.anilist ?: return
         val episodeNum = currState.currentEpisodeNumber
 
         _uiState.update { it.copy(isLoadingVideo = true, currentServer = serverName, loadingMessage = "Fetching streaming URL...") }
