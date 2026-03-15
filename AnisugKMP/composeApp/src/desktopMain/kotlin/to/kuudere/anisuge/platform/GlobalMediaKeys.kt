@@ -19,6 +19,13 @@ object GlobalMediaKeys {
         // Disable aggressive JNativeHook logging
         logger.level = Level.WARNING
         logger.useParentHandlers = false
+
+        // Force JNativeHook to extract its native library to a writable directory.
+        // This prevents "Permission denied" errors when the app is installed in /opt 
+        // and tries to extract or load libraries from restricted locations.
+        val homeDir = System.getProperty("user.home")
+        val libDir = java.io.File(homeDir, ".anisugkmp/native").apply { mkdirs() }
+        System.setProperty("jnativehook.lib.path", libDir.absolutePath)
     }
 
     private var currentListener: NativeKeyListener? = null
