@@ -20,7 +20,7 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         title = "Anisuge",
         state = windowState,
-        undecorated = false,
+        undecorated = true,
         icon = painterResource(Res.drawable.logo)
     ) {
         CompositionLocalProvider(
