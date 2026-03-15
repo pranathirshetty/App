@@ -21,11 +21,7 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
-    }
+    androidTarget()
     jvm("desktop")
 
     sourceSets {
@@ -105,8 +101,14 @@ android {
     namespace = "to.kuudere.anisuge"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
-    // Add repositories block here if needed, but android block doesn't usually take it.
-    // Wait, repositories should be in the top level or settings.
+    // Configure JVM target for Android
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    
+    // Kotlin target options can also be here if using the newest KMP + AGP
+    // but we'll stick to the androidTarget() registration above.
     
     defaultConfig {
         applicationId = "to.kuudere.anisuge"
@@ -183,6 +185,7 @@ compose.desktop {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
                 // MSI version must be MAJOR.MINOR.BUILD (max 3 segments)
                 packageVersion = appVersionName
+                upgradeUuid = "d7e9b1a0-3f2d-4e9b-8a1c-5d6e7f8a9b0c" // Stable UUID for updates
             }
         }
     }

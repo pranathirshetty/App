@@ -26,11 +26,20 @@ cd "$SCRIPT_DIR"
 # Ensure gradlew is executable
 chmod +x gradlew
 
+# Check for Windows signing credentials in key.properties or signing folder
+WIN_SIGNING_ARGS=""
+WIN_CERT="$SCRIPT_DIR/signing/windows.pfx"
+if [ -f "$WIN_CERT" ]; then
+    WIN_SIGNING_ARGS="-Pcompose.desktop.signing.windows.certificateFile=$WIN_CERT -Pcompose.desktop.signing.windows.keyPassword=anisuge2026"
+    echo "🔑 Windows signing certificate found, enabling signing."
+fi
+
 # Run the build
-echo "🔨 Compiling Android and Linux packages..."
-./gradlew :composeApp:assembleRelease packageDeb packageRpm packageAppImage --no-daemon \
+echo "🔨 Compiling Android, Linux, and Windows packages..."
+./gradlew :composeApp:assembleRelease packageDeb packageRpm packageAppImage packageMsi packageExe --no-daemon \
     -PappVersion="$VERSION_NAME" \
-    -PappBuildNumber="$BUILD_NUMBER"
+    -PappBuildNumber="$BUILD_NUMBER" \
+    $WIN_SIGNING_ARGS
 
 echo "----------------------------------------------------"
 echo "✅ Build Successful!"
@@ -41,6 +50,10 @@ echo ""
 echo "📂 Linux Packages (DEB/RPM):"
 echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/deb/"
 echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/rpm/"
+echo ""
+echo "📂 Windows Installers (MSI/EXE):"
+echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/msi/"
+echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/exe/"
 echo ""
 echo "📂 AppImage (AppDir):"
 echo "   - $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/AnisugKMP/"
