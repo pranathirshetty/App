@@ -166,13 +166,13 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "AnisugKMP"
+            packageName = "Anisurge"
             packageVersion = appVersionName
             description = "Anisuge — KMP Edition"
             copyright = "© 2026 Kuudere"
             vendor = "Kuudere"
 
-            modules("jdk.security.auth", "java.sql", "java.naming")
+            modules("jdk.security.auth", "java.sql", "java.naming", "jdk.crypto.ec", "java.desktop", "java.management", "jdk.unsupported")
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
