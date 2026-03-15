@@ -8,6 +8,10 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import to.kuudere.anisuge.platform.LocalWindowScope
 import to.kuudere.anisuge.platform.LocalWindowState
+import anisugkmp.composeapp.generated.resources.Res
+import anisugkmp.composeapp.generated.resources.logo
+import org.jetbrains.compose.resources.painterResource
+
 
 fun main() = application {
     System.setProperty("compose.interop.blending", "true")
@@ -17,6 +21,7 @@ fun main() = application {
         title = "Anisuge",
         state = windowState,
         undecorated = false,
+        icon = painterResource(Res.drawable.logo)
     ) {
         CompositionLocalProvider(
             LocalWindowScope provides this,
