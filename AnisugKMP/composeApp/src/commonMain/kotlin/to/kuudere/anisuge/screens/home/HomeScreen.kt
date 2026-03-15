@@ -305,7 +305,8 @@ fun HomeScreen(
                             AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
                             AnisugTab.Settings -> SettingsScreen(
                                 viewModel = settingsViewModel,
-                                onLogout = onLogout
+                                onLogout = { showLogoutConfirm = true },
+                                isLoggingOut = homeState.isLoggingOut
                             )
                             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text("Tab ${tab.name} coming soon", color = Color.White)

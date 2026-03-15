@@ -145,6 +145,7 @@ data class SettingsNavItem(
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onLogout: () -> Unit,
+    isLoggingOut: Boolean = false,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -245,6 +246,8 @@ fun SettingsScreen(
                         MobileSettingsList(
                             navItems = navItems.filter { it.tab != SettingsTab.Profile },
                             uiState = uiState,
+                            onLogout = onLogout,
+                            isLoggingOut = isLoggingOut,
                             onItemClick = {
                                 showDetail = it
                                 // Load data when opening detail
@@ -448,7 +451,9 @@ private fun AppStatsSection(
 private fun MobileSettingsList(
     navItems: List<SettingsNavItem>,
     uiState: SettingsUiState,
+    onLogout: () -> Unit,
     onItemClick: (SettingsTab) -> Unit,
+    isLoggingOut: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -554,6 +559,15 @@ private fun MobileSettingsList(
             )
         }
 
+        // Logout
+        MobileSettingsItem(
+            icon = Icons.AutoMirrored.Filled.ExitToApp,
+            label = "Logout",
+            tint = Color(0xFFEF5350),
+            onClick = onLogout,
+            isLoading = isLoggingOut
+        )
+
         Spacer(modifier = Modifier.height(24.dp))
         HorizontalDivider(thickness = 1.dp, color = BORDER)
         Spacer(modifier = Modifier.height(16.dp))
@@ -577,13 +591,15 @@ private fun MobileSettingsList(
 private fun MobileSettingsItem(
     icon: ImageVector,
     label: String,
+    tint: Color = TEXT,
+    isLoading: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                onClick = onClick,
+                onClick = if (isLoading) ({}) else onClick,
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
             )
@@ -592,17 +608,26 @@ private fun MobileSettingsItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = TEXT,
-                modifier = Modifier.size(22.dp)
-            )
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = tint,
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 label,
-                color = TEXT,
-                fontSize = 16.sp
+                color = tint,
+                fontSize = 16.sp,
+                fontWeight = if (isLoading) FontWeight.Medium else FontWeight.Normal
             )
         }
         Icon(
