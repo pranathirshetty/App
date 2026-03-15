@@ -22,6 +22,8 @@ signing/*.pfx
 
 # Desktop Distributions
 /composeApp/build/compose/binaries/
+/arch_build/
+*.pkg.tar.zst
 
 # Android specifics
 .externalNativeBuild

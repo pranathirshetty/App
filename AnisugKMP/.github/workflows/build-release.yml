@@ -71,7 +71,7 @@ jobs:
         run: |
           cd AnisugKMP
           chmod +x gradlew
-          ./gradlew packageDeb packageRpm packageAppImage --no-daemon \
+          ./gradlew packageDeb packageRpm packageAppImage packageZip --no-daemon \
             -PappVersion=${{ steps.version.outputs.version_name }}
 
       - name: Upload Linux Artifacts
@@ -82,6 +82,7 @@ jobs:
             AnisugKMP/composeApp/build/compose/binaries/main/deb/*.deb
             AnisugKMP/composeApp/build/compose/binaries/main/rpm/*.rpm
             AnisugKMP/composeApp/build/compose/binaries/main/appimage/*.AppImage
+            AnisugKMP/composeApp/build/compose/binaries/main/zip/*.zip
 
   build-windows:
     runs-on: windows-latest
@@ -110,7 +111,7 @@ jobs:
         run: |
           cd AnisugKMP
           $VERSION="${{ steps.version.outputs.version_name }}"
-          ./gradlew packageMsi packageExe --no-daemon `
+          ./gradlew packageMsi packageExe packageZip --no-daemon `
             -PappVersion=$VERSION `
             -Pcompose.desktop.signing.certificateFile=../signing/windows.pfx `
             -Pcompose.desktop.signing.keyPassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -122,6 +123,7 @@ jobs:
           path: |
             AnisugKMP/composeApp/build/compose/binaries/main/msi/*.msi
             AnisugKMP/composeApp/build/compose/binaries/main/exe/*.exe
+            AnisugKMP/composeApp/build/compose/binaries/main/zip/*.zip
 
   create-release:
     needs: [build-android, build-linux, build-windows]
@@ -141,8 +143,10 @@ jobs:
             linux-distributions/*.deb
             linux-distributions/*.rpm
             linux-distributions/*.AppImage
+            linux-distributions/*.zip
             windows-distributions/*.msi
             windows-distributions/*.exe
+            windows-distributions/*.zip
           generate_release_notes: true
           draft: false
           prerelease: false

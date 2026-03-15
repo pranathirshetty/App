@@ -160,7 +160,7 @@ compose.desktop {
         mainClass = "to.kuudere.anisuge.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Zip)
             packageName = "AnisugKMP"
             packageVersion = appVersionName
             description = "Anisuge — KMP Edition"
