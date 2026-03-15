@@ -260,7 +260,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
       String episodeNumber =
           _currentEpisodeNumber?.toString() ?? "1"; // Use _currentEpisodeNumber
       String shareUrl =
-          "https://kuudere.to/watch/${widget.id}/$episodeNumber?ref=$userId";
+          "https://anime.anisurge.qzz.io/watch/${widget.id}/$episodeNumber?ref=$userId";
 
       String message = "Watch $animeTitle - Episode $episodeNumber\n$shareUrl";
 
@@ -278,7 +278,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   void fetchDefaultEpisodeNumber() async {
-    final String url = 'https://kuudere.to/watch/${widget.id}';
+    final String url = 'https://anime.anisurge.qzz.io/watch/${widget.id}';
     final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
 
@@ -288,8 +288,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
       }
 
       final httpService = HttpService();
-      final response = await httpService
-          .get(url.replaceFirst('https://kuudere.to', ''), requireAuth: true);
+      final response = await httpService.get(
+          url.replaceFirst('https://anime.anisurge.qzz.io', ''),
+          requireAuth: true);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -822,14 +823,14 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
 
   Future<void> fetchAnimeData(String? nid) async {
     final String url = nid != null
-        ? 'https://kuudere.to/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}?nid=$nid' // Use _currentEpisodeNumber
-        : 'https://kuudere.to/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}'; // Use _currentEpisodeNumber
+        ? 'https://anime.anisurge.qzz.io/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}?nid=$nid' // Use _currentEpisodeNumber
+        : 'https://anime.anisurge.qzz.io/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}'; // Use _currentEpisodeNumber
 
     final httpService = HttpService();
     final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
     try {
-      final endpoint = url.replaceFirst('https://kuudere.to', '');
+      final endpoint = url.replaceFirst('https://anime.anisurge.qzz.io', '');
       final response = await httpService.get(
         endpoint,
         requireAuth: sessionInfo != null,
@@ -1051,7 +1052,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
                                       ),
                                       onPressed: () {
                                         final url =
-                                            "https://kuudere.to/watch/${widget.id}/$_currentEpisodeNumber";
+                                            "https://anime.anisurge.qzz.io/watch/${widget.id}/$_currentEpisodeNumber";
                                         launchUrl(Uri.parse(url));
                                       },
                                     ),

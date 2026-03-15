@@ -11,7 +11,7 @@ class UpdateService(
     private val httpClient: HttpClient
 ) {
     companion object {
-        private const val BASE_URL = "https://kuudere.to/api/v1/update"
+        private const val BASE_URL = "https://anime.anisurge.qzz.io/api/v1/update"
     }
 
     suspend fun checkUpdate(): UpdateResponse? {

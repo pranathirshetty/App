@@ -13,7 +13,7 @@ class SearchService(
     private val httpClient: HttpClient,
 ) {
     companion object {
-        const val BASE_URL = "https://kuudere.to"
+        const val BASE_URL = "https://anime.anisurge.qzz.io"
     }
 
     private fun sessionToCookie(s: SessionInfo): String =

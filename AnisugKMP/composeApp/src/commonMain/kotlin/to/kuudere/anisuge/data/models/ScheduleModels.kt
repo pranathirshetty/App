@@ -33,13 +33,13 @@ data class ScheduleAnime(
 ) {
     val imageUrl: String get() = when {
         cover.startsWith("http") -> cover
-        cover.isNotBlank() -> "https://kuudere.to/img/poster/$cover"
+        cover.isNotBlank() -> "https://anime.anisurge.qzz.io/img/poster/$cover"
         else -> ""
     }
     val bannerUrl: String? get() = when {
         banner == null -> null
         banner.startsWith("http") -> banner
-        banner.isNotBlank() -> "https://kuudere.to/img/banner/$banner"
+        banner.isNotBlank() -> "https://anime.anisurge.qzz.io/img/banner/$banner"
         else -> null
     }
 }

@@ -15,7 +15,7 @@ class RealtimeService {
   void initializeSocket() {
     /*
     socket = socket_io.io(
-        'https://kuudere.to',
+        'https://anime.anisurge.qzz.io',
         socket_io.OptionBuilder()
             .setTransports(['websocket'])
             .disableAutoConnect() // Prevents auto connection

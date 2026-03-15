@@ -198,7 +198,7 @@ class _SettingsTabState extends State<SettingsTab> {
                             backgroundImage: NetworkImage(
                               userAvatarUrl!.startsWith('http')
                                   ? userAvatarUrl!
-                                  : 'https://kuudere.to$userAvatarUrl',
+                                  : 'https://anime.anisurge.qzz.io$userAvatarUrl',
                             ),
                             onBackgroundImageError: (exception, stackTrace) {
                               // Fallback to default icon if image fails to load

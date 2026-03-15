@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/session_model.dart';
 
 class HttpService {
-  static const String baseUrl = 'https://kuudere.to';
+  static const String baseUrl = 'https://anime.anisurge.qzz.io';
   final storage = const FlutterSecureStorage();
 
   // Get cookies string from stored session
@@ -29,9 +29,8 @@ class HttpService {
     bool requireAuth = false,
   }) async {
     final uri = Uri.parse('$baseUrl$endpoint');
-    final finalUri = queryParams != null
-        ? uri.replace(queryParameters: queryParams)
-        : uri;
+    final finalUri =
+        queryParams != null ? uri.replace(queryParameters: queryParams) : uri;
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -114,4 +113,3 @@ class HttpService {
     return await http.delete(uri, headers: headers);
   }
 }
-

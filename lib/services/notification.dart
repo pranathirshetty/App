@@ -81,7 +81,7 @@ class NotificationService {
     try {
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        socket = socket_io.io('https://kuudere.to', <String, dynamic>{
+        socket = socket_io.io('https://anime.anisurge.qzz.io', <String, dynamic>{
           'transports': ['websocket'],
           'autoConnect': true,
           'query': {'user_id': sessionInfo.userId},

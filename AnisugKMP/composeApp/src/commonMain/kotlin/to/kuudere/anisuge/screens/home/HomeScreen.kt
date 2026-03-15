@@ -539,7 +539,7 @@ private fun HeroCarousel(
                 ) {
                     // Left: Vertical Poster
                     AsyncImage(
-                        model = if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://kuudere.to/img/poster/${animItem.imageUrl}",
+                        model = if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://anime.anisurge.qzz.io/img/poster/${animItem.imageUrl}",
                         contentDescription = animItem.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -635,7 +635,7 @@ private fun HeroCarousel(
                             .clickable { onWatchClick(animItem, "sub", 1) }
                     ) {
                         AsyncImage(
-                            model = animItem.bannerUrl ?: (if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://kuudere.to/img/poster/${animItem.imageUrl}"),
+                            model = animItem.bannerUrl ?: (if (animItem.imageUrl.startsWith("http")) animItem.imageUrl else "https://anime.anisurge.qzz.io/img/poster/${animItem.imageUrl}"),
                             contentDescription = "Episode",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -811,7 +811,7 @@ private fun FanCarousel(
             ) {
                 AsyncImage(
                     model = if (item.imageUrl.startsWith("http")) item.imageUrl
-                            else "https://kuudere.to/img/poster/${item.imageUrl}",
+                            else "https://anime.anisurge.qzz.io/img/poster/${item.imageUrl}",
                     contentDescription = item.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -1204,7 +1204,7 @@ private fun AnisugSidebar(
     val fullAvatarUrl = when {
         avatarUrl == null -> null
         avatarUrl.startsWith("http") -> avatarUrl
-        else -> "https://kuudere.to$avatarUrl"
+        else -> "https://anime.anisurge.qzz.io$avatarUrl"
     }
 
     DraggableWindowArea(

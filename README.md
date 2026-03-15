@@ -15,6 +15,7 @@ A cross-platform Flutter application for the Kuudere anime streaming platform.
 ## 🔑 Authentication
 
 The app uses session-based authentication. Users can:
+
 - Register a new account
 - Login with email/username and password
 - Session is automatically stored and used for authenticated requests
@@ -29,6 +30,6 @@ The app uses session-based authentication. Users can:
 
 ## 📜 API Endpoints
 
-The app connects to the SvelteKit backend at `https://kuudere.to`. All endpoints use session cookies for authentication when required.
+The app connects to the SvelteKit backend at `https://anime.anisurge.qzz.io`. All endpoints use session cookies for authentication when required.
 
-For any issues, join our **[Discord](https://discord.gg/h9v9Vfzp7B)**.  
+For any issues, join our **[Discord](https://discord.gg/h9v9Vfzp7B)**.

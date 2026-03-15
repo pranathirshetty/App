@@ -37,7 +37,7 @@ class ServerRepository(
     private val settingsStore: SettingsStore
 ) {
     companion object {
-        private const val BASE_URL = "https://kuudere.to"
+        private const val BASE_URL = "https://anime.anisurge.qzz.io"
         private const val CACHE_KEY_SERVERS = "cached_servers"
         private const val CACHE_KEY_TIMESTAMP = "servers_cache_timestamp"
         private const val REFRESH_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes

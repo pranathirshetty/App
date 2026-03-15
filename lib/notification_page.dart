@@ -322,7 +322,7 @@ class NotificationList extends StatelessWidget {
 
 class NotificationTile extends StatelessWidget {
   final NotificationItem notification;
-  static const String host = 'https://kuudere.to';
+  static const String host = 'https://anime.anisurge.qzz.io';
 
   const NotificationTile({super.key, required this.notification});
 

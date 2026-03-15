@@ -78,7 +78,7 @@ fun AnimeCard(
             // main-image
             val url = when {
                 item.imageUrl.startsWith("http") -> item.imageUrl
-                item.imageUrl.isNotBlank()        -> "https://kuudere.to/img/poster/${item.imageUrl}"
+                item.imageUrl.isNotBlank()        -> "https://anime.anisurge.qzz.io/img/poster/${item.imageUrl}"
                 else                              -> ""
             }
             AsyncImage(

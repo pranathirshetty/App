@@ -34,7 +34,7 @@ class AuthService(
     private val httpClient: HttpClient,
 ) {
     companion object {
-        const val BASE_URL = "https://kuudere.to"
+        const val BASE_URL = "https://anime.anisurge.qzz.io"
     }
 
     /** Build Cookie header from stored session */

@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/session_model.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://kuudere.to';
+  static const String baseUrl = 'https://anime.anisurge.qzz.io';
   final storage = const FlutterSecureStorage();
 
   Future<SessionInfo?> login(String email, String password) async {
@@ -27,11 +27,13 @@ class AuthService {
           final sessionData = data['session'];
           final sessionInfo = SessionInfo(
             userId: sessionData['userId'],
-            session: sessionData['sessionSecret'] ?? sessionData['session'], // Support both formats
+            session: sessionData['sessionSecret'] ??
+                sessionData['session'], // Support both formats
             expire: sessionData['expire'],
             sessionId: sessionData['sessionId'],
           );
-          await storage.write(key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
+          await storage.write(
+              key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
           return sessionInfo;
         }
       }
@@ -41,18 +43,16 @@ class AuthService {
     }
   }
 
-  Future<SessionInfo?> register(String email, String password, String username) async {
+  Future<SessionInfo?> register(
+      String email, String password, String username) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/auth/register'),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-          'username': username
-        }),
+        body: jsonEncode(
+            {'email': email, 'password': password, 'username': username}),
       );
 
       if (response.statusCode == 200) {
@@ -62,11 +62,13 @@ class AuthService {
           final sessionData = data['session'];
           final sessionInfo = SessionInfo(
             userId: sessionData['userId'],
-            session: sessionData['sessionSecret'] ?? sessionData['session'], // Support both formats
+            session: sessionData['sessionSecret'] ??
+                sessionData['session'], // Support both formats
             expire: sessionData['expire'],
             sessionId: sessionData['sessionId'],
           );
-          await storage.write(key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
+          await storage.write(
+              key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
           return sessionInfo;
         }
       }

@@ -884,7 +884,7 @@ class _CommentsContentState extends State<CommentsContent> {
     if (url != null && url.isNotEmpty) {
       return ClipOval(
         child: Image.network(
-          url.startsWith('http') ? url : 'https://kuudere.to$url',
+          url.startsWith('http') ? url : 'https://anime.anisurge.qzz.io$url',
           width: size,
           height: size,
           fit: BoxFit.cover,
