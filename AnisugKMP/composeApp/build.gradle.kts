@@ -158,6 +158,11 @@ android {
 compose.desktop {
     application {
         mainClass = "to.kuudere.anisuge.MainKt"
+        jvmArgs += listOf(
+            "--add-opens=jdk.security.auth/com.sun.security.auth.module=ALL-UNNAMED",
+            "--add-exports=jdk.security.auth/com.sun.security.auth.module=ALL-UNNAMED",
+            "-Dfile.encoding=UTF-8"
+        )
 
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
@@ -166,6 +171,8 @@ compose.desktop {
             description = "Anisuge — KMP Edition"
             copyright = "© 2026 Kuudere"
             vendor = "Kuudere"
+
+            modules("jdk.security.auth", "java.sql", "java.naming")
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
