@@ -182,7 +182,7 @@ compose.desktop {
             }
 
             windows {
-                iconFile.set(project.file("src/desktopMain/resources/logo.png"))
+                iconFile.set(project.file("src/desktopMain/resources/logo.ico"))
                 // MSI version must be MAJOR.MINOR.BUILD (max 3 segments)
                 packageVersion = appVersionName
                 upgradeUuid = "d7e9b1a0-3f2d-4e9b-8a1c-5d6e7f8a9b0c" // Stable UUID for updates
