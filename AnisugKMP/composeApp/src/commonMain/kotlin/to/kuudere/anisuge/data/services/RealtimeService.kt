@@ -40,7 +40,13 @@ class RealtimeService(
         scope.launch {
             try {
                 val token = authService.getWsToken()
-                val urlWithToken = if (token != null) "$wsUrl?token=$token" else wsUrl
+                if (token == null) {
+                    println("[RealtimeService] No WS token available, skipping connection")
+                    _isConnected.value = false
+                    return@launch
+                }
+                
+                val urlWithToken = "$wsUrl?token=$token"
                 
                 session = httpClient.webSocketSession {
                     url(urlWithToken)
@@ -56,10 +62,18 @@ class RealtimeService(
 
                 listen()
             } catch (e: Exception) {
-                println("[RealtimeService] Connection failed: ${e.message}")
+                val msg = e.message ?: ""
+                println("[RealtimeService] Connection failed: $msg")
                 _isConnected.value = false
-                delay(5000)
-                connect(user) // Retry
+                
+                // If unauthorized or forbidden, don't retry immediately
+                if (msg.contains("403") || msg.contains("401")) {
+                    println("[RealtimeService] Unauthorized (403/401), stopping auto-retry")
+                    return@launch
+                }
+                
+                delay(10000) // Longer delay before retry
+                connect(user)
             }
         }
     }

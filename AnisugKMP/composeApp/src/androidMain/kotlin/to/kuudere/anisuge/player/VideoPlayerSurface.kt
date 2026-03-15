@@ -165,11 +165,8 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
 
-        // Cache settings for faster streaming (Aggressive fast-start)
+        // Cache settings for faster streaming (Aggressive but stable)
         MPVLib.setOptionString("cache", "yes")
-        MPVLib.setOptionString("cache-pause", "no")
-        MPVLib.setOptionString("cache-pause-initial", "no")
-        MPVLib.setOptionString("demuxer-cache-wait", "no")
         MPVLib.setOptionString("cache-secs", "120")
         MPVLib.setOptionString("demuxer-readahead-secs", "20")
         MPVLib.setOptionString("demuxer-max-bytes", "100M")
@@ -179,13 +176,12 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("network-timeout", "30")
         MPVLib.setOptionString("http-persistent", "yes")
         MPVLib.setOptionString("http-keepalive", "yes")
-        MPVLib.setOptionString("hls-bitrate", "max") // Avoid switching segments during start
-        MPVLib.setOptionString("stream-buffer-size", "1M") // Smaller initial buffer for faster start
+        MPVLib.setOptionString("hls-bitrate", "max")
+        MPVLib.setOptionString("stream-buffer-size", "1M")
         MPVLib.setOptionString("prefetch-playlist", "yes")
 
-        // Video decoding optimizations
-        MPVLib.setOptionString("vd-lavc-fast", "yes")
-        MPVLib.setOptionString("vd-lavc-threads", "4")
+        // Use safe decoding threads (auto usually handles this best with hwdec)
+        MPVLib.setOptionString("vd-lavc-threads", "0") 
         
         if (state.config.muted) {
             MPVLib.setOptionString("mute", "yes")
