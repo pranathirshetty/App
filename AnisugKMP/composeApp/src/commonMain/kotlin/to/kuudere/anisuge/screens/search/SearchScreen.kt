@@ -323,8 +323,27 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     KAdvancedFilterDropdown("Origin", "Any origin", state.selectedLanguage, KUUDERE_ORIGINS, Icons.Default.Public, Modifier.weight(1f)) { viewModel.onLanguageChange(it) }
-                    // Spacer to keep layout balanced
-                    Spacer(Modifier.weight(1f))
+                    
+                    Button(
+                        onClick = { viewModel.clearFilters() },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Reset Filters", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
