@@ -154,10 +154,7 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf<SettingsTab>(SettingsTab.Preferences) }
 
-    LaunchedEffect(Unit) {
-        onRefresh()
-        viewModel.refresh()
-    }
+
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
         uiState.errorMessage?.let {
