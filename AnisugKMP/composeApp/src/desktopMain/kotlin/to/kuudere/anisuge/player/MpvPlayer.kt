@@ -86,16 +86,27 @@ internal class MpvPlayer(
         // Always keep last frame visible to prevent white flash during navigation
         mpv.mpv_set_option_string(handle, "keep-open", "yes")
 
-        // Cache settings for faster streaming (HLS/m3u8 optimization)
+        // Cache settings for faster streaming (Aggressive fast-start)
         mpv.mpv_set_option_string(handle, "cache", "yes")
+        mpv.mpv_set_option_string(handle, "cache-pause", "no")
+        mpv.mpv_set_option_string(handle, "cache-pause-initial", "no")
+        mpv.mpv_set_option_string(handle, "demuxer-cache-wait", "no")
         mpv.mpv_set_option_string(handle, "cache-secs", "120")
-        mpv.mpv_set_option_string(handle, "demuxer-max-bytes", "50M")
-        mpv.mpv_set_option_string(handle, "demuxer-max-back-bytes", "25M")
+        mpv.mpv_set_option_string(handle, "demuxer-readahead-secs", "20")
+        mpv.mpv_set_option_string(handle, "demuxer-max-bytes", "100M")
+        mpv.mpv_set_option_string(handle, "demuxer-max-back-bytes", "50M")
 
-        // Network optimizations for HTTP streaming
-        mpv.mpv_set_option_string(handle, "network-timeout", "60")
+        // Network optimizations for HTTP/HLS streaming
+        mpv.mpv_set_option_string(handle, "network-timeout", "30")
         mpv.mpv_set_option_string(handle, "http-persistent", "yes")
         mpv.mpv_set_option_string(handle, "http-keepalive", "yes")
+        mpv.mpv_set_option_string(handle, "hls-bitrate", "max")
+        mpv.mpv_set_option_string(handle, "stream-buffer-size", "1M")
+        mpv.mpv_set_option_string(handle, "prefetch-playlist", "yes")
+
+        // Video decoding optimizations
+        mpv.mpv_set_option_string(handle, "vd-lavc-fast", "yes")
+        mpv.mpv_set_option_string(handle, "vd-lavc-threads", "8")
 
         val initResult = mpv.mpv_initialize(handle)
         println("[MpvPlayer] mpv_initialize() → $initResult")
