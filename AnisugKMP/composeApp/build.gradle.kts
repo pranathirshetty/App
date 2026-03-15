@@ -169,10 +169,13 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
+                packageVersion = "$appVersionName.$appBuildNum"
             }
 
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
+                // MSI version must be MAJOR.MINOR.BUILD (max 3 segments)
+                packageVersion = appVersionName
             }
         }
     }
