@@ -1,4 +1,4 @@
-name: Build and Release AnisugKMP
+name: Build and Release Anisurge-KMP
 
 on:
   push:
@@ -26,16 +26,15 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          mkdir -p AnisugKMP/signing
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > AnisugKMP/signing/android.jks
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > AnisugKMP/key.properties
-          echo "keyPassword=${{ secrets.KEYSTORE_PASSWORD }}" >> AnisugKMP/key.properties
-          echo "keyAlias=release" >> AnisugKMP/key.properties
-          echo "storeFile=../signing/android.jks" >> AnisugKMP/key.properties
+          mkdir -p signing
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > signing/android.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > key.properties
+          echo "keyPassword=${{ secrets.KEYSTORE_PASSWORD }}" >> key.properties
+          echo "keyAlias=release" >> key.properties
+          echo "storeFile=../signing/android.jks" >> key.properties
 
       - name: Build Android APK
         run: |
-          cd AnisugKMP
           chmod +x gradlew
           ./gradlew :composeApp:assembleRelease --no-daemon \
             -PappVersion=${{ steps.version.outputs.version_name }} \
@@ -45,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apks
-          path: AnisugKMP/composeApp/build/outputs/apk/release/*.apk
+          path: composeApp/build/outputs/apk/release/*.apk
 
   build-linux:
     runs-on: ubuntu-latest
@@ -69,7 +68,6 @@ jobs:
 
       - name: Build Linux Distributions
         run: |
-          cd AnisugKMP
           chmod +x gradlew
           ./gradlew packageDeb packageRpm packageAppImage packageZip --no-daemon \
             -PappVersion=${{ steps.version.outputs.version_name }}
@@ -79,10 +77,10 @@ jobs:
         with:
           name: linux-distributions
           path: |
-            AnisugKMP/composeApp/build/compose/binaries/main/deb/*.deb
-            AnisugKMP/composeApp/build/compose/binaries/main/rpm/*.rpm
-            AnisugKMP/composeApp/build/compose/binaries/main/appimage/*.AppImage
-            AnisugKMP/composeApp/build/compose/binaries/main/zip/*.zip
+            composeApp/build/compose/binaries/main/deb/*.deb
+            composeApp/build/compose/binaries/main/rpm/*.rpm
+            composeApp/build/compose/binaries/main/appimage/*.AppImage
+            composeApp/build/compose/binaries/main/zip/*.zip
 
   build-windows:
     runs-on: windows-latest
@@ -103,13 +101,12 @@ jobs:
       - name: Decode Signing Certificate
         shell: pwsh
         run: |
-          mkdir AnisugKMP/signing -Force
-          [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}") | Set-Content AnisugKMP/signing/windows.pfx -Encoding Byte
+          mkdir signing -Force
+          [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}") | Set-Content signing/windows.pfx -Encoding Byte
 
       - name: Build Windows Distributions
         shell: pwsh
         run: |
-          cd AnisugKMP
           $VERSION="${{ steps.version.outputs.version_name }}"
           ./gradlew packageMsi packageExe packageZip --no-daemon `
             -PappVersion=$VERSION `
@@ -121,9 +118,9 @@ jobs:
         with:
           name: windows-distributions
           path: |
-            AnisugKMP/composeApp/build/compose/binaries/main/msi/*.msi
-            AnisugKMP/composeApp/build/compose/binaries/main/exe/*.exe
-            AnisugKMP/composeApp/build/compose/binaries/main/zip/*.zip
+            composeApp/build/compose/binaries/main/msi/*.msi
+            composeApp/build/compose/binaries/main/exe/*.exe
+            composeApp/build/compose/binaries/main/zip/*.zip
 
   create-release:
     needs: [build-android, build-linux, build-windows]
