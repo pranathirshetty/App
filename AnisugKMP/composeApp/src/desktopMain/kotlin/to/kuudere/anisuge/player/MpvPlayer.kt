@@ -133,6 +133,11 @@ internal class MpvPlayer(
 
         // Apply auto-play parameter
         mpv.mpv_set_property_string(handle, "pause", if (config.autoPlay) "no" else "yes")
+        
+        // Initial speed
+        if (config.speed != 1.0) {
+            mpv.mpv_set_property_string(handle, "speed", config.speed.toString())
+        }
 
         startEventLoop()
 
@@ -251,6 +256,7 @@ internal class MpvPlayer(
             var lastSentBrightness: Double? = null
             var lastSentMute: Boolean? = null
             var lastSentAspectRatio: String? = null
+            var lastSentSpeed: Double? = null
             while (isActive && ctx != null) {
                 val event = mpv.mpv_wait_event(handle, 0.05)
                 if (event != null) {
@@ -442,6 +448,11 @@ internal class MpvPlayer(
                         }
                     }
                     lastSentAspectRatio = state.aspectRatio
+                }
+                
+                if (state.playbackSpeed != lastSentSpeed) {
+                    mpv.mpv_set_property_string(handle, "speed", state.playbackSpeed.toString())
+                    lastSentSpeed = state.playbackSpeed
                 }
 
                 // Handle all-subs load (on new episode/server change before file ready)

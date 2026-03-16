@@ -56,6 +56,9 @@ class VideoPlayerState(config: VideoPlayerConfig) {
     // Signal from AWT canvas → Compose UI
     var canvasClicked   by mutableStateOf(0)
     var canvasPointerMoved by mutableStateOf(0L)
+    
+    // Commands from UI → player
+    var playbackSpeed   by mutableStateOf(config.speed)
 }
 
 @Composable
@@ -70,6 +73,7 @@ fun rememberVideoPlayerState(
     startPosition:Double  = 0.0,
     fontsDir:     String? = null,
     autoPlay:     Boolean = true,
+    speed:        Double  = 1.0,
 ): VideoPlayerState = remember(url) {
     VideoPlayerState(
         VideoPlayerConfig(
@@ -83,6 +87,7 @@ fun rememberVideoPlayerState(
             startPosition = startPosition,
             fontsDir      = fontsDir,
             autoPlay      = autoPlay,
+            speed         = speed,
         )
     ).apply {
         pauseRequested = !autoPlay

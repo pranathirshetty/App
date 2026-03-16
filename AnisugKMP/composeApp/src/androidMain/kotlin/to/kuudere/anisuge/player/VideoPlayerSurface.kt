@@ -196,6 +196,9 @@ actual fun VideoPlayerSurface(
         if (state.config.loop) {
             MPVLib.setOptionString("loop-file", "yes")
         }
+        if (state.config.speed != 1.0) {
+            MPVLib.setOptionString("speed", state.config.speed.toString())
+        }
 
         // Subtitle options
         // Use "no" for sub-auto when external subs are provided by the API (matching desktop behaviour).
@@ -521,6 +524,12 @@ actual fun VideoPlayerSurface(
             withContext(Dispatchers.IO) {
                 MPVLib.setPropertyInt("sid", sid)
             }
+        }
+    }
+
+    LaunchedEffect(state.playbackSpeed) {
+        withContext(Dispatchers.IO) {
+            MPVLib.setPropertyDouble("speed", state.playbackSpeed)
         }
     }
 

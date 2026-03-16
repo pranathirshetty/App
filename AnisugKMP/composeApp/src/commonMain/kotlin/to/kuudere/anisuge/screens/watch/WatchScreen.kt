@@ -847,7 +847,8 @@ fun WatchVideoPlayer(
                 fontsDir = uiState.currentFontsDir,
                 embeddedFonts = useEmbeddedFonts,
                 showControls = useOsc,
-                autoPlay = uiState.autoPlay
+                autoPlay = uiState.autoPlay,
+                speed = uiState.playbackSpeed
             )
 
             LaunchedEffect(Unit) {
@@ -943,6 +944,10 @@ fun WatchVideoPlayer(
             LaunchedEffect(uiState.currentSubtitleUrl) {
                 playerState.subFileUrl = uiState.currentSubtitleUrl ?: "NONE"
                 playerState.subFileName = uiState.availableSubtitles.firstOrNull { it.url == uiState.currentSubtitleUrl }?.let { it.title ?: it.resolvedLang } ?: "Subtitle"
+            }
+            
+            LaunchedEffect(uiState.playbackSpeed) {
+                playerState.playbackSpeed = uiState.playbackSpeed
             }
 
             LaunchedEffect(playerState.isPlaying, playerState.isPaused) {
