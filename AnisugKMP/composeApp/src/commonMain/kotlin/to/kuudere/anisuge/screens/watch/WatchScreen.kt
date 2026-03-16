@@ -106,14 +106,32 @@ fun WatchScreen(
                 .padding(paddingValues)
         ) {
             if (uiState.isLoading) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(color = Color.White)
-                    uiState.loadingMessage?.let { msg ->
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                Box(Modifier.fillMaxSize().background(Color.Black)) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color.White)
+                        uiState.loadingMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                        }
+                    }
+
+                    // Back button for mobile/desktop while loading
+                    IconButton(
+                        onClick = handleBack,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .padding(16.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
                 }
             } else {
@@ -795,6 +813,22 @@ fun WatchVideoPlayer(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
                 }
+            }
+
+            // Always allow back while loading video
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     } else {

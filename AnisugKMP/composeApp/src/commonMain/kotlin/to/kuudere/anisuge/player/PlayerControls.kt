@@ -77,8 +77,9 @@ fun PlayerControls(
     val scope = rememberCoroutineScope()
     var hideJob by remember { mutableStateOf<Job?>(null) }
 
-    val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+    val isLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0) || expectedPosition != null
     val isPlayingActively = playerState.isPlaying && !playerState.isPaused
+    val isMobile = !to.kuudere.anisuge.platform.isDesktopPlatform
 
     // Clear expected position when actual catches up
     LaunchedEffect(playerState.position) {
@@ -88,30 +89,38 @@ fun PlayerControls(
         }
     }
 
-    // Timeout expected position after 3s to prevent infinite freeze
+    // Timeout expected position after 10s (increased from 3s) to prevent infinite freeze
     LaunchedEffect(expectedPosition) {
         if (expectedPosition != null) {
-            delay(3000)
+            delay(10000)
             expectedPosition = null
         }
     }
 
     // Auto-hide controls after 3.5s of inactivity
     fun scheduleHide() {
-        if (playerState.isLocked) return // Don't auto-hide when locked? Or maybe DO hide.
+        if (playerState.isLocked) return 
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(3500)
-            val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+            val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0) || expectedPosition != null
             val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
+            
+            // On mobile, we are extra strict: never hide if loading or paused
             if (!isSeeking && !currentIsLoading && currentIsPlayingActively) {
                 controlsVisible = false
+            } else if (isMobile && (currentIsLoading || !currentIsPlayingActively)) {
+                // Explicitly keep visible
+                controlsVisible = true
             }
         }
     }
 
     // Show controls initially
-    LaunchedEffect(Unit) { scheduleHide() }
+    LaunchedEffect(Unit) { 
+        controlsVisible = true
+        scheduleHide() 
+    }
 
     // If it's loading or not playing actively, keep controls visible
     LaunchedEffect(isLoading, isPlayingActively) {
@@ -161,8 +170,8 @@ fun PlayerControls(
                     while (true) {
                         val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
                         if (event.type == androidx.compose.ui.input.pointer.PointerEventType.Move) {
-                            val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
-                            if (!controlsVisible && !currentIsLoading) {
+                            val currentIsLoadingNow = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0) || expectedPosition != null
+                            if (!controlsVisible && !currentIsLoadingNow) {
                                 controlsVisible = true
                             }
                             scheduleHide()
@@ -187,9 +196,9 @@ fun PlayerControls(
                             // But for now, we'll keep the standard behavior.
                         }
 
-                        val currentIsLoading = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0)
+                        val currentIsLoadingNow = playerState.isBuffering || (!playerState.isPlaying && playerState.duration <= 0.0) || expectedPosition != null
                         val currentIsPlayingActively = playerState.isPlaying && !playerState.isPaused
-                        if (currentIsLoading || !currentIsPlayingActively) {
+                        if (currentIsLoadingNow || !currentIsPlayingActively) {
                             controlsVisible = true
                         } else {
                             controlsVisible = !controlsVisible
