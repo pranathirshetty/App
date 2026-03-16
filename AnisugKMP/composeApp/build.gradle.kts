@@ -10,6 +10,20 @@ if (keystorePropertiesFile.exists()) {
 val appVersionName = project.findProperty("appVersion")?.toString() ?: libs.versions.app.version.get()
 val appBuildNum = project.findProperty("appBuildNumber")?.toString()?.toIntOrNull() ?: libs.versions.app.buildNumber.get().toInt()
 
+// Sanitize version for installers (e.g., "0.9.9-20260316" -> "0.9.9")
+val numericVersion = appVersionName.split("-")[0].split("+")[0]
+// Ensure it has 3 parts for Windows (e.g., "0.9" -> "0.9.0")
+val windowsVersion = numericVersion.split(".").let {
+    when (it.size) {
+        1 -> "${it[0]}.0.0"
+        2 -> "${it[0]}.${it[1]}.0"
+        3 -> "${it[0]}.${it[1]}.${it[2]}"
+        else -> "${it[0]}.${it[1]}.${it[2]}" // Take first 3
+    }
+}
+// Linux RPM version (no dashes, dots only)
+val linuxVersion = appVersionName.replace("-", ".")
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -178,13 +192,13 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
-                packageVersion = "$appVersionName.$appBuildNum"
+                packageVersion = linuxVersion
             }
 
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/logo.ico"))
                 // MSI version must be MAJOR.MINOR.BUILD (max 3 segments)
-                packageVersion = appVersionName
+                packageVersion = windowsVersion
                 upgradeUuid = "d7e9b1a0-3f2d-4e9b-8a1c-5d6e7f8a9b0c" // Stable UUID for updates
             }
         }

@@ -102,7 +102,7 @@ jobs:
         shell: pwsh
         run: |
           mkdir signing -Force
-          [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}") | Set-Content signing/windows.pfx -Encoding Byte
+          [System.IO.File]::WriteAllBytes("signing/windows.pfx", [System.Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}"))
 
       - name: Build Windows Distributions
         shell: pwsh

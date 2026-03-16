@@ -41,4 +41,3 @@ signing/*.pfx
 .externalNativeBuild
 .cxx
 /captures/
-
