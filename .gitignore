@@ -53,3 +53,5 @@ signing_secrets.txt
 sample.json
 .env
 scraper-api
+/bin/
+**/bin/
