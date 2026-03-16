@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AnisugKMP Build Script
+# Anisurge Build Script
 # This script handles building Android APKs and Linux distributions (DEB, RPM).
 
 set -e
@@ -14,7 +14,7 @@ VERSION_NAME="${1:-0.9.9}"
 BUILD_NUMBER="${2:-2}"
 
 echo "----------------------------------------------------"
-echo "🚀 Starting AnisugKMP Build Process"
+echo "🚀 Starting Anisurge Build Process"
 echo "📦 Version: $VERSION_NAME"
 echo "🔢 Build Number: $BUILD_NUMBER"
 echo "----------------------------------------------------"
@@ -69,7 +69,7 @@ else
 fi
 
 if [ -z "$APPIMAGE_FILE" ]; then
-    echo "   - AppDir (Raw Folder): $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/AnisugKMP/"
+    echo "   - AppDir (Raw Folder): $SCRIPT_DIR/composeApp/build/compose/binaries/main/app/Anisurge/"
     echo "     (Note: Install 'appimagetool' to generate a single .AppImage file)"
 else
     echo "   - AppImage: $APPIMAGE_FILE"

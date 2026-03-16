@@ -1,4 +1,4 @@
-rootProject.name = "AnisugKMP"
+rootProject.name = "Anisurge"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
