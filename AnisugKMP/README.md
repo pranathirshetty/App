@@ -2,7 +2,7 @@
   <img src="composeApp/src/commonMain/composeResources/drawable/logo.png" width="128" height="128" alt="Anisurge Logo">
 </p>
 
-<h1 align="center">Anisurge App</h1>
+<h1 align="center">Anisurge</h1>
 
 <p align="center">
   <b>High-performance anime client</b><br>
