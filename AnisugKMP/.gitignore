@@ -26,8 +26,19 @@ signing/*.pfx
 /composeApp/build/compose/binaries/
 /arch_build/
 *.pkg.tar.zst
+*.deb
+*.rpm
+*.apk
+*.zip
+
+# Large Binaries
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.exe
 
 # Android specifics
 .externalNativeBuild
 .cxx
 /captures/
+
