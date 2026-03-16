@@ -92,8 +92,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import anisugkmp.composeapp.generated.resources.Res
-import anisugkmp.composeapp.generated.resources.logo_txt
+import anisurge.composeapp.generated.resources.Res
+import anisurge.composeapp.generated.resources.logo_txt
 import org.jetbrains.compose.resources.painterResource
 import to.kuudere.anisuge.theme.Border
 import to.kuudere.anisuge.theme.Muted

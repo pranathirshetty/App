@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.gradle.api.tasks.bundling.Zip
 import java.util.Properties
 
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -181,7 +182,7 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Zip)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Anisurge"
             packageVersion = appVersionName
             description = "Anisurge — Multi-Platform Edition"

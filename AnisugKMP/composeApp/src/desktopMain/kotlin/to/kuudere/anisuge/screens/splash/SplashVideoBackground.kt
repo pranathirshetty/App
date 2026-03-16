@@ -39,7 +39,7 @@ actual fun SplashVideoBackground(onVideoFinished: () -> Unit) {
         
         val resourceStream = Thread.currentThread()
             .contextClassLoader
-            ?.getResourceAsStream("composeResources/anisugkmp.composeapp.generated.resources/drawable/splash.mp4")
+            ?.getResourceAsStream("composeResources/anisurge.composeapp.generated.resources/drawable/splash.mp4")
             
         if (resourceStream != null) {
             val tmp = File.createTempFile("splash_", ".mp4").also { it.deleteOnExit() }

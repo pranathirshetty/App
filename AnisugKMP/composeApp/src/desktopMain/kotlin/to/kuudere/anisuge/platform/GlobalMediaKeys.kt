@@ -24,7 +24,7 @@ object GlobalMediaKeys {
         // This prevents "Permission denied" errors when the app is installed in /opt 
         // and tries to extract or load libraries from restricted locations.
         val homeDir = System.getProperty("user.home")
-        val libDir = java.io.File(homeDir, ".anisugkmp/native").apply { mkdirs() }
+        val libDir = java.io.File(homeDir, ".anisurge/native").apply { mkdirs() }
         System.setProperty("jnativehook.lib.path", libDir.absolutePath)
     }
 

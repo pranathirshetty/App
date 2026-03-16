@@ -21,8 +21,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.Crossfade
-import anisugkmp.composeapp.generated.resources.Res
-import anisugkmp.composeapp.generated.resources.logo_txt
+import anisurge.composeapp.generated.resources.Res
+import anisurge.composeapp.generated.resources.logo_txt
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars

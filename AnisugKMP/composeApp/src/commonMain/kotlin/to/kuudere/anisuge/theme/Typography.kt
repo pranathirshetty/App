@@ -6,11 +6,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import anisugkmp.composeapp.generated.resources.Res
-import anisugkmp.composeapp.generated.resources.Poppins_Regular
-import anisugkmp.composeapp.generated.resources.Poppins_Medium
-import anisugkmp.composeapp.generated.resources.Poppins_SemiBold
-import anisugkmp.composeapp.generated.resources.Poppins_Bold
+import anisurge.composeapp.generated.resources.Res
+import anisurge.composeapp.generated.resources.Poppins_Regular
+import anisurge.composeapp.generated.resources.Poppins_Medium
+import anisurge.composeapp.generated.resources.Poppins_SemiBold
+import anisurge.composeapp.generated.resources.Poppins_Bold
 import org.jetbrains.compose.resources.Font
 
 @Composable

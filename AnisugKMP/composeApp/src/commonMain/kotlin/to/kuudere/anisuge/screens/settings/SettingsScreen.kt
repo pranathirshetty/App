@@ -115,8 +115,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import anisugkmp.composeapp.generated.resources.Res
-import anisugkmp.composeapp.generated.resources.anilist
+import anisurge.composeapp.generated.resources.Res
+import anisurge.composeapp.generated.resources.anilist
 import org.jetbrains.compose.resources.painterResource
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.SessionInfoResponse

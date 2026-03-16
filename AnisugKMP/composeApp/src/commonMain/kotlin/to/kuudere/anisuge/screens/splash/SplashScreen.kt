@@ -27,7 +27,7 @@ fun SplashScreen(
     var videoFinished by remember { mutableStateOf(false) }
 
     val playerState = rememberVideoPlayerState(
-        url          = "composeResources/anisugkmp.composeapp.generated.resources/drawable/splash.mp4",
+        url          = "composeResources/anisurge.composeapp.generated.resources/drawable/splash.mp4",
         loop         = false,
         muted        = true,
         showControls = false,
