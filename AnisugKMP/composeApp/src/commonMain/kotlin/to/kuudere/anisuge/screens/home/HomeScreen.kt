@@ -186,6 +186,14 @@ fun HomeScreen(
     var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
+    to.kuudere.anisuge.platform.PlatformBackHandler(enabled = true) {
+        if (currentTab != AnisugTab.Home) {
+            currentTab = AnisugTab.Home
+        } else {
+            onExit()
+        }
+    }
+
     LaunchedEffect(Unit) {
         homeViewModel.refresh()
         searchViewModel.search()

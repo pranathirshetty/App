@@ -45,6 +45,19 @@ fun WatchlistScreen(
     var selectedTab by remember { mutableStateOf("Anime") }
     var selectedList by remember { mutableStateOf("All lists") }
     var searchQuery by remember { mutableStateOf(state.searchQuery) }
+    var expandedFilters by remember { mutableStateOf(false) }
+
+    to.kuudere.anisuge.platform.PlatformBackHandler(enabled = expandedFilters || searchQuery.isNotEmpty() || selectedList != "All lists") {
+        if (expandedFilters) {
+            expandedFilters = false
+        } else if (searchQuery.isNotEmpty()) {
+            searchQuery = ""
+            viewModel.onSearchQueryChange("")
+        } else if (selectedList != "All lists") {
+            selectedList = "All lists"
+            viewModel.onFolderChange("All")
+        }
+    }
 
     LaunchedEffect(searchQuery) {
         if (state.searchQuery != searchQuery) {
@@ -70,7 +83,6 @@ fun WatchlistScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val searchOptionsBlock = @Composable { modifier: Modifier ->
-                var expandedFilters by remember { mutableStateOf(false) }
                 var showDesktopDropdown by remember { mutableStateOf(false) }
                 var showMobileDropdown by remember { mutableStateOf(false) }
                 val folderOptions = listOf("All lists", "Watching", "On Hold", "Plan To Watch", "Dropped", "Completed")

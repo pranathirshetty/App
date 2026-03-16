@@ -282,6 +282,15 @@ private fun LargeScreenFilterSection(state: SearchUiState, viewModel: SearchView
 private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchViewModel) {
     var isExpanded by remember { mutableStateOf(false) }
 
+    to.kuudere.anisuge.platform.PlatformBackHandler(enabled = isExpanded || state.keyword.isNotEmpty()) {
+        if (isExpanded) {
+            isExpanded = false
+        } else if (state.keyword.isNotEmpty()) {
+            viewModel.onKeywordChange("")
+            viewModel.search()
+        }
+    }
+
     Column(Modifier.fillMaxWidth()) {
         Text("Search", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))

@@ -245,6 +245,10 @@ fun SettingsScreen(
                 // Mobile: List menu with navigation to detail screens
                 var showDetail by remember { mutableStateOf<SettingsTab?>(null) }
 
+                to.kuudere.anisuge.platform.PlatformBackHandler(enabled = showDetail != null) {
+                    showDetail = null
+                }
+
                 AnimatedContent(
                     targetState = showDetail,
                     transitionSpec = {
