@@ -11,6 +11,8 @@
 *.ipr
 *.iws
 .idea/
+/bin/
+**/bin/
 
 # Signing & Secrets
 key.properties
