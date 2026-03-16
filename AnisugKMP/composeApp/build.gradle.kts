@@ -114,6 +114,7 @@ buildConfig {
 
 android {
     namespace = "to.kuudere.anisuge"
+    setProperty("archivesBaseName", "anisurge")
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     // Configure JVM target for Android
@@ -200,7 +201,8 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
-                packageVersion = linuxVersion
+                // Combine version and build number for Linux (e.g., 0.9.9.12)
+                packageVersion = "${appVersionName.replace("-", ".")}.$appBuildNum"
             }
 
             windows {
