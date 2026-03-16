@@ -125,6 +125,13 @@ actual fun VideoPlayerSurface(
         }
     }
 
+    LaunchedEffect(state.isPlaying, state.isPaused) {
+        // Keep the screen awake only while playing and not paused.
+        // This ensures the screen doesn't timeout during watching but allows
+        // it to timeout if the user pauses and walks away.
+        surfaceView.keepScreenOn = state.isPlaying && !state.isPaused
+    }
+
     val isSeeking = remember { mutableStateOf(false) }
 
     DisposableEffect(resolvedUrl) {
