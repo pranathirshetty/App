@@ -55,3 +55,7 @@ sample.json
 scraper-api
 /bin/
 **/bin/
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.exe
