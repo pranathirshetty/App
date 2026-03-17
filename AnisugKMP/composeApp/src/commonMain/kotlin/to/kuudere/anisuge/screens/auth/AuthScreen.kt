@@ -360,8 +360,8 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, centered: Boo
         AnisugTextField(
             value = state.displayName,
             onValueChange = viewModel::onDisplayNameChange,
-            label = "Full name",
-            placeholder = "Enter your full name",
+            label = "Username",
+            placeholder = "Enter your Username",
             imeAction = ImeAction.Next,
             onImeAction = { /* Focus next */ },
         )

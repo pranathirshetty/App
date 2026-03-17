@@ -597,8 +597,8 @@ class _AuthScreenState extends State<AuthScreen>
                         children: [
                           _CleanTextField(
                             controller: _displayNameController,
-                            label: 'Full name',
-                            hint: 'Enter your full name',
+                            label: 'Username',
+                            hint: 'Enter your Username',
                             textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 16),
