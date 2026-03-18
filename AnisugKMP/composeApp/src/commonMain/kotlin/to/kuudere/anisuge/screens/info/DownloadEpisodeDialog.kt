@@ -285,6 +285,16 @@ fun DownloadEpisodeDialog(
                 animationSpec = tween(durationMillis = 400)
             )
 
+            var shouldRequestPermission by remember { mutableStateOf(false) }
+            if (shouldRequestPermission) {
+                to.kuudere.anisuge.utils.RequestStoragePermission { granted ->
+                    shouldRequestPermission = false
+                    if (granted) {
+                        onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -309,7 +319,11 @@ fun DownloadEpisodeDialog(
                 Button(
                     onClick = {
                         if (currentTask == null || currentTask.status.startsWith("Failed")) {
-                            onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                            if (to.kuudere.anisuge.utils.hasStoragePermission()) {
+                                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                            } else {
+                                shouldRequestPermission = true
+                            }
                         } else {
                             onDismiss()
                         }

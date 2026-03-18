@@ -9,11 +9,55 @@ import io.microshow.rxffmpeg.RxFFmpegInvoke
 import java.io.File
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.core.content.ContextCompat
 
 actual fun getDownloadsDirectory(): String {
     val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Anisug")
-    if (!dir.exists()) dir.mkdirs()
+    if (!dir.exists()) {
+        try {
+            dir.mkdirs()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
     return dir.absolutePath
+}
+
+actual fun hasStoragePermission(): Boolean {
+    // Android 11+ doesn't need WRITE_EXTERNAL_STORAGE for app-created files in Downloads
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return true
+    
+    // Android 10 with legacy storage support also might not need it for its own files
+    // but better check if we have it requested in manifest.
+    return ContextCompat.checkSelfPermission(
+        androidAppContext,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+@Composable
+actual fun RequestStoragePermission(onResult: (Boolean) -> Unit) {
+    if (hasStoragePermission()) {
+        onResult(true)
+        return
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        onResult(isGranted)
+    }
+
+    SideEffect {
+        launcher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    }
 }
 
 actual fun openDirectory(path: String) {

@@ -4,6 +4,11 @@ expect fun getDownloadsDirectory(): String
 
 expect fun openDirectory(path: String)
 
+expect fun hasStoragePermission(): Boolean
+
+@androidx.compose.runtime.Composable
+expect fun RequestStoragePermission(onResult: (Boolean) -> Unit)
+
 expect suspend fun muxToMkv(
     videoPath: String,
     audioPath: String?,

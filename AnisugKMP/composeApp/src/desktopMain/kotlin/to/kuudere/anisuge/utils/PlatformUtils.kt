@@ -11,6 +11,13 @@ actual fun getDownloadsDirectory(): String {
     return dir.absolutePath
 }
 
+actual fun hasStoragePermission(): Boolean = true
+
+@androidx.compose.runtime.Composable
+actual fun RequestStoragePermission(onResult: (Boolean) -> Unit) {
+    onResult(true)
+}
+
 actual fun openDirectory(path: String) {
     try {
         val file = File(path)
