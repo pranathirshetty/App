@@ -683,18 +683,23 @@ class SettingsViewModel(
 
     fun disconnectAniList() {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingAniList = true) }
             val response = settingsService.disconnectAniList()
             if (response?.success == true) {
                 _uiState.update {
                     it.copy(
                         anilistConnected = false,
                         anilistProfile = null,
+                        isLoadingAniList = false,
                         successMessage = "AniList disconnected successfully"
                     )
                 }
             } else {
                 _uiState.update {
-                    it.copy(errorMessage = response?.message ?: "Failed to disconnect AniList")
+                    it.copy(
+                        isLoadingAniList = false,
+                        errorMessage = response?.message ?: "Failed to disconnect AniList"
+                    )
                 }
             }
         }

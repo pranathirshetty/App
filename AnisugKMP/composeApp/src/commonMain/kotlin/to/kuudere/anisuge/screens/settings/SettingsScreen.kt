@@ -732,7 +732,8 @@ private fun MobileSettingsDetail(
                     onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                     onImport = viewModel::importFromAniList,
                     onExport = viewModel::exportToAniList,
-                    onCancel = viewModel::cancelSyncOperation
+                    onCancel = viewModel::cancelSyncOperation,
+                    onRefreshStatus = { viewModel.loadAniListStatus() }
                 )
                 is SettingsTab.Storage -> MobileStorageContent(
                     uiState = uiState,
@@ -809,7 +810,8 @@ private fun SettingsContent(
                 onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                 onImport = viewModel::importFromAniList,
                 onExport = viewModel::exportToAniList,
-                onCancel = viewModel::cancelSyncOperation
+                onCancel = viewModel::cancelSyncOperation,
+                onRefreshStatus = { viewModel.loadAniListStatus() }
             )
             is SettingsTab.Storage -> StorageTab(
                 uiState = uiState,
@@ -1388,6 +1390,7 @@ private fun SyncTab(
     onImport: () -> Unit,
     onExport: () -> Unit,
     onCancel: () -> Unit,
+    onRefreshStatus: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1406,7 +1409,7 @@ private fun SyncTab(
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        if (uiState.isLoadingAniList) {
+        if (uiState.isLoadingAniList && !uiState.anilistConnected) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White)
             }
@@ -1505,14 +1508,21 @@ private fun SyncTab(
                             }
                         }
 
-                        // Disconnect button
                         OutlinedButton(
-                            onClick = onDisconnect,
+                            onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Disconnect", fontWeight = FontWeight.Medium)
+                            if (uiState.isLoadingAniList) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFFEF5350),
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Disconnect", fontWeight = FontWeight.Medium)
+                            }
                         }
                     }
                 }
@@ -1752,9 +1762,20 @@ private fun SyncTab(
                             contentColor = Color.Black
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)
+                        modifier = Modifier.padding(horizontal = 32.dp).padding(top = 12.dp)
                     ) {
                         Text("Connect Account", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                    
+                    TextButton(
+                        onClick = onRefreshStatus,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp), tint = MUTED)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Refresh Status", color = MUTED, fontSize = 14.sp)
+                        }
                     }
                 }
             }
@@ -1799,10 +1820,11 @@ private fun MobileSyncContent(
     onImport: () -> Unit,
     onExport: () -> Unit,
     onCancel: () -> Unit,
+    onRefreshStatus: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (uiState.isLoadingAniList) {
+        if (uiState.isLoadingAniList && !uiState.anilistConnected) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White)
             }
@@ -1900,10 +1922,18 @@ private fun MobileSyncContent(
                         }
 
                         TextButton(
-                            onClick = onDisconnect,
+                            onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
                         ) {
-                            Text("Disconnect", fontSize = 13.sp)
+                            if (uiState.isLoadingAniList) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFFEF5350),
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Disconnect", fontSize = 13.sp)
+                            }
                         }
                     }
                 }
@@ -2130,9 +2160,21 @@ private fun MobileSyncContent(
                             containerColor = Color.White,
                             contentColor = Color.Black
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(top = 12.dp)
                     ) {
                         Text("Connect", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+
+                    TextButton(
+                        onClick = onRefreshStatus,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp), tint = MUTED)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Refresh Status", color = MUTED, fontSize = 14.sp)
+                        }
                     }
                 }
             }
