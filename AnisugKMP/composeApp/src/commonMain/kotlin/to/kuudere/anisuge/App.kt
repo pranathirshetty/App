@@ -56,7 +56,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val watchVm  = remember { WatchViewModel(AppComponent.infoService, AppComponent.settingsStore, AppComponent.settingsService, AppComponent.serverRepository) }
         val watchlistVm = remember { WatchlistViewModel() }
         val scheduleVm = remember { ScheduleViewModel(AppComponent.scheduleService) }
-        val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository, AppComponent.authService) }
+        val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository, AppComponent.authService, AppComponent.realtimeService) }
         val latestVm = remember { LatestViewModel(AppComponent.latestService) }
         val updateVm = remember { UpdateViewModel(AppComponent.updateService) }
 

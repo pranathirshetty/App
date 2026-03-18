@@ -28,6 +28,9 @@ class RealtimeService(
     private val _isConnected = MutableStateFlow(false)
     val isConnected = _isConnected.asStateFlow()
 
+    private val _events = MutableSharedFlow<WebSocketMessage>()
+    val events = _events.asSharedFlow()
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private val wsUrl = "wss://realtime.kuudere.to/ws"
@@ -82,8 +85,12 @@ class RealtimeService(
         session?.incoming?.receiveAsFlow()?.collect { frame ->
             if (frame is Frame.Text) {
                 val text = frame.readText()
-                // Handle messages if needed
-                // println("[RealtimeService] Received: $text")
+                try {
+                    val message = json.decodeFromString<WebSocketMessage>(text)
+                    _events.emit(message)
+                } catch (e: Exception) {
+                    println("[RealtimeService] Error parsing message: ${e.message}")
+                }
             }
         }
         _isConnected.value = false
