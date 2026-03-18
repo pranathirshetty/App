@@ -3,8 +3,6 @@ package to.kuudere.anisuge.screens.settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -1508,18 +1506,8 @@ private fun SyncTab(
                         }
 
                         // Disconnect button
-                        val disconnectInteractionSource = remember { MutableInteractionSource() }
-                        val isDisconnectPressed by disconnectInteractionSource.collectIsPressedAsState()
-                        val disconnectScale by animateFloatAsState(
-                            targetValue = if (isDisconnectPressed) 0.96f else 1f,
-                            animationSpec = tween(100),
-                            label = "disconnect_scale"
-                        )
-
                         OutlinedButton(
                             onClick = onDisconnect,
-                            modifier = Modifier.scale(disconnectScale),
-                            interactionSource = disconnectInteractionSource,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
                             shape = RoundedCornerShape(8.dp)
@@ -1675,14 +1663,8 @@ private fun SyncTab(
                 }
 
                 if (uiState.isImportingFromAniList || uiState.isExportingToAniList) {
-                    val cancelInteractionSource = remember { MutableInteractionSource() }
-                    val isCancelPressed by cancelInteractionSource.collectIsPressedAsState()
-                    val cancelScale by animateFloatAsState(if (isCancelPressed) 0.98f else 1f, label = "desktop_cancel_scale")
-
                     OutlinedButton(
                         onClick = onCancel,
-                        modifier = Modifier.scale(cancelScale),
-                        interactionSource = cancelInteractionSource,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
                         border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
                         shape = RoundedCornerShape(8.dp)
@@ -1698,14 +1680,9 @@ private fun SyncTab(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val importInteractionSource = remember { MutableInteractionSource() }
-                        val isImportPressed by importInteractionSource.collectIsPressedAsState()
-                        val importScale by animateFloatAsState(if (isImportPressed) 0.98f else 1f, label = "desktop_import_scale")
-
                         OutlinedButton(
                             onClick = onImport,
-                            modifier = Modifier.weight(1f).scale(importScale),
-                            interactionSource = importInteractionSource,
+                            modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
                             shape = RoundedCornerShape(8.dp)
@@ -1719,14 +1696,9 @@ private fun SyncTab(
                             Text("Import from AniList")
                         }
 
-                        val exportInteractionSource = remember { MutableInteractionSource() }
-                        val isExportPressed by exportInteractionSource.collectIsPressedAsState()
-                        val exportScale by animateFloatAsState(if (isExportPressed) 0.98f else 1f, label = "desktop_export_scale")
-
                         OutlinedButton(
                             onClick = onExport,
-                            modifier = Modifier.weight(1f).scale(exportScale),
-                            interactionSource = exportInteractionSource,
+                            modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
                             shape = RoundedCornerShape(8.dp)
@@ -1773,25 +1745,14 @@ private fun SyncTab(
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    val connectInteractionSource = remember { MutableInteractionSource() }
-                    val isConnectPressed by connectInteractionSource.collectIsPressedAsState()
-                    val connectScale by animateFloatAsState(
-                        targetValue = if (isConnectPressed) 0.96f else 1f,
-                        animationSpec = tween(100),
-                        label = "connect_scale"
-                    )
-
                     Button(
                         onClick = onConnect,
-                        modifier = Modifier
-                            .padding(horizontal = 32.dp, vertical = 12.dp)
-                            .scale(connectScale),
-                        interactionSource = connectInteractionSource,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)
                     ) {
                         Text("Connect Account", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
@@ -1938,18 +1899,8 @@ private fun MobileSyncContent(
                             }
                         }
 
-                        val disconnectInteractionSource = remember { MutableInteractionSource() }
-                        val isDisconnectPressed by disconnectInteractionSource.collectIsPressedAsState()
-                        val disconnectScale by animateFloatAsState(
-                            targetValue = if (isDisconnectPressed) 0.96f else 1f,
-                            animationSpec = tween(100),
-                            label = "mobile_disconnect_scale"
-                        )
-
                         TextButton(
                             onClick = onDisconnect,
-                            modifier = Modifier.scale(disconnectScale),
-                            interactionSource = disconnectInteractionSource,
                             colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
                         ) {
                             Text("Disconnect", fontSize = 13.sp)
@@ -2093,14 +2044,9 @@ private fun MobileSyncContent(
                 }
 
                 if (uiState.isImportingFromAniList || uiState.isExportingToAniList) {
-                    val cancelInteractionSource = remember { MutableInteractionSource() }
-                    val isCancelPressed by cancelInteractionSource.collectIsPressedAsState()
-                    val cancelScale by animateFloatAsState(if (isCancelPressed) 0.98f else 1f, label = "mobile_cancel_scale")
-
                     OutlinedButton(
                         onClick = onCancel,
-                        modifier = Modifier.fillMaxWidth().scale(cancelScale),
-                        interactionSource = cancelInteractionSource,
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
                         border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
                         shape = RoundedCornerShape(8.dp)
@@ -2116,14 +2062,9 @@ private fun MobileSyncContent(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val importInteractionSource = remember { MutableInteractionSource() }
-                        val isImportPressed by importInteractionSource.collectIsPressedAsState()
-                        val importScale by animateFloatAsState(if (isImportPressed) 0.98f else 1f, label = "import_scale")
-
                         OutlinedButton(
                             onClick = onImport,
-                            modifier = Modifier.fillMaxWidth().scale(importScale),
-                            interactionSource = importInteractionSource,
+                            modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
                             shape = RoundedCornerShape(8.dp)
@@ -2137,14 +2078,9 @@ private fun MobileSyncContent(
                             Text("Import from AniList")
                         }
 
-                        val exportInteractionSource = remember { MutableInteractionSource() }
-                        val isExportPressed by exportInteractionSource.collectIsPressedAsState()
-                        val exportScale by animateFloatAsState(if (isExportPressed) 0.98f else 1f, label = "export_scale")
-
                         OutlinedButton(
                             onClick = onExport,
-                            modifier = Modifier.fillMaxWidth().scale(exportScale),
-                            interactionSource = exportInteractionSource,
+                            modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
                             border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(BORDER)),
                             shape = RoundedCornerShape(8.dp)
@@ -2188,16 +2124,8 @@ private fun MobileSyncContent(
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    val connectInteractionSource = remember { MutableInteractionSource() }
-                    val isConnectPressed by connectInteractionSource.collectIsPressedAsState()
-                    val connectScale by animateFloatAsState(if (isConnectPressed) 0.98f else 1f, label = "mobile_connect_btn_scale")
-
                     Button(
                         onClick = onConnect,
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp)
-                            .scale(connectScale),
-                        interactionSource = connectInteractionSource,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black

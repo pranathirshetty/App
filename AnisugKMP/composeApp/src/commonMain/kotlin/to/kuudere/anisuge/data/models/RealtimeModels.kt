@@ -21,8 +21,3 @@ data class UserInfoData(
     val username: String,
     val avatar: String? = null
 )
-
-@Serializable
-data class RefreshSyncData(
-    val challenge: String? = null
-)

@@ -22,15 +22,8 @@ import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.SettingsService
 import to.kuudere.anisuge.data.services.SettingsStore
 import to.kuudere.anisuge.data.services.StorageService
-import to.kuudere.anisuge.data.models.SessionCheckResult
-import to.kuudere.anisuge.data.services.RealtimeService
-import to.kuudere.anisuge.data.models.WebSocketMessage
-import to.kuudere.anisuge.data.models.RefreshSyncData
 import to.kuudere.anisuge.data.services.AuthService
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
-import okio.ByteString.Companion.encodeUtf8
-import okio.ByteString
+import to.kuudere.anisuge.data.models.SessionCheckResult
 
 data class SettingsUiState(
     // Loading states
@@ -115,7 +108,6 @@ class SettingsViewModel(
     private val settingsStore: SettingsStore,
     private val serverRepository: ServerRepository,
     private val authService: AuthService,
-    private val realtimeService: RealtimeService,
     private val storageService: StorageService = StorageService(),
 ) : ViewModel() {
 
@@ -125,9 +117,6 @@ class SettingsViewModel(
     private var originalPreferences: UserPreferences = UserPreferences()
     private var importJob: Job? = null
     private var exportJob: Job? = null
-    private var syncPollingJob: Job? = null
-    private var currentAuthChallenge: String? = null
-    private val json = Json { ignoreUnknownKeys = true }
 
     init {
         loadUserProfile()
@@ -194,25 +183,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             serverRepository.servers.collect { servers ->
                 _uiState.update { it.copy(availableServers = servers) }
-            }
-        }
-
-        // Listen for sync refresh events from WebSocket
-        viewModelScope.launch {
-            realtimeService.events.collect { message ->
-                if (message.event == "refresh_sync") {
-                    try {
-                        val data = json.decodeFromJsonElement<RefreshSyncData>(message.data ?: return@collect)
-                        if (data.challenge == currentAuthChallenge) {
-                            println("[SettingsViewModel] Verified refresh_sync received, reloading AniList status")
-                            loadAniListStatus()
-                            currentAuthChallenge = null // Clear after use
-                            syncPollingJob?.cancel() // Stop polling if active
-                        }
-                    } catch (e: Exception) {
-                        println("[SettingsViewModel] Sync event error: ${e.message}")
-                    }
-                }
             }
         }
     }
@@ -738,19 +708,10 @@ class SettingsViewModel(
             val sessionResult = authService.checkSession()
             if (sessionResult is SessionCheckResult.Valid) {
                 // 2. Clear any old errors and get a new token
-                val jwtRes = authService.getAppwriteJwtWithError()
-                val token = jwtRes.first
-                val error = jwtRes.second
-                
+                val (token, error) = authService.getAppwriteJwtWithError()
                 if (token != null) {
                     val url = settingsService.getAniListAuthUrl(token)
-                    
-                    // Secure challenge to verify backchannel message
-                    currentAuthChallenge = try {
-                        token.encodeUtf8().sha256().hex()
-                    } catch (e: Exception) { null }
-                    
-                    println("[SettingsViewModel] Redirecting to AniList with challenge: ${currentAuthChallenge?.take(8)}...")
+                    println("[SettingsViewModel] Redirecting to AniList with token: ${token.take(10)}...")
                     openUri(url)
                     _uiState.update { it.copy(isLoadingAniList = false, errorMessage = null) }
                 } else {
