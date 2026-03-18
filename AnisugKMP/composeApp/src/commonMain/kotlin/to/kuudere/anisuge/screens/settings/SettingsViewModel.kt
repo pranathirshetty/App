@@ -22,6 +22,8 @@ import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.SettingsService
 import to.kuudere.anisuge.data.services.SettingsStore
 import to.kuudere.anisuge.data.services.StorageService
+import to.kuudere.anisuge.data.services.AuthService
+import to.kuudere.anisuge.data.models.SessionCheckResult
 
 data class SettingsUiState(
     // Loading states
@@ -105,6 +107,7 @@ class SettingsViewModel(
     private val settingsService: SettingsService,
     private val settingsStore: SettingsStore,
     private val serverRepository: ServerRepository,
+    private val authService: AuthService,
     private val storageService: StorageService = StorageService(),
 ) : ViewModel() {
 
@@ -697,8 +700,39 @@ class SettingsViewModel(
         }
     }
 
-    fun getAniListAuthUrl(): String {
-        return settingsService.getAniListAuthUrl()
+    fun onConnectAniList(openUri: (String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingAniList = true, errorMessage = null) }
+            
+            // 1. Ensure we have a valid session to get a JWT
+            val sessionResult = authService.checkSession()
+            if (sessionResult is SessionCheckResult.Valid) {
+                // 2. Clear any old errors and get a new token
+                val (token, error) = authService.getAppwriteJwtWithError()
+                if (token != null) {
+                    val url = settingsService.getAniListAuthUrl(token)
+                    println("[SettingsViewModel] Redirecting to AniList with token: ${token.take(10)}...")
+                    openUri(url)
+                    _uiState.update { it.copy(isLoadingAniList = false, errorMessage = null) }
+                } else {
+                    println("[SettingsViewModel] Failed to get Appwrite JWT: $error")
+                    _uiState.update { 
+                        it.copy(
+                            isLoadingAniList = false, 
+                            errorMessage = error ?: "Secure connection failed. Please log in again or try later." 
+                        ) 
+                    }
+                }
+            } else {
+                println("[SettingsViewModel] Session check failed: $sessionResult")
+                _uiState.update { 
+                    it.copy(
+                        isLoadingAniList = false, 
+                        errorMessage = "Session invalid. Please log in again to sync." 
+                    ) 
+                }
+            }
+        }
     }
 
     fun clearImportExportState() {

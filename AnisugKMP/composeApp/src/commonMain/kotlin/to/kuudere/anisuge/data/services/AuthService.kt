@@ -24,6 +24,7 @@ import to.kuudere.anisuge.data.models.ResetPasswordRequest
 import to.kuudere.anisuge.data.models.SessionCheckResult
 import to.kuudere.anisuge.data.models.SessionInfo
 import to.kuudere.anisuge.data.models.VerifyResetCodeRequest
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -165,6 +166,52 @@ class AuthService(
         } catch (e: Exception) {
             println("[AuthService] getWsToken error: ${e.message}")
             null
+        }
+    }
+
+    private suspend fun getAppwriteJwtInternal(): String? {
+        val stored = sessionStore.get() ?: return "No stored session"
+        if (sessionStore.isExpired(stored)) {
+            return "Session expired"
+        }
+
+        return try {
+            val response = httpClient.get("$BASE_URL/api/auth/jwt") {
+                header("Cookie", sessionToCookie(stored))
+                header("Accept", "application/json")
+            }
+            if (response.status == HttpStatusCode.OK) {
+                val body = response.bodyAsText()
+                val json = try { Json.decodeFromString<JsonObject>(body) } catch(e: Exception) { null }
+                if (json != null && json["success"]?.jsonPrimitive?.booleanOrNull == true) {
+                    json["jwt"]?.jsonPrimitive?.content
+                } else {
+                    json?.get("message")?.jsonPrimitive?.content ?: "Backend failed to generate JWT"
+                }
+            } else {
+                val errorBody = response.bodyAsText()
+                "HTTP ${response.status.value}: $errorBody"
+            }
+        } catch (e: Exception) {
+            "Network error: ${e.message}"
+        }
+    }
+
+    suspend fun getAppwriteJwt(): String? {
+        val result = getAppwriteJwtInternal()
+        return if (result != null && result.length > 50 && result.startsWith("eyJ")) {
+            result
+        } else {
+            null
+        }
+    }
+
+    suspend fun getAppwriteJwtWithError(): Pair<String?, String?> {
+        val result = getAppwriteJwtInternal()
+        return if (result != null && result.length > 50 && result.startsWith("eyJ")) {
+            result to null
+        } else {
+            null to (result ?: "Unknown error")
         }
     }
 }

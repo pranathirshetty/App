@@ -276,8 +276,12 @@ class SettingsService(
     }
 
     /** Get AniList OAuth URL */
-    fun getAniListAuthUrl(): String {
-        return "$BASE_URL/api/auth/anilist/login"
+    fun getAniListAuthUrl(token: String? = null): String {
+        return if (!token.isNullOrBlank()) {
+            "$BASE_URL/api/auth/anilist/login?token=$token"
+        } else {
+            "$BASE_URL/api/auth/anilist/login"
+        }
     }
 
     /** Get AniList access token for import/export */

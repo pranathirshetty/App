@@ -658,6 +658,7 @@ private fun MobileSettingsDetail(
     viewModel: SettingsViewModel
 ) {
     val navItem = navItems.find { it.tab == tab }
+    val uriHandler = LocalUriHandler.current
 
     Column(
         modifier = Modifier
@@ -727,7 +728,7 @@ private fun MobileSettingsDetail(
                 )
                 is SettingsTab.Sync -> MobileSyncContent(
                     uiState = uiState,
-                    onConnect = { viewModel.getAniListAuthUrl() },
+                    onConnect = { viewModel.onConnectAniList { uriHandler.openUri(it) } },
                     onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                     onImport = viewModel::importFromAniList,
                     onExport = viewModel::exportToAniList,
@@ -764,6 +765,7 @@ private fun SettingsContent(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier
 ) {
+    val uriHandler = LocalUriHandler.current
     AnimatedContent(
         targetState = selectedTab,
         transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
@@ -803,7 +805,7 @@ private fun SettingsContent(
             )
             is SettingsTab.Sync -> SyncTab(
                 uiState = uiState,
-                onConnect = { viewModel.getAniListAuthUrl() },
+                onConnect = { viewModel.onConnectAniList { uriHandler.openUri(it) } },
                 onDisconnect = { viewModel.setShowDisconnectConfirm(true) },
                 onImport = viewModel::importFromAniList,
                 onExport = viewModel::exportToAniList,
@@ -1381,7 +1383,7 @@ private fun DesktopAboutStatRow(label: String, value: String) {
 @Composable
 private fun SyncTab(
     uiState: SettingsUiState,
-    onConnect: () -> String,
+    onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
@@ -1744,7 +1746,7 @@ private fun SyncTab(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
-                        onClick = { uriHandler.openUri(onConnect()) },
+                        onClick = onConnect,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black
@@ -1792,7 +1794,7 @@ private fun StatCard(
 @Composable
 private fun MobileSyncContent(
     uiState: SettingsUiState,
-    onConnect: () -> String,
+    onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
@@ -2123,7 +2125,7 @@ private fun MobileSyncContent(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = { uriHandler.openUri(onConnect()) },
+                        onClick = onConnect,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black
