@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -61,7 +62,11 @@ fun SettingsOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .clickable(onClick = onDismiss),
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -352,11 +357,15 @@ private fun SettingsMenuItem(
     subtitle: String,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
             .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = onClick
             )
@@ -393,11 +402,15 @@ private fun SubMenuItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
             .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = onClick
             )
@@ -420,11 +433,15 @@ private fun ToggleMenuItem(
     isChecked: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
             .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = { onToggle(!isChecked) }
             )
