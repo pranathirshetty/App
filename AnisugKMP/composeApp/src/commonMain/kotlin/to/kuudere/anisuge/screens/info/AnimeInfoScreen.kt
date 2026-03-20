@@ -291,7 +291,6 @@ private fun MobileLayout(
                          Modifier
                              .clip(RoundedCornerShape(8.dp))
                              .background(Color(0xFF1D1D1D))
-                             .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                              .clickable {
                                  if (anime.continueWatching != null && anime.continueWatching.episode != null) {
                                      onWatchEpisode(anime.continueWatching.episode)
@@ -578,7 +577,6 @@ private fun DesktopLayout(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D1D1D), contentColor = Color.White),
                         shape = RoundedCornerShape(32.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
