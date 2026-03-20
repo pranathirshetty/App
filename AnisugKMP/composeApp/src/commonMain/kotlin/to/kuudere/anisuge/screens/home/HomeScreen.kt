@@ -1559,13 +1559,13 @@ private fun AnisugBottomBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.4f))
+            .background(Color(0xFF0D0D0D))
             .hazeChild(
                 state = hazeState,
                 style = HazeStyle(
-                    tints = listOf(HazeTint(Color.Black.copy(alpha = 0.85f))),
+                    tints = listOf(HazeTint(Color.Black.copy(alpha = 0.6f))),
                     blurRadius = 40.dp,
-                    noiseFactor = 0.15f
+                    noiseFactor = 0.1f
                 )
             )
             .pointerInput(Unit) { /* Consume clicks to prevent pass-through */ }
