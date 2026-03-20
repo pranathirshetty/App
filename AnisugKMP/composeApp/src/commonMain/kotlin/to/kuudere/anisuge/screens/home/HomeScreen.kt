@@ -162,6 +162,12 @@ import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
 import to.kuudere.anisuge.screens.settings.SettingsScreen
 import to.kuudere.anisuge.screens.settings.SettingsViewModel
 import to.kuudere.anisuge.ui.ConfirmDialog
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import androidx.compose.ui.input.pointer.pointerInput
 
 enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
 
@@ -185,6 +191,7 @@ fun HomeScreen(
     var prevTabIndex by remember { mutableStateOf(0) }
     var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    val hazeState = remember { HazeState() }
 
     to.kuudere.anisuge.platform.PlatformBackHandler(enabled = true) {
         if (currentTab != AnisugTab.Home) {
@@ -234,103 +241,109 @@ fun HomeScreen(
                 Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.05f)))
             }
 
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                // ── Mobile header (logo + avatar) ────────────────────────
-                if (!isDesktop) {
-                    MobileTopBar(
-                        avatarUrl = homeState.userProfile?.avatar,
-                        onDownloadClick = {
-                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
-                            currentTab = AnisugTab.Downloads
-                        }
-                    )
-                }
-
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    AnimatedContent(
-                        targetState = currentTab,
-                        transitionSpec = {
-                            val toIndex = AnisugTab.entries.indexOf(targetState)
-                            val fromIndex = AnisugTab.entries.indexOf(initialState)
-                            if (isDesktop) {
-                                // Desktop: subtle vertical slide
+            if (isDesktop) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        AnimatedContent(
+                            targetState = currentTab,
+                            transitionSpec = {
+                                val toIndex = AnisugTab.entries.indexOf(targetState)
+                                val fromIndex = AnisugTab.entries.indexOf(initialState)
                                 val goingDown = toIndex > fromIndex
                                 val slideOffset = { size: Int -> if (goingDown) size / 6 else -(size / 6) }
                                 val slideOutOffset = { size: Int -> if (goingDown) -(size / 6) else size / 6 }
                                 (slideInVertically(tween(300)) { slideOffset(it) } + fadeIn(tween(300)))
                                     .togetherWith(slideOutVertically(tween(300)) { slideOutOffset(it) } + fadeOut(tween(200)))
-                            } else {
-                                // Mobile: horizontal swipe feel
+                            }
+                        ) { tab ->
+                            TabContent(
+                                tab = tab,
+                                homeState = homeState,
+                                homeViewModel = homeViewModel,
+                                searchViewModel = searchViewModel,
+                                watchlistViewModel = watchlistViewModel,
+                                scheduleViewModel = scheduleViewModel,
+                                settingsViewModel = settingsViewModel,
+                                onAnimeClick = onAnimeClick,
+                                onWatchClick = onWatchClick,
+                                onWatchOffline = onWatchOffline,
+                                onLogout = { showLogoutConfirm = true },
+                                onViewLatestMore = onViewLatestMore,
+                                onWatchlistClick = { showWatchlistFor = it },
+                                onSearchLatest = {
+                                    searchViewModel.onSortChange("Latest")
+                                    searchViewModel.search()
+                                    prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                                    currentTab = AnisugTab.Search
+                                }
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Mobile: Glass layout with overlapping bars
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    // Content
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .haze(state = hazeState)
+                    ) {
+                        AnimatedContent(
+                            targetState = currentTab,
+                            transitionSpec = {
+                                val toIndex = AnisugTab.entries.indexOf(targetState)
+                                val fromIndex = AnisugTab.entries.indexOf(initialState)
                                 val goingRight = toIndex > fromIndex
                                 val enter = slideInHorizontally(tween(300)) { if (goingRight) it else -it } + fadeIn(tween(300))
                                 val exit  = slideOutHorizontally(tween(300)) { if (goingRight) -it else it } + fadeOut(tween(200))
                                 enter.togetherWith(exit)
                             }
-                        }
-                    ) { tab ->
-                        when (tab) {
-                            AnisugTab.Home -> {
-                                when {
-                                    homeState.isLoading && homeState.topAiring.isEmpty() ->
-                                        Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                            CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
-                                        }
-                                    homeState.isOffline && homeState.topAiring.isEmpty() ->
-                                        HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
-                                    homeState.error != null && homeState.topAiring.isEmpty() ->
-                                        Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                                Text(homeState.error ?: "Unknown error", color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
-                                                Button(
-                                                    onClick = { homeViewModel.refresh() },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
-                                                ) { Text("Retry") }
-                                            }
-                                        }
-                                    // Catch-all: finished loading, no data, no explicit flag set
-                                    // (Ktor may wrap the exception differently on some devices)
-                                    !homeState.isLoading && homeState.topAiring.isEmpty() ->
-                                        HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
-                                    else -> HomeContent(
-                                        state = homeState,
-                                        onAnimeClick = onAnimeClick,
-                                        onWatchClick = onWatchClick,
-                                        onWatchlistClick = { showWatchlistFor = it },
-                                        onRefresh = { homeViewModel.refresh() },
-                                        onViewLatestMore = onViewLatestMore,
-                                        onViewNewOnAppMore = {
-                                            searchViewModel.onSortChange("Latest")
-                                            searchViewModel.search()
-                                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
-                                            currentTab = AnisugTab.Search
-                                        }
-                                    )
-                                }
-                            }
-                            AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
-                            AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
-                            AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
-                            AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
-                            AnisugTab.Settings -> SettingsScreen(
-                                viewModel = settingsViewModel,
+                        ) { tab ->
+                            TabContent(
+                                tab = tab,
+                                homeState = homeState,
+                                homeViewModel = homeViewModel,
+                                searchViewModel = searchViewModel,
+                                watchlistViewModel = watchlistViewModel,
+                                scheduleViewModel = scheduleViewModel,
+                                settingsViewModel = settingsViewModel,
+                                onAnimeClick = onAnimeClick,
+                                onWatchClick = onWatchClick,
+                                onWatchOffline = onWatchOffline,
                                 onLogout = { showLogoutConfirm = true },
-                                onRefresh = { homeViewModel.refresh() },
-                                isLoggingOut = homeState.isLoggingOut
+                                onViewLatestMore = onViewLatestMore,
+                                onWatchlistClick = { showWatchlistFor = it },
+                                onSearchLatest = {
+                                    searchViewModel.onSortChange("Latest")
+                                    searchViewModel.search()
+                                    prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                                    currentTab = AnisugTab.Search
+                                }
                             )
-                            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Tab ${tab.name} coming soon", color = Color.White)
-                            }
                         }
                     }
-                }
 
-                if (!isDesktop) {
+                    // Top Bar
+                    MobileTopBar(
+                        avatarUrl = homeState.userProfile?.avatar,
+                        onDownloadClick = {
+                            prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                            currentTab = AnisugTab.Downloads
+                        },
+                        hazeState = hazeState,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+
+                    // Bottom Bar
                     AnisugBottomBar(
                         selectedTab = currentTab,
                         onTabSelect = { newTab ->
                             prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                             currentTab = newTab
-                        }
+                        },
+                        hazeState = hazeState,
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
             }
@@ -360,6 +373,68 @@ fun HomeScreen(
                 onDismiss = { showLogoutConfirm = false }
             )
         }
+    }
+}
+
+@Composable
+private fun TabContent(
+    tab: AnisugTab,
+    homeState: HomeUiState,
+    homeViewModel: HomeViewModel,
+    searchViewModel: SearchViewModel,
+    watchlistViewModel: WatchlistViewModel,
+    scheduleViewModel: ScheduleViewModel,
+    settingsViewModel: SettingsViewModel,
+    onAnimeClick: (String) -> Unit,
+    onWatchClick: (String, String, Int, String?) -> Unit,
+    onWatchOffline: (String, Int, String, String) -> Unit,
+    onLogout: () -> Unit,
+    onViewLatestMore: () -> Unit,
+    onWatchlistClick: (AnimeItem) -> Unit,
+    onSearchLatest: () -> Unit,
+) {
+    when (tab) {
+        AnisugTab.Home -> {
+            when {
+                homeState.isLoading && homeState.topAiring.isEmpty() ->
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
+                    }
+                homeState.isOffline && homeState.topAiring.isEmpty() ->
+                    HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
+                homeState.error != null && homeState.topAiring.isEmpty() ->
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                            Button(
+                                onClick = { homeViewModel.refresh() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
+                            ) { Text("Retry") }
+                        }
+                    }
+                else -> {
+                    HomeContent(
+                        homeState,
+                        onAnimeClick,
+                        onWatchClick,
+                        onWatchlistClick = onWatchlistClick,
+                        onRefresh = { homeViewModel.refresh() },
+                        onViewLatestMore = onViewLatestMore,
+                        onViewNewOnAppMore = onSearchLatest
+                    )
+                }
+            }
+        }
+        AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+        AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
+        AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
+        AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
+        AnisugTab.Settings -> SettingsScreen(
+            viewModel = settingsViewModel,
+            onLogout = onLogout,
+            onRefresh = { homeViewModel.refresh() },
+            isLoggingOut = homeState.isLoggingOut
+        )
     }
 }
 
@@ -441,10 +516,19 @@ private fun HomeContent(
                 innerContent()
             }
         } else {
+            val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
             androidx.compose.material3.pulltorefresh.PullToRefreshBox(
                 isRefreshing = state.isLoading,
                 onRefresh = onRefresh,
-                modifier = Modifier.fillMaxSize()
+                state = pullState,
+                modifier = Modifier.fillMaxSize(),
+                indicator = {
+                    androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator(
+                        state = pullState,
+                        isRefreshing = state.isLoading,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 80.dp)
+                    )
+                }
             ) {
                 innerContent()
             }
@@ -795,7 +879,7 @@ private fun FanCarousel(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = hPadding),
             pageSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth().height(cardHeight + 24.dp).padding(top = 24.dp)
+            modifier = Modifier.fillMaxWidth().height(cardHeight + 80.dp).padding(top = 80.dp)
         ) { fakePage ->
             val pageOffset = (
                 (pagerState.currentPage - fakePage) + pagerState.currentPageOffsetFraction
@@ -1385,17 +1469,31 @@ private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
 
 
 @Composable
-private fun MobileTopBar(avatarUrl: String?, onDownloadClick: () -> Unit) {
+private fun MobileTopBar(
+    avatarUrl: String?,
+    onDownloadClick: () -> Unit,
+    hazeState: HazeState,
+    modifier: Modifier = Modifier
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF000000))
+            .background(Color.Black.copy(alpha = 0.4f))
+            .hazeChild(
+                state = hazeState,
+                style = HazeStyle(
+                    tints = listOf(HazeTint(Color.Black.copy(alpha = 0.85f))),
+                    blurRadius = 40.dp,
+                    noiseFactor = 0.15f
+                )
+            )
+            .pointerInput(Unit) { /* Consume clicks to prevent pass-through */ }
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1454,12 +1552,23 @@ private fun MobileTopBar(avatarUrl: String?, onDownloadClick: () -> Unit) {
 @Composable
 private fun AnisugBottomBar(
     selectedTab: AnisugTab,
-    onTabSelect: (AnisugTab) -> Unit
+    onTabSelect: (AnisugTab) -> Unit,
+    hazeState: HazeState,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF000000))
+            .background(Color.Black.copy(alpha = 0.4f))
+            .hazeChild(
+                state = hazeState,
+                style = HazeStyle(
+                    tints = listOf(HazeTint(Color.Black.copy(alpha = 0.85f))),
+                    blurRadius = 40.dp,
+                    noiseFactor = 0.15f
+                )
+            )
+            .pointerInput(Unit) { /* Consume clicks to prevent pass-through */ }
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Subtle top separator
@@ -1749,7 +1858,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
                     .fillMaxSize()
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
+                contentPadding = PaddingValues(bottom = 32.dp, top = if (maxWidth < 800.dp) 88.dp else 20.dp)
             ) {
                 item(key = "downloads-header") {
                     DownloadsAnimatedEntry(delayMs = 0) {

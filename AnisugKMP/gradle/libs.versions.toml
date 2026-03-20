@@ -22,6 +22,7 @@ okio = "3.9.0"
 media3 = "1.5.1"
 ffmpeg-kit = "6.0"
 jave = "3.5.0"
+haze = "1.6.0"
 
 [libraries]
 # Jave2 for Desktop FFmpeg bundling
@@ -70,6 +71,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 # JNativeHook for cross-platform media keys
 jnativehook = { module = "com.github.kwhat:jnativehook", version = "2.2.2" }
 dbus_java = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version = "4.3.1" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

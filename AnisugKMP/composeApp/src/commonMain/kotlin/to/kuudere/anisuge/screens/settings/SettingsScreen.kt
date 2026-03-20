@@ -217,6 +217,8 @@ fun SettingsScreen(
                         selectedTab = selectedTab,
                         onTabSelect = { selectedTab = it },
                         uiState = uiState,
+                        onLogout = onLogout,
+                        isLoggingOut = isLoggingOut,
                         modifier = Modifier.width(260.dp)
                     )
 
@@ -359,6 +361,8 @@ private fun Sidebar(
     selectedTab: SettingsTab,
     onTabSelect: (SettingsTab) -> Unit,
     uiState: SettingsUiState,
+    onLogout: () -> Unit,
+    isLoggingOut: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -403,6 +407,37 @@ private fun Sidebar(
                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                 )
             }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Logout
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(enabled = !isLoggingOut) { onLogout() }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isLoggingOut) {
+                CircularProgressIndicator(color = Color(0xFFE50914), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = null,
+                    tint = Color(0xFFE50914),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                "Logout",
+                color = Color(0xFFE50914),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal
+            )
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -469,7 +504,7 @@ private fun MobileSettingsList(
             .background(BG)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 16.dp)
+            .padding(top = 80.dp, bottom = 16.dp)
     ) {
         // Profile Card at the Top
         if (!uiState.isLoadingProfile && uiState.userProfile != null) {
@@ -571,7 +606,7 @@ private fun MobileSettingsList(
         MobileSettingsItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             label = "Logout",
-            tint = Color(0xFFBF80FF),
+            tint = Color(0xFFE50914),
             onClick = onLogout,
             isLoading = isLoggingOut
         )
@@ -669,7 +704,7 @@ private fun MobileSettingsDetail(
         // Header with back
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 80.dp, bottom = 8.dp)
         ) {
             IconButton(onClick = onBack) {
                 Icon(

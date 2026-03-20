@@ -68,6 +68,8 @@ kotlin {
             implementation(libs.coil.network.ktor)
             // Date/time
             implementation(libs.kotlinx.datetime)
+            // Glassmorphism blur
+            implementation(libs.haze)
             // Okio (path support for DataStore)
             implementation(libs.okio)
         }
