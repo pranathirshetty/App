@@ -1,6 +1,7 @@
 package to.kuudere.anisuge.screens.watch
 
 import androidx.compose.animation.*
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -315,6 +317,7 @@ fun SettingsOverlay(
                             LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 item {
                                     ToggleMenuItem(
+                                        icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White) },
                                         title = "Auto Play",
                                         isChecked = uiState.autoPlay,
                                         onToggle = { onAutoPlayToggle(it) }
@@ -322,6 +325,7 @@ fun SettingsOverlay(
                                 }
                                 item {
                                     ToggleMenuItem(
+                                        icon = { Icon(Icons.Default.SkipNext, contentDescription = null, tint = Color.White) },
                                         title = "Auto next",
                                         isChecked = uiState.autoNext,
                                         onToggle = { onAutoNextToggle(it) }
@@ -329,6 +333,7 @@ fun SettingsOverlay(
                                 }
                                 item {
                                     ToggleMenuItem(
+                                        icon = { Icon(Icons.Default.FastForward, contentDescription = null, tint = Color.White) },
                                         title = "Skip intro",
                                         isChecked = uiState.autoSkipIntro,
                                         onToggle = { onAutoSkipIntroToggle(it) }
@@ -336,6 +341,7 @@ fun SettingsOverlay(
                                 }
                                 item {
                                     ToggleMenuItem(
+                                        icon = { Icon(Icons.Default.FastForward, contentDescription = null, tint = Color.White) },
                                         title = "Skip outro",
                                         isChecked = uiState.autoSkipOutro,
                                         onToggle = { onAutoSkipOutroToggle(it) }
@@ -359,25 +365,36 @@ private fun SettingsMenuItem(
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val bgColor by animateColorAsState(
+        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = onClick
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        icon()
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
-        Text(subtitle, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            icon()
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
+            Text(subtitle, color = Color.Gray, fontSize = 14.sp, maxLines = 1)
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+        }
     }
 }
 
@@ -404,62 +421,89 @@ private fun SubMenuItem(
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val bgColor by animateColorAsState(
+        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = onClick
             )
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isSelected) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-        } else {
-            Spacer(modifier = Modifier.width(40.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isSelected) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+            } else {
+                Spacer(modifier = Modifier.width(40.dp))
+            }
+            Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1)
         }
-        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun ToggleMenuItem(
+    icon: @Composable () -> Unit,
     title: String,
     isChecked: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val bgColor by animateColorAsState(
+        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(color = Color(0xFFBF80FF)),
                 onClick = { onToggle(!isChecked) }
             )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
-        Switch(
-            checked = isChecked,
-            onCheckedChange = { onToggle(it) },
-            colors = SwitchDefaults.colors(
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0xFF000000),
-                uncheckedBorderColor = Color(0xFF555555),
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = Color(0xFFBF80FF)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            icon()
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
+            Switch(
+                checked = isChecked,
+                onCheckedChange = { onToggle(it) },
+                modifier = Modifier.scale(0.85f),
+                colors = SwitchDefaults.colors(
+                    uncheckedThumbColor = Color(0xFF999999),
+                    uncheckedTrackColor = Color(0xFF111111),
+                    uncheckedBorderColor = Color(0xFF333333),
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFFBF80FF),
+                    checkedBorderColor = Color.Transparent
+                )
             )
-        )
+        }
     }
 }
 
