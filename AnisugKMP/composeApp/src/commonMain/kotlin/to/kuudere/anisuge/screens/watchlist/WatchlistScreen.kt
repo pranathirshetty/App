@@ -211,6 +211,7 @@ fun WatchlistScreen(
                                 IconButton(onClick = {
                                     searchQuery = ""
                                     selectedList = "All lists"
+                                    expandedFilters = false
                                     viewModel.resetAllFilters()
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)
@@ -310,6 +311,7 @@ fun WatchlistScreen(
                                 IconButton(onClick = {
                                     searchQuery = ""
                                     selectedList = "All lists"
+                                    expandedFilters = false
                                     viewModel.resetAllFilters()
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear", tint = Color.Gray)

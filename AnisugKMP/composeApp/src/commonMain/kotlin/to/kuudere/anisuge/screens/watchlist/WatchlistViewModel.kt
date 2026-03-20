@@ -92,8 +92,10 @@ class WatchlistViewModel : ViewModel() {
     }
 
     fun resetAllFilters() {
+        searchJob?.cancel()
         _uiState.update {
             it.copy(
+                selectedFolder = "All lists",
                 searchQuery = "",
                 sort = "Recently Updated",
                 selectedGenres = emptyList(),
