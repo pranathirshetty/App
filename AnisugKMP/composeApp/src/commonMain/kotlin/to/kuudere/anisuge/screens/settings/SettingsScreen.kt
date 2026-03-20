@@ -425,7 +425,7 @@ private fun Sidebar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isLoggingOut) {
-                CircularProgressIndicator(color = Color(0xFFE50914), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             } else {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ExitToApp,
@@ -615,7 +615,7 @@ private fun MobileSettingsList(
                     .height(100.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MUTED, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
             }
         } else {
             Spacer(modifier = Modifier.height(16.dp))
@@ -683,7 +683,7 @@ private fun MobileSettingsItem(
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    color = tint,
+                    color = Color.White,
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp
                 )
@@ -1044,7 +1044,7 @@ private fun PreferencesTab(
             modifier = Modifier.align(Alignment.End)
         ) {
             if (uiState.isSaving) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
                 Text("Save Changes", fontWeight = FontWeight.Medium)
             }
@@ -1578,13 +1578,13 @@ private fun SyncTab(
 
                         OutlinedButton(
                             onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBF80FF)),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFBF80FF).copy(alpha = 0.5f))),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE50914)),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE50914).copy(alpha = 0.5f))),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             if (uiState.isLoadingAniList) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFFBF80FF),
+                                    color = Color.White,
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp
                                 )
@@ -1991,11 +1991,11 @@ private fun MobileSyncContent(
 
                         TextButton(
                             onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBF80FF))
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFE50914))
                         ) {
                             if (uiState.isLoadingAniList) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFFBF80FF),
+                                    color = Color.White,
                                     modifier = Modifier.size(14.dp),
                                     strokeWidth = 2.dp
                                 )
@@ -2355,7 +2355,7 @@ private fun MobilePreferencesContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
                     Text("Save Changes", fontWeight = FontWeight.Medium)
                 }
@@ -2851,7 +2851,7 @@ private fun PasswordChangeForm(
             shape = RoundedCornerShape(8.dp)
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Changing...")
             } else {

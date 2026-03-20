@@ -184,7 +184,7 @@ fun SettingsOverlay(
                                         SettingsMenuItem(
                                             icon = { 
                                                 if (uiState.isUpdatingWatchlist) {
-                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFBF80FF), strokeWidth = 2.dp)
+                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                                                 } else {
                                                     Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
                                                 }

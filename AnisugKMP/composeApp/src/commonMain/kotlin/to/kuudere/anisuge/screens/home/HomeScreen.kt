@@ -410,7 +410,7 @@ private fun TabContent(
             when {
                 homeState.isLoading && homeState.topAiring.isEmpty() ->
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                     }
                 homeState.isOffline && homeState.topAiring.isEmpty() ->
                     OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
@@ -1087,7 +1087,7 @@ private fun ContinueWatchingRow(
                             Modifier
                                 .fillMaxWidth(progress)
                                 .fillMaxSize()
-                                .background(Color(0xFFBF80FF))
+                                .background(Color(0xFFE50914))
                         )
                     }
                     // Hover play and delete overlay
@@ -1362,7 +1362,7 @@ private fun AnisugSidebar(
                 SidebarIcon(
                     Icons.Outlined.Home, 
                     isSelected = selectedTab == AnisugTab.Home, 
-                    selectedTint = Color(0xFFBF80FF),
+                    selectedTint = Color.White,
                     onClick = { onTabSelect(AnisugTab.Home) }
                 )
                 SidebarIcon(
@@ -1399,7 +1399,7 @@ private fun AnisugSidebar(
 private fun SidebarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     isSelected: Boolean,
-    selectedTint: Color = Color(0xFFBF80FF),
+    selectedTint: Color = Color.White,
     defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
     onClick: () -> Unit = {}
 ) {
@@ -1467,7 +1467,7 @@ private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
             // Spinner fades in when logging out
             if (spinnerAlpha > 0f) {
                 CircularProgressIndicator(
-                    color = Color(0xFFBF80FF).copy(alpha = spinnerAlpha),
+                    color = Color.White.copy(alpha = spinnerAlpha),
                     strokeWidth = 2.dp,
                     modifier = Modifier.size(20.dp),
                 )
@@ -1601,7 +1601,7 @@ private fun AnisugBottomBar(
         BottomBarIcon(
             Icons.Outlined.Home,
             isSelected = selectedTab == AnisugTab.Home,
-            selectedTint = Color(0xFFBF80FF),
+            selectedTint = Color.White,
             onClick = { onTabSelect(AnisugTab.Home) }
         )
         BottomBarIcon(
@@ -1627,7 +1627,7 @@ private fun AnisugBottomBar(
 private fun BottomBarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     isSelected: Boolean,
-    selectedTint: Color = Color(0xFFBF80FF),
+    selectedTint: Color = Color.White,
     defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
     onClick: () -> Unit = {}
 ) {

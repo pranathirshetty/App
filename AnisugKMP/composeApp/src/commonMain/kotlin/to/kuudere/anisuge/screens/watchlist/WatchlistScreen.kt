@@ -495,7 +495,7 @@ fun WatchlistScreen(
                     if (state.isLoading && state.items.isEmpty()) {
                         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                             Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
-                                CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                             }
                         }
                     } else {
@@ -550,7 +550,7 @@ fun WatchlistScreen(
                     if (state.isPaginating || (state.isLoading && state.items.isNotEmpty())) {
                         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                             Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
-                                CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                             }
                         }
                     } else if (!hasAnyItems && !state.isLoading) {

@@ -100,7 +100,7 @@ fun AnimeInfoScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (state.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
+                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
             }
         } else if (state.error != null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -347,7 +347,7 @@ fun CommentsSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(Modifier.size(10.dp), color = AccentRed, strokeWidth = 1.5.dp)
+                        CircularProgressIndicator(Modifier.size(10.dp), color = Color.White, strokeWidth = 1.5.dp)
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(activeLabel, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -547,7 +547,7 @@ fun CommentsSection(
             if (isLoading && comments.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = AccentRed, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
                     }
                 }
             } else if (comments.isEmpty()) {
@@ -602,7 +602,7 @@ fun CommentsSection(
                             ) {
                                 if (isLoading) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        CircularProgressIndicator(Modifier.size(12.dp), color = AccentRed, strokeWidth = 1.5.dp)
+                                        CircularProgressIndicator(Modifier.size(12.dp), color = Color.White, strokeWidth = 1.5.dp)
                                         Text("Loading...", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
                                     }
                                 } else {
@@ -804,7 +804,7 @@ private fun CommentItem(
                     ) {
                         Row(Modifier.height(20.dp).clickable { onToggleReplies(model) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.width(10.dp).height(1.dp).background(TextMuted.copy(alpha = 0.6f)))
-                            if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
+                            if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = Color.White, strokeWidth = 1.5.dp)
                             else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
                             Text("View ${if (c.reply_count == 1) "1 reply" else "${c.reply_count} replies"}", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -852,7 +852,7 @@ private fun CommentItem(
 
                                     if (model.hasMoreReplies) {
                                         Row(Modifier.clickable { onLoadMoreReplies(model) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = TextSec, strokeWidth = 1.5.dp)
+                                            if (model.isLoadingReplies) CircularProgressIndicator(Modifier.size(10.dp), color = Color.White, strokeWidth = 1.5.dp)
                                             else Icon(Icons.Default.KeyboardArrowDown, null, tint = TextSec, modifier = Modifier.size(14.dp))
                                             Text("Show more replies", color = TextSec, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                         }
