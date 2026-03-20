@@ -193,31 +193,23 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Top header
-        if (uiState.activeSidePanel != "comments" && uiState.activeSidePanel != null) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF1D1D1D))
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val title = when (uiState.activeSidePanel) {
-                    "info" -> "Anime Info"
-                    "episodes" -> "Episodes"
-                    else -> ""
-                }
-                Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { viewModel.toggleSidePanel(null) }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Close, null, tint = Color.LightGray)
-                }
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF000000)))
-        }
+        // Removed bulky gray header - using floating close button instead
         
         // Content
         Box(Modifier.fillMaxSize()) {
+            // Close button overlay
+            IconButton(
+                onClick = { viewModel.toggleSidePanel(null) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(32.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .zIndex(10f)
+            ) {
+                Icon(Icons.Default.Close, null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
+            }
+
             AnimatedContent(
                 targetState = uiState.activeSidePanel,
                 transitionSpec = {
@@ -517,7 +509,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                         )
                                                     }
                                                     .clip(RoundedCornerShape(10.dp))
-                                                    .background(Color(0xFF1D1D1D))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                                    .background(Color.Black)
                                                     .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) {
                                                         isPageDropdownExpanded = !isPageDropdownExpanded
                                                     }
@@ -596,10 +589,10 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                         }
                                                     },
                                                     colors = OutlinedTextFieldDefaults.colors(
-                                                        focusedBorderColor = Color.White.copy(alpha = 0.1f),
-                                                        unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                                                        focusedContainerColor = Color(0xFF1D1D1D),
-                                                        unfocusedContainerColor = Color(0xFF1D1D1D),
+                                                        focusedBorderColor = Color.White.copy(alpha = 0.2f),
+                                                        unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                                        focusedContainerColor = Color.Black,
+                                                        unfocusedContainerColor = Color.Black,
                                                         focusedTextColor = Color.White,
                                                         unfocusedTextColor = Color.White,
                                                         cursorColor = Color.White
@@ -613,7 +606,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     modifier = Modifier
                                                         .size(50.dp)
                                                         .clip(RoundedCornerShape(10.dp))
-                                                        .background(Color(0xFF1D1D1D))
+                                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                                        .background(Color.Black)
                                                 ) {
                                                     Icon(
                                                         imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -645,8 +639,18 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                         Row(
                                             Modifier
                                                 .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSelected) Color(0xFF3F3F3F) else Color(0xFF000000))
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(
+                                                    if (isSelected) Color(0xFF1E1E1E)
+                                                    else Color(0xFF0D0D0D)
+                                                )
+                                                .then(
+                                                    if (isSelected) Modifier.border(
+                                                        1.dp,
+                                                        Color.White.copy(alpha = 0.15f),
+                                                        RoundedCornerShape(10.dp)
+                                                    ) else Modifier
+                                                )
                                                 .clickable { viewModel.onEpisodeSelected(episode.number) }
                                                 .padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
@@ -656,40 +660,50 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     model = thumbnail,
                                                     contentDescription = "Episode ${episode.number} Thumbnail",
                                                     modifier = Modifier
-                                                        .width(100.dp)
+                                                        .width(96.dp)
                                                         .aspectRatio(16f / 9f)
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(Color.DarkGray),
+                                                        .clip(RoundedCornerShape(6.dp)),
                                                     contentScale = ContentScale.Crop
                                                 )
-                                                Spacer(Modifier.width(12.dp))
                                             } else {
+                                                // Stylish gradient placeholder with episode number
                                                 Box(
                                                     modifier = Modifier
-                                                        .width(100.dp)
+                                                        .width(96.dp)
                                                         .aspectRatio(16f / 9f)
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(Color.DarkGray),
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(
+                                                            Brush.linearGradient(
+                                                                listOf(Color(0xFF1A1A2E), Color(0xFF16213E))
+                                                            )
+                                                        ),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Icon(Icons.Default.PlayArrow, null, tint = Color.LightGray)
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        Text(
+                                                            text = "${episode.number}",
+                                                            color = Color.White.copy(alpha = 0.5f),
+                                                            fontSize = 20.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
                                                 }
-                                                Spacer(Modifier.width(12.dp))
                                             }
+                                            Spacer(Modifier.width(12.dp))
 
                                             Column(Modifier.weight(1f)) {
                                                 Text(
                                                     "Episode ${episode.number}",
-                                                    color = Color.White,
-                                                    fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                                    fontSize = 15.sp
+                                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 14.sp
                                                 )
                                                 val title = episode.titles?.firstOrNull()
                                                 if (!title.isNullOrBlank()) {
-                                                    Spacer(Modifier.height(4.dp))
+                                                    Spacer(Modifier.height(3.dp))
                                                     Text(
                                                         title,
-                                                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.LightGray,
+                                                        color = if (isSelected) Color.White.copy(alpha = 0.6f) else Color.Gray,
                                                         fontSize = 12.sp,
                                                         maxLines = 2,
                                                         overflow = TextOverflow.Ellipsis
@@ -699,7 +713,14 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
 
                                             if (isSelected) {
                                                 Spacer(Modifier.width(8.dp))
-                                                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                                Box(
+                                                    Modifier
+                                                        .size(28.dp)
+                                                        .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                }
                                             }
                                         }
                                     }
