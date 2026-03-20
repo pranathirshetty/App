@@ -2978,8 +2978,8 @@ private fun StorageTab(
                     OutlinedButton(
                         onClick = onClearFontCache,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE50914)),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE50914).copy(alpha = 0.5f))),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Clear Font Cache (${formatBytesCompact(storageInfo.fontCache.size)})")
@@ -3160,7 +3160,7 @@ private fun AnimeStorageCard(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = Color(0xFFBF80FF)
+                    tint = Color(0xFFE50914)
                 )
             }
         }
@@ -3237,8 +3237,8 @@ private fun MobileStorageContent(
                  OutlinedButton(
                     onClick = onClearFontCache,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TEXT),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = SolidColor(BORDER)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE50914)),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFE50914).copy(alpha = 0.5f))),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Clear Font Cache (${formatBytesCompact(storageInfo.fontCache.size)})")

@@ -518,7 +518,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                         )
                                                     }
                                                     .clip(RoundedCornerShape(10.dp))
-                                                    .background(Color(0xFF000000))
+                                                    .background(Color(0xFF1A1A1A))
+                                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
                                                     .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) {
                                                         isPageDropdownExpanded = !isPageDropdownExpanded
                                                     }
@@ -599,8 +600,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     colors = OutlinedTextFieldDefaults.colors(
                                                         focusedBorderColor = Color.White.copy(alpha = 0.1f),
                                                         unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                                                        focusedContainerColor = Color(0xFF000000),
-                                                        unfocusedContainerColor = Color(0xFF000000),
+                                                        focusedContainerColor = Color(0xFF141414),
+                                                        unfocusedContainerColor = Color(0xFF141414),
                                                         focusedTextColor = Color.White,
                                                         unfocusedTextColor = Color.White,
                                                         cursorColor = Color.White
@@ -614,7 +615,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     modifier = Modifier
                                                         .size(50.dp)
                                                         .clip(RoundedCornerShape(10.dp))
-                                                        .background(Color(0xFF000000))
+                                                        .background(Color(0xFF1A1A1A))
+                                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
                                                 ) {
                                                     Icon(
                                                         imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -647,7 +649,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                             Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(if (isSelected) Color.White else Color(0xFF000000))
+                                                .background(if (isSelected) Color(0xFF3F3F3F) else Color(0xFF000000))
                                                 .clickable { viewModel.onEpisodeSelected(episode.number) }
                                                 .padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
@@ -681,7 +683,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                             Column(Modifier.weight(1f)) {
                                                 Text(
                                                     "Episode ${episode.number}",
-                                                    color = if (isSelected) Color.Black else Color.White,
+                                                    color = Color.White,
                                                     fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
                                                     fontSize = 15.sp
                                                 )
@@ -690,7 +692,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     Spacer(Modifier.height(4.dp))
                                                     Text(
                                                         title,
-                                                        color = if (isSelected) Color.DarkGray else Color.LightGray,
+                                                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.LightGray,
                                                         fontSize = 12.sp,
                                                         maxLines = 2,
                                                         overflow = TextOverflow.Ellipsis
@@ -700,7 +702,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
 
                                             if (isSelected) {
                                                 Spacer(Modifier.width(8.dp))
-                                                Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                                                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
                                             }
                                         }
                                     }

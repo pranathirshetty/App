@@ -366,7 +366,7 @@ private fun SettingsMenuItem(
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val bgColor by animateColorAsState(
-        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.12f) else Color.Transparent,
         animationSpec = tween(durationMillis = 200)
     )
 
@@ -378,7 +378,7 @@ private fun SettingsMenuItem(
             .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = Color(0xFFBF80FF)),
+                indication = ripple(color = Color.White),
                 onClick = onClick
             )
     ) {
@@ -422,7 +422,7 @@ private fun SubMenuItem(
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val bgColor by animateColorAsState(
-        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.12f) else Color.Transparent,
         animationSpec = tween(durationMillis = 200)
     )
 
@@ -434,7 +434,7 @@ private fun SubMenuItem(
             .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = Color(0xFFBF80FF)),
+                indication = ripple(color = Color.White),
                 onClick = onClick
             )
     ) {
@@ -465,7 +465,7 @@ private fun ToggleMenuItem(
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val bgColor by animateColorAsState(
-        targetValue = if (isHovered) Color(0xFFBF80FF).copy(alpha = 0.12f) else Color.Transparent,
+        targetValue = if (isHovered) Color.White.copy(alpha = 0.12f) else Color.Transparent,
         animationSpec = tween(durationMillis = 200)
     )
 
@@ -477,7 +477,7 @@ private fun ToggleMenuItem(
             .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = Color(0xFFBF80FF)),
+                indication = ripple(color = Color.White),
                 onClick = { onToggle(!isChecked) }
             )
     ) {
@@ -499,7 +499,7 @@ private fun ToggleMenuItem(
                     uncheckedTrackColor = Color(0xFF111111),
                     uncheckedBorderColor = Color(0xFF333333),
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFFBF80FF),
+                    checkedTrackColor = Color.White,
                     checkedBorderColor = Color.Transparent
                 )
             )

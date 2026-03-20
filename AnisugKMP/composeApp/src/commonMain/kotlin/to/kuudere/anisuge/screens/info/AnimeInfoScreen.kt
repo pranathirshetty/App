@@ -2,6 +2,7 @@ package to.kuudere.anisuge.screens.info
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -289,7 +290,8 @@ private fun MobileLayout(
                      Box(
                          Modifier
                              .clip(RoundedCornerShape(8.dp))
-                             .background(Color(0xFF000000))
+                             .background(Color(0xFF1D1D1D))
+                             .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                              .clickable {
                                  if (anime.continueWatching != null && anime.continueWatching.episode != null) {
                                      onWatchEpisode(anime.continueWatching.episode)
@@ -574,8 +576,9 @@ private fun DesktopLayout(
                                 onWatchNow()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D1D1D), contentColor = Color.White),
                         shape = RoundedCornerShape(32.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1138,7 +1141,8 @@ private fun EpisodeListSection(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF000000))
+                .background(Color(0xFF1A1A1A))
+                .border(1.2.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
                 .clickable { showGroupSheet = true }
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
@@ -1253,10 +1257,10 @@ private fun EpisodeListSection(
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color.White.copy(alpha = 0.1f),
-                unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                focusedContainerColor = Color(0xFF000000),
-                unfocusedContainerColor = Color(0xFF000000),
+                focusedBorderColor = Color.White.copy(alpha = 0.18f),
+                unfocusedBorderColor = Color.White.copy(alpha = 0.12f),
+                focusedContainerColor = Color(0xFF141414),
+                unfocusedContainerColor = Color(0xFF141414),
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
                 cursorColor = Color.White
