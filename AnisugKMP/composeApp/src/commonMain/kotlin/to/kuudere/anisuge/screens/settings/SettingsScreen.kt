@@ -1052,13 +1052,27 @@ private fun PreferencesTab(
                         .border(1.dp, BORDER, RoundedCornerShape(8.dp))
                         .padding(12.dp)
                 ) {
-                    Text(
-                        text = uiState.downloadPath.ifBlank { "No path selected" },
-                        color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    val isPathValid = remember(uiState.downloadPath) {
+                        if (uiState.downloadPath.isBlank()) true
+                        else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
+                            color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!isPathValid) {
+                            Text(
+                                "Locked folder: try 'Downloads'",
+                                color = Color.Red.copy(alpha = 0.7f),
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
                 }
                 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -2416,13 +2430,27 @@ private fun MobilePreferencesContent(
                     .border(1.dp, BORDER, RoundedCornerShape(8.dp))
                     .padding(12.dp)
             ) {
-                Text(
-                    text = uiState.downloadPath.ifBlank { "No path selected" },
-                    color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val isPathValid = remember(uiState.downloadPath) {
+                    if (uiState.downloadPath.isBlank()) true
+                    else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
+                        color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!isPathValid) {
+                        Text(
+                            "Locked folder: try 'Downloads'",
+                            color = Color.Red.copy(alpha = 0.7f),
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.width(12.dp))
