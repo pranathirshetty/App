@@ -504,7 +504,7 @@ private fun MobileSettingsList(
             .background(BG)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
-            .padding(top = 80.dp, bottom = 16.dp)
+            .padding(top = 16.dp, bottom = 16.dp)
     ) {
         // Profile Card at the Top
         if (!uiState.isLoadingProfile && uiState.userProfile != null) {
@@ -704,7 +704,7 @@ private fun MobileSettingsDetail(
         // Header with back
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 80.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 16.dp, bottom = 8.dp)
         ) {
             IconButton(onClick = onBack) {
                 Icon(

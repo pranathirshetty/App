@@ -167,6 +167,7 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.pointerInput
 
 enum class AnisugTab { Home, Search, Calendar, Bookmarks, Downloads, Settings }
@@ -282,12 +283,19 @@ fun HomeScreen(
                 }
             } else {
                 // Mobile: Glass layout with overlapping bars
+                val density = LocalDensity.current
+                var topBarHeightPx by remember { mutableStateOf(0) }
+                var bottomBarHeightPx by remember { mutableStateOf(0) }
+                val topBarHeight = with(density) { topBarHeightPx.toDp() }
+                val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
+
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    // Content
+                    // Content — padded so both bars never overlap it
                     Box(
                         Modifier
                             .fillMaxSize()
                             .haze(state = hazeState)
+                            .padding(top = topBarHeight, bottom = bottomBarHeight)
                     ) {
                         AnimatedContent(
                             targetState = currentTab,
@@ -324,7 +332,7 @@ fun HomeScreen(
                         }
                     }
 
-                    // Top Bar
+                    // Top Bar — measured so content knows how tall it is
                     MobileTopBar(
                         avatarUrl = homeState.userProfile?.avatar,
                         onDownloadClick = {
@@ -332,10 +340,12 @@ fun HomeScreen(
                             currentTab = AnisugTab.Downloads
                         },
                         hazeState = hazeState,
-                        modifier = Modifier.align(Alignment.TopCenter)
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onGloballyPositioned { topBarHeightPx = it.size.height }
                     )
 
-                    // Bottom Bar
+                    // Bottom Bar — measured so content knows how tall it is
                     AnisugBottomBar(
                         selectedTab = currentTab,
                         onTabSelect = { newTab ->
@@ -343,7 +353,9 @@ fun HomeScreen(
                             currentTab = newTab
                         },
                         hazeState = hazeState,
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .onGloballyPositioned { bottomBarHeightPx = it.size.height }
                     )
                 }
             }
@@ -879,7 +891,7 @@ private fun FanCarousel(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = hPadding),
             pageSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth().height(cardHeight + 80.dp).padding(top = 80.dp)
+            modifier = Modifier.fillMaxWidth().height(cardHeight)
         ) { fakePage ->
             val pageOffset = (
                 (pagerState.currentPage - fakePage) + pagerState.currentPageOffsetFraction
@@ -1858,7 +1870,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
                     .fillMaxSize()
                     .padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 32.dp, top = if (maxWidth < 800.dp) 88.dp else 20.dp)
+                contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
             ) {
                 item(key = "downloads-header") {
                     DownloadsAnimatedEntry(delayMs = 0) {
