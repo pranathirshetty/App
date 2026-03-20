@@ -1461,7 +1461,7 @@ private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
             Icon(
                 Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Logout",
-                tint = Color(0xFFBF80FF).copy(alpha = iconAlpha),
+                tint = Color(0xFFE50914).copy(alpha = iconAlpha),
                 modifier = Modifier.size(22.dp),
             )
             // Spinner fades in when logging out

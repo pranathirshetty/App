@@ -317,7 +317,7 @@ fun SettingsOverlay(
                             LazyColumn(modifier = Modifier.heightIn(max = 260.dp).fillMaxWidth()) {
                                 item {
                                     ToggleMenuItem(
-                                        icon = { Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White) },
+                                        icon = { Icon(Icons.Default.PlayCircleFilled, contentDescription = null, tint = Color.White) },
                                         title = "Auto Play",
                                         isChecked = uiState.autoPlay,
                                         onToggle = { onAutoPlayToggle(it) }
@@ -403,13 +403,16 @@ private fun SubMenuHeader(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(24.dp))
         }
-        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
     }
 }
 
@@ -441,7 +444,7 @@ private fun SubMenuItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSelected) {
@@ -484,7 +487,7 @@ private fun ToggleMenuItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             icon()
@@ -493,13 +496,13 @@ private fun ToggleMenuItem(
             Switch(
                 checked = isChecked,
                 onCheckedChange = { onToggle(it) },
-                modifier = Modifier.scale(0.85f),
+                modifier = Modifier.scale(0.8f),
                 colors = SwitchDefaults.colors(
                     uncheckedThumbColor = Color(0xFF999999),
-                    uncheckedTrackColor = Color(0xFF111111),
-                    uncheckedBorderColor = Color(0xFF333333),
+                    uncheckedTrackColor = Color(0xFF222222),
+                    uncheckedBorderColor = Color(0xFF444444),
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = Color.White,
+                    checkedTrackColor = Color.White.copy(alpha = 0.5f),
                     checkedBorderColor = Color.Transparent
                 )
             )
