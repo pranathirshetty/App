@@ -10,6 +10,7 @@ import android.net.Uri
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import to.kuudere.anisuge.MainActivity
+import android.provider.DocumentsContract
 
 var currentMainActivity: MainActivity? = null
 var onFolderPickedCallback: ((String) -> Unit)? = null
@@ -26,7 +27,6 @@ fun getPathFromUri(uri: android.net.Uri): String? {
     return null
 }
 
-import android.provider.DocumentsContract
 
 actual val isDesktopPlatform: Boolean = false
 actual val PlatformName: String = "Android"
