@@ -192,14 +192,13 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
         Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .border(1.dp, Color(0xFF000000))
     ) {
         // Top header
         if (uiState.activeSidePanel != "comments" && uiState.activeSidePanel != null) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF000000))
+                    .background(Color(0xFF1D1D1D))
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -518,8 +517,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                         )
                                                     }
                                                     .clip(RoundedCornerShape(10.dp))
-                                                    .background(Color(0xFF1A1A1A))
-                                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                                    .background(Color(0xFF1D1D1D))
                                                     .clickable(enabled = searchQuery.isBlank() && pageGroups.size > 1) {
                                                         isPageDropdownExpanded = !isPageDropdownExpanded
                                                     }
@@ -600,8 +598,8 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     colors = OutlinedTextFieldDefaults.colors(
                                                         focusedBorderColor = Color.White.copy(alpha = 0.1f),
                                                         unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                                                        focusedContainerColor = Color(0xFF141414),
-                                                        unfocusedContainerColor = Color(0xFF141414),
+                                                        focusedContainerColor = Color(0xFF1D1D1D),
+                                                        unfocusedContainerColor = Color(0xFF1D1D1D),
                                                         focusedTextColor = Color.White,
                                                         unfocusedTextColor = Color.White,
                                                         cursorColor = Color.White
@@ -615,8 +613,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                     modifier = Modifier
                                                         .size(50.dp)
                                                         .clip(RoundedCornerShape(10.dp))
-                                                        .background(Color(0xFF1A1A1A))
-                                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                                        .background(Color(0xFF1D1D1D))
                                                 ) {
                                                     Icon(
                                                         imageVector = if (isAscending) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -727,8 +724,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                     .width(with(density) { pageDropdownAnchorSize.width.toDp() })
                                     .heightIn(max = pageDropdownItemHeight * pageDropdownVisibleItems)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF000000)),
+                                    .background(Color(0xFF1D1D1D)),
                                 verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
                                 items(pageGroups, key = { it }) { start ->

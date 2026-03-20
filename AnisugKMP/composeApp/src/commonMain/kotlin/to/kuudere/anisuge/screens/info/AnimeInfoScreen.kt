@@ -1139,8 +1139,7 @@ private fun EpisodeListSection(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF1A1A1A))
-                .border(1.2.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                .background(Color(0xFF1D1D1D))
                 .clickable { showGroupSheet = true }
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
@@ -1175,7 +1174,7 @@ private fun EpisodeListSection(
         if (showGroupSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showGroupSheet = false },
-                containerColor = Color(0xFF000000),
+                containerColor = Color(0xFF1D1D1D),
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                 dragHandle = {
                     Box(
