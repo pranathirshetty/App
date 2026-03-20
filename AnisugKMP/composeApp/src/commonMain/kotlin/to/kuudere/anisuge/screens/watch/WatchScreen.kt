@@ -337,7 +337,7 @@ fun SidePanelContent(uiState: WatchUiState, viewModel: WatchViewModel, animeId: 
                                                 Box(
                                                     Modifier
                                                         .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color(0xFF000000))
+                                                        .background(Color(0xFF1D1D1D))
                                                         .clickable { showWatchlistSheet = true }
                                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                                 ) {
