@@ -69,7 +69,7 @@ import to.kuudere.anisuge.screens.home.HomeOfflineState
 
 // ── Colours ── Black & white only ─────────────────────────────────────────────
 
-private val BG     = Color(0xFF0B0B0B)
+private val BG     = Color(0xFF000000)
 private val BORDER = Color.White.copy(alpha = 0.10f)
 private val MUTED  = Color.White.copy(alpha = 0.50f)
 private val CARD   = Color.White.copy(alpha = 0.03f)

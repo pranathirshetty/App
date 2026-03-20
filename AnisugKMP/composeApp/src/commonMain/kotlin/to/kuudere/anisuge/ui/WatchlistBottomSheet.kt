@@ -43,7 +43,7 @@ fun WatchlistBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF111111),
+        containerColor = Color(0xFF000000),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         dragHandle = {
             Box(

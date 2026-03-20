@@ -186,7 +186,7 @@ fun AuthScreen(
         ) { data ->
             Snackbar(
                 snackbarData = data,
-                containerColor = Color(0xFFB71C1C),
+                containerColor = Color(0xFFBF80FF),
                 contentColor = Color.White,
                 shape = RoundedCornerShape(8.dp),
             )
@@ -265,7 +265,7 @@ private fun DesktopAuthLayout(state: AuthUiState, viewModel: AuthViewModel) {
                         }
                     }
                 }
-                .background(Color(0xFF0A0A0A)),
+                .background(Color(0xFF000000)),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -572,7 +572,7 @@ private fun AnisugTextField(
                         .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
                         .border(
                             width = if (isFocused) 1.5.dp else 1.dp,
-                            color = if (isFocused) Color.White else Color(0xFF333333),
+                            color = if (isFocused) Color.White else Color(0xFF000000),
                             shape = RoundedCornerShape(6.dp)
                         )
                         .padding(horizontal = 14.dp),

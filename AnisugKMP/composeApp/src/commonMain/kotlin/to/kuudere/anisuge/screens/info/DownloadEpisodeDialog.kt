@@ -128,7 +128,7 @@ fun DownloadEpisodeDialog(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF141414),
+        containerColor = Color(0xFF000000),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
@@ -159,7 +159,7 @@ fun DownloadEpisodeDialog(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) Color.White else Color(0xFF222222))
+                                .background(if (isSelected) Color.White else Color(0xFF000000))
                                 .clickable {
                                     selectedServer = server.id
                                     if (server.id == "hiya-dub") selectedAudioLang = "dub"
@@ -193,7 +193,7 @@ fun DownloadEpisodeDialog(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color.White else Color(0xFF222222))
+                                    .background(if (isSelected) Color.White else Color(0xFF000000))
                                     .clickable { selectedAudioLang = code }
                                     .padding(vertical = 10.dp),
                                 contentAlignment = Alignment.Center
@@ -230,7 +230,7 @@ fun DownloadEpisodeDialog(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color.White else Color(0xFF222222))
+                                    .background(if (isSelected) Color.White else Color(0xFF000000))
                                     .clickable { selectedSubLang = sub }
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 contentAlignment = Alignment.Center
@@ -308,10 +308,10 @@ fun DownloadEpisodeDialog(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF000000)),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                            Text("Delete", color = Color(0xFFBF80FF), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
                         }
                     }
                 }

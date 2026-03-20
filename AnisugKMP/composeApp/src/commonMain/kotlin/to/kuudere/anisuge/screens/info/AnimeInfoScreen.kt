@@ -100,7 +100,7 @@ fun AnimeInfoScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (state.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
             }
         } else if (state.error != null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -289,7 +289,7 @@ private fun MobileLayout(
                      Box(
                          Modifier
                              .clip(RoundedCornerShape(8.dp))
-                             .background(Color(0xFF222222))
+                             .background(Color(0xFF000000))
                              .clickable {
                                  if (anime.continueWatching != null && anime.continueWatching.episode != null) {
                                      onWatchEpisode(anime.continueWatching.episode)
@@ -369,7 +369,7 @@ private fun MobileLayout(
                                  Box(
                                      Modifier
                                          .clip(RoundedCornerShape(8.dp))
-                                         .background(Color(0xFF222222))
+                                         .background(Color(0xFF000000))
                                          .clickable { onGenreClick(genre) }
                                          .padding(horizontal = 12.dp, vertical = 6.dp)
                                  ) {
@@ -389,7 +389,7 @@ private fun MobileLayout(
                                  Box(
                                      Modifier
                                          .clip(RoundedCornerShape(8.dp))
-                                         .background(Color(0xFF222222))
+                                         .background(Color(0xFF000000))
                                          .padding(horizontal = 12.dp, vertical = 6.dp)
                                  ) {
                                      Text(studio, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
@@ -595,7 +595,7 @@ private fun DesktopLayout(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(if (state.inWatchlist) Color.White else Color(0xFF1E1E1E))
+                                .background(if (state.inWatchlist) Color.White else Color(0xFF000000))
                                 .border(2.dp, if (state.inWatchlist) Color.Transparent else Color.Transparent, CircleShape)
                                 .clickable { showSheet = true },
                             contentAlignment = Alignment.Center
@@ -750,7 +750,7 @@ private fun DesktopLayout(
                                         .width(200.dp)
                                         .heightIn(max = 300.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF1E1E1E))
+                                        .background(Color(0xFF000000))
                                         .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                                         .verticalScroll(rememberScrollState())
                                         .padding(vertical = 8.dp)
@@ -829,7 +829,7 @@ private fun DesktopLayout(
                                         .padding(top = 48.dp) // Offset below the button
                                         .width(180.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF1E1E1E))
+                                        .background(Color(0xFF000000))
                                         .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                                         .padding(vertical = 8.dp)
                                 ) {
@@ -1138,7 +1138,7 @@ private fun EpisodeListSection(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF1A1A1A))
+                .background(Color(0xFF000000))
                 .clickable { showGroupSheet = true }
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
@@ -1173,7 +1173,7 @@ private fun EpisodeListSection(
         if (showGroupSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showGroupSheet = false },
-                containerColor = Color(0xFF111111),
+                containerColor = Color(0xFF000000),
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                 dragHandle = {
                     Box(
@@ -1255,8 +1255,8 @@ private fun EpisodeListSection(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.White.copy(alpha = 0.1f),
                 unfocusedBorderColor = Color.White.copy(alpha = 0.05f),
-                focusedContainerColor = Color(0xFF1A1A1A),
-                unfocusedContainerColor = Color(0xFF1A1A1A),
+                focusedContainerColor = Color(0xFF000000),
+                unfocusedContainerColor = Color(0xFF000000),
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
                 cursorColor = Color.White
@@ -1304,7 +1304,7 @@ private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: ()
                 .weight(0.45f)
                 .aspectRatio(20f / 9f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A1A1A)),
+                .background(Color(0xFF000000)),
             contentAlignment = Alignment.Center
         ) {
             if (thumbnail != null) {

@@ -128,9 +128,9 @@ import to.kuudere.anisuge.platform.isDesktopPlatform
 import to.kuudere.anisuge.ui.ConfirmDialog
 
 // ── Colors ── Black & white theme ────────────────────────────────────────────────
-private val BG       = Color(0xFF0B0B0B)
-private val BG_CARD  = Color(0xFF141414)
-private val BG_HOVER = Color(0xFF1E1E1E)
+private val BG       = Color(0xFF000000)
+private val BG_CARD  = Color(0xFF0A0A0A)
+private val BG_HOVER = Color(0xFF141414)
 private val BORDER   = Color.White.copy(alpha = 0.08f)
 private val MUTED    = Color.White.copy(alpha = 0.5f)
 private val TEXT     = Color.White
@@ -193,7 +193,7 @@ fun SettingsScreen(
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = if (uiState.errorMessage != null) Color(0xFFB71C1C) else Color(0xFF1B5E20),
+                    containerColor = if (uiState.errorMessage != null) Color(0xFFBF80FF) else Color(0xFF1B5E20),
                     contentColor = Color.White
                 )
             }
@@ -571,7 +571,7 @@ private fun MobileSettingsList(
         MobileSettingsItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             label = "Logout",
-            tint = Color(0xFFEF5350),
+            tint = Color(0xFFBF80FF),
             onClick = onLogout,
             isLoading = isLoggingOut
         )
@@ -1077,7 +1077,7 @@ private fun SessionsTab(
                     Text("Other Sessions", color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     TextButton(
                         onClick = { onDeleteAllSessions() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBF80FF))
                     ) {
                         Text("End All", fontSize = 13.sp)
                     }
@@ -1158,7 +1158,7 @@ private fun SessionCard(
                 onDelete?.let {
                     TextButton(
                         onClick = it,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBF80FF))
                     ) {
                         Text("End", fontSize = 13.sp)
                     }
@@ -1449,8 +1449,8 @@ private fun SyncTab(
                                     .background(
                                         brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
                                             colors = listOf(
-                                                Color(0xFF2A2A2A),
-                                                Color(0xFF1E1E1E)
+                                                Color(0xFF000000),
+                                                Color(0xFF000000)
                                             )
                                         )
                                     )
@@ -1510,13 +1510,13 @@ private fun SyncTab(
 
                         OutlinedButton(
                             onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBF80FF)),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFBF80FF).copy(alpha = 0.5f))),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             if (uiState.isLoadingAniList) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFFEF5350),
+                                    color = Color(0xFFBF80FF),
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp
                                 )
@@ -1650,7 +1650,7 @@ private fun SyncTab(
                             .fillMaxWidth()
                             .height(200.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0D0D0D))
+                            .background(Color(0xFF000000))
                             .padding(8.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
@@ -1658,7 +1658,7 @@ private fun SyncTab(
                             Text(
                                 line,
                                 color = when {
-                                    "ERROR" in line || "✗" in line -> Color(0xFFEF4444)
+                                    "ERROR" in line || "✗" in line -> Color(0xFFBF80FF)
                                     "✓" in line -> Color(0xFF22C55E)
                                     "SKIP" in line -> Color(0xFFEAB308)
                                     else -> Color(0xFF9CA3AF)
@@ -1675,8 +1675,8 @@ private fun SyncTab(
                 if (uiState.isImportingFromAniList || uiState.isExportingToAniList) {
                     OutlinedButton(
                         onClick = onCancel,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBF80FF)),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFBF80FF).copy(alpha = 0.5f))),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Cancel", fontWeight = FontWeight.Medium)
@@ -1864,8 +1864,8 @@ private fun MobileSyncContent(
                                     .background(
                                         brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
                                             colors = listOf(
-                                                Color(0xFF2A2A2A),
-                                                Color(0xFF1E1E1E)
+                                                Color(0xFF000000),
+                                                Color(0xFF000000)
                                             )
                                         )
                                     )
@@ -1923,11 +1923,11 @@ private fun MobileSyncContent(
 
                         TextButton(
                             onClick = if (uiState.isLoadingAniList) ({}) else onDisconnect,
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBF80FF))
                         ) {
                             if (uiState.isLoadingAniList) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFFEF5350),
+                                    color = Color(0xFFBF80FF),
                                     modifier = Modifier.size(14.dp),
                                     strokeWidth = 2.dp
                                 )
@@ -2051,7 +2051,7 @@ private fun MobileSyncContent(
                             .fillMaxWidth()
                             .height(180.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0D0D0D))
+                            .background(Color(0xFF000000))
                             .padding(8.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
@@ -2059,7 +2059,7 @@ private fun MobileSyncContent(
                             Text(
                                 line,
                                 color = when {
-                                    "ERROR" in line || "\u2717" in line -> Color(0xFFEF4444)
+                                    "ERROR" in line || "\u2717" in line -> Color(0xFFBF80FF)
                                     "\u2713" in line -> Color(0xFF22C55E)
                                     "SKIP" in line -> Color(0xFFEAB308)
                                     else -> Color(0xFF9CA3AF)
@@ -2077,8 +2077,8 @@ private fun MobileSyncContent(
                     OutlinedButton(
                         onClick = onCancel,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF5350)),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFEF5350).copy(alpha = 0.5f))),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBF80FF)),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFBF80FF).copy(alpha = 0.5f))),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Cancel", fontWeight = FontWeight.Medium)
@@ -2354,7 +2354,7 @@ private fun MobileSessionsContent(
                     Text("Other Sessions", color = MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     TextButton(
                         onClick = { onDeleteAllSessions() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF5350))
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBF80FF))
                     ) {
                         Text("End All", fontSize = 13.sp)
                     }
@@ -3091,7 +3091,7 @@ private fun AnimeStorageCard(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete",
-                    tint = Color(0xFFEF5350)
+                    tint = Color(0xFFBF80FF)
                 )
             }
         }
@@ -3790,7 +3790,7 @@ private fun ProfileTab(
                     .padding(vertical = 48.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Failed to load profile", color = Color(0xFFEF5350))
+                Text("Failed to load profile", color = Color(0xFFBF80FF))
             }
         }
     }
@@ -3908,7 +3908,7 @@ private fun MobileProfileContent(
                 .padding(vertical = 48.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("Failed to load profile", color = Color(0xFFEF5350))
+            Text("Failed to load profile", color = Color(0xFFBF80FF))
         }
     }
 }

@@ -214,7 +214,7 @@ fun HomeScreen(
         AppComponent.realtimeService.joinRoom(room)
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF0B0B0B))) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF000000))) {
         val isDesktop = maxWidth >= 800.dp
 
         Row(Modifier.fillMaxSize()) {
@@ -273,7 +273,7 @@ fun HomeScreen(
                                 when {
                                     homeState.isLoading && homeState.topAiring.isEmpty() ->
                                         Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                            CircularProgressIndicator(color = Color(0xFFFF4444), strokeWidth = 3.dp)
+                                            CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
                                         }
                                     homeState.isOffline && homeState.topAiring.isEmpty() ->
                                         HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
@@ -283,7 +283,7 @@ fun HomeScreen(
                                                 Text(homeState.error ?: "Unknown error", color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
                                                 Button(
                                                     onClick = { homeViewModel.refresh() },
-                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C))
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
                                                 ) { Text("Retry") }
                                             }
                                         }
@@ -493,7 +493,7 @@ private fun HeroCarousel(
             )
         } else {
             // ── Desktop: full-bleed hero ─────────────────────────────────
-            val bgColor = Color(0xFF0B0B0B)
+            val bgColor = Color(0xFF000000)
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -991,7 +991,7 @@ private fun ContinueWatchingRow(
                             Modifier
                                 .fillMaxWidth(progress)
                                 .fillMaxSize()
-                                .background(Color(0xFFFF4444))
+                                .background(Color(0xFFBF80FF))
                         )
                     }
                     // Hover play and delete overlay
@@ -1131,7 +1131,7 @@ private fun SpotlightTag(index: Int) {
         Box(
             Modifier
                 .size(8.dp)
-                .background(Color(0xFFFF4444), CircleShape)
+                .background(Color(0xFFBF80FF), CircleShape)
         )
         Spacer(Modifier.width(8.dp))
         Text("#${index + 1} Spotlight", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -1225,7 +1225,7 @@ private fun AnisugSidebar(
         Column(
             Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0B0B)),
+                .background(Color(0xFF000000)),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1266,7 +1266,7 @@ private fun AnisugSidebar(
                 SidebarIcon(
                     Icons.Outlined.Home, 
                     isSelected = selectedTab == AnisugTab.Home, 
-                    selectedTint = Color(0xFFFF4444),
+                    selectedTint = Color(0xFFBF80FF),
                     onClick = { onTabSelect(AnisugTab.Home) }
                 )
                 SidebarIcon(
@@ -1303,7 +1303,7 @@ private fun AnisugSidebar(
 private fun SidebarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     isSelected: Boolean,
-    selectedTint: Color = Color(0xFFFF4444),
+    selectedTint: Color = Color(0xFFBF80FF),
     defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
     onClick: () -> Unit = {}
 ) {
@@ -1365,13 +1365,13 @@ private fun LogoutButton(isLoggingOut: Boolean, onLogout: () -> Unit) {
             Icon(
                 Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Logout",
-                tint = Color(0xFFE53935).copy(alpha = iconAlpha),
+                tint = Color(0xFFBF80FF).copy(alpha = iconAlpha),
                 modifier = Modifier.size(22.dp),
             )
             // Spinner fades in when logging out
             if (spinnerAlpha > 0f) {
                 CircularProgressIndicator(
-                    color = Color(0xFFE53935).copy(alpha = spinnerAlpha),
+                    color = Color(0xFFBF80FF).copy(alpha = spinnerAlpha),
                     strokeWidth = 2.dp,
                     modifier = Modifier.size(20.dp),
                 )
@@ -1389,7 +1389,7 @@ private fun MobileTopBar(avatarUrl: String?, onDownloadClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0B0B0B))
+            .background(Color(0xFF000000))
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Row(
@@ -1459,7 +1459,7 @@ private fun AnisugBottomBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0B0B0B))
+            .background(Color(0xFF000000))
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Subtle top separator
@@ -1480,7 +1480,7 @@ private fun AnisugBottomBar(
         BottomBarIcon(
             Icons.Outlined.Home,
             isSelected = selectedTab == AnisugTab.Home,
-            selectedTint = Color(0xFFFF4444),
+            selectedTint = Color(0xFFBF80FF),
             onClick = { onTabSelect(AnisugTab.Home) }
         )
         BottomBarIcon(
@@ -1506,7 +1506,7 @@ private fun AnisugBottomBar(
 private fun BottomBarIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector, 
     isSelected: Boolean,
-    selectedTint: Color = Color(0xFFFF4444),
+    selectedTint: Color = Color(0xFFBF80FF),
     defaultTint: Color = Color.Gray.copy(alpha = 0.4f),
     onClick: () -> Unit = {}
 ) {
@@ -1572,7 +1572,7 @@ fun HomeOfflineState(onRetry: () -> Unit, isLoading: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0B0B0B)),
+            .background(Color(0xFF000000)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -1667,7 +1667,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0B0B)),
+                .background(Color(0xFF000000)),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -1694,7 +1694,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
                     Icon(
                         imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
                         contentDescription = null,
-                        tint = Color(0xFFFF4444).copy(alpha = 0.8f),
+                        tint = Color(0xFFBF80FF).copy(alpha = 0.8f),
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -1735,7 +1735,7 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0B0B0B))
+                .background(Color(0xFF000000))
         ) {
             val cols = when {
                 maxWidth >= 900.dp -> 3

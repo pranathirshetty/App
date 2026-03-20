@@ -73,7 +73,7 @@ fun AnimeCard(
                 .fillMaxWidth()
                 .aspectRatio(3f / 4f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1f2937))
+                .background(Color(0xFF0C0C0C))
         ) {
             // main-image
             val url = when {

@@ -74,7 +74,7 @@ fun ConfirmDialog(
                         .widthIn(max = 380.dp)
                         .padding(horizontal = 24.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFF0D0D0D))
+                        .background(Color(0xFF000000))
                         .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
                         .clickable(
                             onClick = {},

@@ -50,15 +50,15 @@ import to.kuudere.anisuge.data.models.Comment
 
 // ── Colour palette — mirrors Kuudere's zinc/black dark theme ─────────────────
 private val BgBlack      = Color(0xFF000000)
-private val BgDark       = Color(0xFF09090B)    // zinc-950
-private val BgCard       = Color(0xFF18181B)    // zinc-900
-private val BgInput      = Color(0xFF27272A)    // zinc-800 / 50%
+private val BgDark       = Color(0xFF000000)    // zinc-950
+private val BgCard       = Color(0xFF000000)    // zinc-900
+private val BgInput      = Color(0xFF000000)    // zinc-800 / 50%
 private val BorderSub    = Color(0xFF3F3F46)    // zinc-700 / 50%
-private val BorderLine   = Color(0xFF27272A)    // zinc-800 / 80% — thread lines
+private val BorderLine   = Color(0xFF000000)    // zinc-800 / 80% — thread lines
 private val TextPrimary  = Color(0xFFE4E4E7)    // zinc-200
 private val TextSec      = Color(0xFFA1A1AA)    // zinc-400
 private val TextMuted    = Color(0xFF71717A)    // zinc-500
-private val AccentRed    = Color(0xFFEF4444)
+private val AccentRed    = Color(0xFFBF80FF)
 private val AccentBlue   = Color(0xFF3B82F6)
 
 // ── Internal mutable UI model ─────────────────────────────────────────────────

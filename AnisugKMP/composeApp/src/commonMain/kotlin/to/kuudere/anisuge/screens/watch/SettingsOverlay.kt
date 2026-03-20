@@ -3,6 +3,7 @@ package to.kuudere.anisuge.screens.watch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,7 +60,7 @@ fun SettingsOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f))
+            .background(Color.Black.copy(alpha = 0.7f))
             .clickable(onClick = onDismiss),
         contentAlignment = Alignment.Center
     ) {
@@ -69,7 +70,8 @@ fun SettingsOverlay(
                 .widthIn(max = 400.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color.Black.copy(alpha = 0.8f))
+                .background(Color.Black)
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(24.dp))
                 .clickable(enabled = false, onClick = {}) // block touch propagation
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(vertical = 12.dp)
@@ -175,7 +177,7 @@ fun SettingsOverlay(
                                         SettingsMenuItem(
                                             icon = { 
                                                 if (uiState.isUpdatingWatchlist) {
-                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFBF80FF), strokeWidth = 2.dp)
                                                 } else {
                                                     Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
                                                 }
@@ -353,7 +355,11 @@ private fun SettingsMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = ripple(color = Color(0xFFBF80FF)),
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -390,7 +396,11 @@ private fun SubMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = ripple(color = Color(0xFFBF80FF)),
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -413,7 +423,11 @@ private fun ToggleMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle(!isChecked) }
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = ripple(color = Color(0xFFBF80FF)),
+                onClick = { onToggle(!isChecked) }
+            )
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -423,10 +437,10 @@ private fun ToggleMenuItem(
             onCheckedChange = { onToggle(it) },
             colors = SwitchDefaults.colors(
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0xFF333333),
+                uncheckedTrackColor = Color(0xFF000000),
                 uncheckedBorderColor = Color(0xFF555555),
                 checkedThumbColor = Color.Black,
-                checkedTrackColor = Color.White
+                checkedTrackColor = Color(0xFFBF80FF)
             )
         )
     }

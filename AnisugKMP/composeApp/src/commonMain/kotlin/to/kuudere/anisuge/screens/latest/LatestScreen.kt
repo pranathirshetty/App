@@ -60,11 +60,11 @@ fun LatestEpisodesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0B0B0B)
+                    containerColor = Color(0xFF000000)
                 )
             )
         },
-        containerColor = Color(0xFF0B0B0B)
+        containerColor = Color(0xFF000000)
     ) { paddingValues ->
         BoxWithConstraints(
             Modifier

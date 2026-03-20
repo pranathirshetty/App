@@ -67,7 +67,7 @@ fun SearchScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFF0B0B0B)
+        containerColor = Color(0xFF000000)
     ) { _ ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val isSmall = maxWidth < 800.dp
@@ -301,7 +301,7 @@ private fun SmallScreenFilterSection(state: SearchUiState, viewModel: SearchView
                 Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF1C1C1E))
+                    .background(Color(0xFF000000))
                     .clickable { isExpanded = !isExpanded },
                 contentAlignment = Alignment.Center
             ) {
@@ -373,7 +373,8 @@ private fun KSearchInput(
             .height(44.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF1C1C1E))
+            .background(Color(0xFF000000))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -423,7 +424,7 @@ private fun KAdvancedFilterDropdown(
                 .fillMaxWidth()
                 .onSizeChanged { triggerWidthPx = it.width }
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF1C1C1E))
+                .background(Color(0xFF000000))
                 .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
                 .clickable { expanded = !expanded }
                 .padding(horizontal = 12.dp),
@@ -472,7 +473,7 @@ private fun KAdvancedFilterDropdown(
                 .width(triggerWidthDp.coerceAtLeast(160.dp))
                 .heightIn(max = 280.dp),
             offset = DpOffset(0.dp, 6.dp),
-            containerColor = Color(0xFF1C1C1E),
+            containerColor = Color(0xFF000000),
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
             shadowElevation = 8.dp,
@@ -494,7 +495,7 @@ private fun KAdvancedFilterDropdown(
                     text = {
                         Text(
                             item,
-                            color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFEF4444) else if (isSelected) Color.White else Color(0xFFD4D4D8),
+                            color = if (isHovered || (!multiSelect && isSelected)) Color(0xFFBF80FF) else if (isSelected) Color.White else Color(0xFFD4D4D8),
                             fontSize = 13.sp,
                             fontWeight = if (isSelected || isHovered) FontWeight.SemiBold else FontWeight.Normal
                         )
@@ -518,7 +519,7 @@ private fun KAdvancedFilterDropdown(
                                     .size(18.dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(
-                                        if (isSelected) Color(0xFFEF4444)
+                                        if (isSelected) Color(0xFFBF80FF)
                                         else Color.White.copy(alpha = 0.12f)
                                     ),
                                 contentAlignment = Alignment.Center
@@ -534,7 +535,7 @@ private fun KAdvancedFilterDropdown(
                         } else if (isSelected) {
                             Icon(
                                 Icons.Default.CheckCircle, null,
-                                tint = Color(0xFFEF4444),
+                                tint = Color(0xFFBF80FF),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
