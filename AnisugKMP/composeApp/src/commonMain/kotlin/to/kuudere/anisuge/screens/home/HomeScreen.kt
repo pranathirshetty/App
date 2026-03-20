@@ -1794,62 +1794,40 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .padding(horizontal = 40.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color.White.copy(alpha = 0.025f))
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 32.dp, vertical = 28.dp)
+                modifier = Modifier.padding(horizontal = 40.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(88.dp)
+                        .size(80.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(Color(0x33B71C1C), Color.Transparent)
-                            )
-                        ),
+                        .background(Color.White.copy(alpha = 0.05f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
                         contentDescription = null,
-                        tint = Color(0xFFBF80FF).copy(alpha = 0.8f),
-                        modifier = Modifier.size(40.dp)
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(36.dp)
                     )
                 }
+
+                Spacer(Modifier.height(4.dp))
 
                 Text(
                     text = "No Downloads Yet",
                     color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
 
                 Text(
-                    text = "Your offline episodes will appear here.",
+                    text = "Episodes you download will appear here\nand play without an internet connection.",
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
                     textAlign = TextAlign.Center
                 )
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(999.dp))
-                        .padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "Downloaded episodes become instantly playable here.",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
             }
         }
     } else {
