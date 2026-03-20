@@ -60,3 +60,4 @@ scraper-api
 **/*.dylib
 **/*.exe
 /smsKMP
+scraper-api.zip
