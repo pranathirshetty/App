@@ -136,11 +136,14 @@ fun DownloadEpisodeDialog(
         }
     }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF000000),
+        sheetState = sheetState,
+        containerColor = Color(0xFF0D0D0D),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha = 0.2f)) }
     ) {
         Column(
             modifier = Modifier
