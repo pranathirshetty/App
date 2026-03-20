@@ -20,6 +20,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         val DEFAULT_LANG_KEY = booleanPreferencesKey("default_lang")
         val SYNC_PERCENTAGE_KEY = androidx.datastore.preferences.core.intPreferencesKey("sync_percentage")
         val SERVER_PRIORITY_KEY = stringPreferencesKey("server_priority")
+        val DOWNLOAD_PATH_KEY = stringPreferencesKey("download_path")
 
         private val json = Json { ignoreUnknownKeys = true }
     }
@@ -30,6 +31,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val autoSkipOutroFlow: Flow<Boolean> = dataStore.data.map { it[AUTO_SKIP_OUTRO_KEY] ?: false }
     val defaultLangFlow: Flow<Boolean> = dataStore.data.map { it[DEFAULT_LANG_KEY] ?: false }
     val syncPercentageFlow: Flow<Int> = dataStore.data.map { it[SYNC_PERCENTAGE_KEY] ?: 80 }
+    val downloadPathFlow: Flow<String> = dataStore.data.map { it[DOWNLOAD_PATH_KEY] ?: "" }
 
     /**
      * Flow of user-defined server priority list.
@@ -95,5 +97,9 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setSyncPercentage(percentage: Int) {
         dataStore.edit { it[SYNC_PERCENTAGE_KEY] = percentage }
+    }
+
+    suspend fun setDownloadPath(path: String) {
+        dataStore.edit { it[DOWNLOAD_PATH_KEY] = path }
     }
 }

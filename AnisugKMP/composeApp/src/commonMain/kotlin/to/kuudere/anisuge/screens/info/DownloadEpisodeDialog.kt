@@ -17,8 +17,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.data.models.ServerInfo
 import to.kuudere.anisuge.data.models.WatchServerResponse
@@ -44,6 +50,10 @@ fun DownloadEpisodeDialog(
     var selectedSubLang by remember { mutableStateOf<String?>("English") }
     var selectedAudioLang by remember { mutableStateOf<String?>("sub") } // 'sub' or 'dub'
     
+    val serverListState = rememberLazyListState()
+    val subListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
     var availableSubtitles by remember { mutableStateOf<List<String>>(listOf("All", "English")) }
     var availableAudioTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var isLoadingSubs by remember { mutableStateOf(false) }
@@ -150,7 +160,15 @@ fun DownloadEpisodeDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Select Server", color = Color.Gray, fontSize = 14.sp)
                 androidx.compose.foundation.lazy.LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
+                    state = serverListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .draggable(
+                            orientation = Orientation.Horizontal,
+                            state = rememberDraggableState { delta ->
+                                scope.launch { serverListState.scrollBy(-delta) }
+                            }
+                        ),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(availableServers.value.size) { index ->
@@ -221,7 +239,15 @@ fun DownloadEpisodeDialog(
                     Text("No subtitles available", color = Color.Gray, fontSize = 13.sp)
                 } else {
                     androidx.compose.foundation.lazy.LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
+                        state = subListState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .draggable(
+                                orientation = Orientation.Horizontal,
+                                state = rememberDraggableState { delta ->
+                                    scope.launch { subListState.scrollBy(-delta) }
+                                }
+                            ),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(availableSubtitles.size) { index ->
@@ -243,6 +269,56 @@ fun DownloadEpisodeDialog(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            // Download Path Selection
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val settingsStore = to.kuudere.anisuge.AppComponent.settingsStore
+                val downloadPath by settingsStore.downloadPathFlow.collectAsState("")
+                val coroutineScope = rememberCoroutineScope()
+                
+                Text(text = "Download Location", color = Color.Gray, fontSize = 14.sp)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1D1D1D))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = if (downloadPath.isBlank()) "Default Downloads" else downloadPath,
+                            color = if (downloadPath.isBlank()) Color.Gray else Color.White,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Button(
+                        onClick = { 
+                            to.kuudere.anisuge.platform.pickFolder { newPath ->
+                                coroutineScope.launch {
+                                    settingsStore.setDownloadPath(newPath)
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.1f),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Change", fontSize = 11.sp)
                     }
                 }
             }

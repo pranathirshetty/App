@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okio.FileSystem
 import okio.Path.Companion.toPath
@@ -132,7 +133,8 @@ object DownloadManager {
                 }
 
                 // Create folder
-                val baseDir = getDownloadsDirectory()
+                val currentPath = AppComponent.settingsStore.downloadPathFlow.first()
+                val baseDir = if (currentPath.isNotBlank()) currentPath else getDownloadsDirectory()
                 val animeSafe = task.animeId.replace("[^A-Za-z0-9]".toRegex(), "_")
                 val epDir = "$baseDir/$animeSafe/ep_${task.episodeNumber}"
                 FileSystem.SYSTEM.createDirectories(epDir.toPath())

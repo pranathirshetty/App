@@ -71,3 +71,24 @@ internal actual fun internalOpenUrl(url: String) {
         e.printStackTrace()
     }
 }
+
+actual fun pickFolder(onPathSelected: (String) -> Unit) {
+    try {
+        // Run on AWT thread
+        java.awt.EventQueue.invokeLater {
+            val chooser = javax.swing.JFileChooser().apply {
+                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                dialogTitle = "Select Download Folder"
+                isAcceptAllFileFilterUsed = false
+            }
+            
+            // Try to set current path if possible
+            val result = chooser.showOpenDialog(null)
+            if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+                onPathSelected(chooser.selectedFile.absolutePath)
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}

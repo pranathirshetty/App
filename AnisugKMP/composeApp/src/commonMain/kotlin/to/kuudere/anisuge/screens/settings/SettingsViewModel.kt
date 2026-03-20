@@ -93,6 +93,7 @@ data class SettingsUiState(
     val deleteAnimeTitle: String? = null,
     val showClearCacheConfirm: Boolean = false,
     val isOffline: Boolean = false,
+    val downloadPath: String = "",
 )
 
 sealed class SettingsTab {
@@ -196,6 +197,12 @@ class SettingsViewModel(
         viewModelScope.launch {
             serverRepository.servers.collect { servers ->
                 _uiState.update { it.copy(availableServers = servers) }
+            }
+        }
+
+        viewModelScope.launch {
+            settingsStore.downloadPathFlow.collect { v ->
+                _uiState.update { it.copy(downloadPath = v) }
             }
         }
     }
@@ -435,6 +442,12 @@ class SettingsViewModel(
     fun setSkipIntro(enabled: Boolean) = updatePreference { it.copy(skipIntro = enabled) }
     fun setSkipOutro(enabled: Boolean) = updatePreference { it.copy(skipOutro = enabled) }
     fun setSyncPercentage(percentage: Int) = updatePreference { it.copy(syncPercentage = percentage.coerceIn(50, 100)) }
+
+    fun setDownloadPath(path: String) {
+        viewModelScope.launch {
+            settingsStore.setDownloadPath(path)
+        }
+    }
 
     // ==================== Sessions ====================
 

@@ -23,4 +23,7 @@ fun openUrl(url: String) {
     internalOpenUrl(url)
 }
 
+/** Opens a platform-specific folder picker */
+expect fun pickFolder(onPathSelected: (String) -> Unit)
+
 internal expect fun internalOpenUrl(url: String)

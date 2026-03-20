@@ -773,6 +773,7 @@ private fun MobileSettingsDetail(
                     onSkipOutroChange = viewModel::setSkipOutro,
                     onDefaultLangChange = viewModel::setDefaultLang,
                     onSyncPercentageChange = viewModel::setSyncPercentage,
+                    onDownloadPathChange = viewModel::setDownloadPath,
                     onSave = viewModel::savePreferences
                 )
                 is SettingsTab.Sessions -> MobileSessionsContent(
@@ -851,6 +852,7 @@ private fun SettingsContent(
                 onSkipOutroChange = viewModel::setSkipOutro,
                 onDefaultLangChange = viewModel::setDefaultLang,
                 onSyncPercentageChange = viewModel::setSyncPercentage,
+                onDownloadPathChange = viewModel::setDownloadPath,
                 onSave = viewModel::savePreferences
             )
             is SettingsTab.Sessions -> SessionsTab(
@@ -912,6 +914,7 @@ private fun PreferencesTab(
     onSkipOutroChange: (Boolean) -> Unit,
     onDefaultLangChange: (Boolean) -> Unit,
     onSyncPercentageChange: (Int) -> Unit,
+    onDownloadPathChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1026,6 +1029,50 @@ private fun PreferencesTab(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Download Path Section - Full Width
+        SettingCard(
+            title = "Download Path",
+            description = "Custom directory for your downloaded anime files",
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(BG)
+                        .border(1.dp, BORDER, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = uiState.downloadPath.ifBlank { "No path selected" },
+                        color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Button(
+                    onClick = { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Select", fontWeight = FontWeight.Medium)
+                }
             }
         }
 
@@ -2273,6 +2320,7 @@ private fun MobilePreferencesContent(
     onSkipOutroChange: (Boolean) -> Unit,
     onDefaultLangChange: (Boolean) -> Unit,
     onSyncPercentageChange: (Int) -> Unit,
+    onDownloadPathChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -2340,6 +2388,56 @@ private fun MobilePreferencesContent(
             )
             Spacer(modifier = Modifier.width(16.dp))
             Text("${uiState.preferences.syncPercentage}%", color = TEXT, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = BORDER, modifier = Modifier.padding(vertical = 16.dp))
+
+        Text(
+            "Download Path",
+            color = TEXT,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            "Custom directory for your downloaded anime files",
+            color = MUTED,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(BG_CARD)
+                    .border(1.dp, BORDER, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = uiState.downloadPath.ifBlank { "No path selected" },
+                    color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Button(
+                onClick = { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text("Select", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            }
         }
 
         if (uiState.hasPreferencesChanges) {

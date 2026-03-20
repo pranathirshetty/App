@@ -11,6 +11,23 @@ import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import to.kuudere.anisuge.MainActivity
 
+var currentMainActivity: MainActivity? = null
+var onFolderPickedCallback: ((String) -> Unit)? = null
+
+fun getPathFromUri(uri: android.net.Uri): String? {
+    if (uri.scheme == "file") return uri.path
+    if (uri.scheme == "content") {
+        val docId = try { DocumentsContract.getTreeDocumentId(uri) } catch (e: Exception) { null }
+        if (docId != null && docId.startsWith("primary:")) {
+            val relativePath = docId.substringAfter("primary:")
+            return "${android.os.Environment.getExternalStorageDirectory()}/$relativePath"
+        }
+    }
+    return null
+}
+
+import android.provider.DocumentsContract
+
 actual val isDesktopPlatform: Boolean = false
 actual val PlatformName: String = "Android"
 
@@ -78,4 +95,9 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 @Composable
 actual fun SyncFullscreen(isFullscreen: Boolean) {
     // Android is mostly handled by LockScreenOrientation's insets controller
+}
+
+actual fun pickFolder(onPathSelected: (String) -> Unit) {
+    onFolderPickedCallback = onPathSelected
+    currentMainActivity?.openFolderPicker()
 }
