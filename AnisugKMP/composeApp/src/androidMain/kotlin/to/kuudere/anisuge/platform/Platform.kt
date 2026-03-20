@@ -21,7 +21,24 @@ fun getPathFromUri(uri: android.net.Uri): String? {
         val docId = try { DocumentsContract.getTreeDocumentId(uri) } catch (e: Exception) { null }
         if (docId != null && docId.startsWith("primary:")) {
             val relativePath = docId.substringAfter("primary:")
-            return "${android.os.Environment.getExternalStorageDirectory()}/$relativePath"
+            val path = "${android.os.Environment.getExternalStorageDirectory()}/$relativePath"
+            
+            // Basic write check on Android
+            try {
+                val testFile = java.io.File(path, ".anisug_test")
+                if (testFile.createNewFile()) {
+                    testFile.delete()
+                    return path
+                }
+            } catch (e: Exception) {
+                // Not writable via standard File APIs
+                android.widget.Toast.makeText(
+                    androidAppContext,
+                    "Access restricted. Try choosing a subfolder in 'Downloads'.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            return path
         }
     }
     return null
@@ -100,4 +117,20 @@ actual fun SyncFullscreen(isFullscreen: Boolean) {
 actual fun pickFolder(onPathSelected: (String) -> Unit) {
     onFolderPickedCallback = onPathSelected
     currentMainActivity?.openFolderPicker()
+}
+
+actual fun isFolderWritable(path: String): Boolean {
+    if (path.isEmpty()) return true
+    val file = java.io.File(path)
+    return try {
+        val testFile = java.io.File(file, ".anisug_test_write")
+        if (testFile.createNewFile()) {
+            testFile.delete()
+            true
+        } else {
+             file.canWrite()
+        }
+    } catch (e: Exception) {
+        false
+    }
 }

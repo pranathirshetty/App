@@ -310,7 +310,13 @@ object DownloadManager {
                 }
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
-                    updateTask(taskId) { it.copy(status = "Failed: ${e.message}") }
+                    val message = e.message ?: "Unknown error"
+                    val finalStatus = if (message.contains("EPERM") || message.contains("Permission denied")) {
+                        "Failed: Permission denied. Try using 'Downloads' folder."
+                    } else {
+                        "Failed: $message"
+                    }
+                    updateTask(taskId) { it.copy(status = finalStatus) }
                 }
             }
         }

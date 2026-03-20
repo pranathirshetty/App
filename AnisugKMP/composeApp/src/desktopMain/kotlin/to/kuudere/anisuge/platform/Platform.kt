@@ -92,3 +92,17 @@ actual fun pickFolder(onPathSelected: (String) -> Unit) {
         e.printStackTrace()
     }
 }
+
+actual fun isFolderWritable(path: String): Boolean {
+    if (path.isBlank()) return true
+    val file = java.io.File(path)
+    return try {
+        if (!file.exists()) {
+            file.parentFile?.canWrite() ?: true
+        } else {
+            file.isDirectory && file.canWrite()
+        }
+    } catch (e: Exception) {
+        false
+    }
+}

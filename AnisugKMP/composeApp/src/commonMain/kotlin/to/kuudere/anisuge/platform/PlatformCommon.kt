@@ -26,4 +26,29 @@ fun openUrl(url: String) {
 /** Opens a platform-specific folder picker */
 expect fun pickFolder(onPathSelected: (String) -> Unit)
 
+/** Returns true if the app has permission to write and create files in the given directory. */
+expect fun isFolderWritable(path: String): Boolean
+
+/** Converts a raw technical path into a human-friendly display string. */
+fun formatDisplayPath(path: String): String {
+    if (path.isBlank()) return "Default Downloads"
+    
+    var display = path
+    
+    // Android common paths
+    if (display.startsWith("/storage/emulated/0")) {
+        display = display.replace("/storage/emulated/0/Download", "Downloads")
+        display = display.replace("/storage/emulated/0", "Internal Storage")
+    }
+    
+    // Linux/macOS common paths
+    val home = System.getProperty("user.home") ?: ""
+    if (home.isNotBlank() && display.startsWith(home)) {
+        display = display.replace(home + "/Downloads", "Downloads")
+        display = display.replace(home, "Home")
+    }
+
+    return display.trim('/').replace("/", " > ")
+}
+
 internal expect fun internalOpenUrl(url: String)

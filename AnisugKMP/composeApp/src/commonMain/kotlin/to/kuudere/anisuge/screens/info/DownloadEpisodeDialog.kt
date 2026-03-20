@@ -59,6 +59,13 @@ fun DownloadEpisodeDialog(
     var isLoadingSubs by remember { mutableStateOf(false) }
     var estimatedSizeBytes by remember { mutableStateOf(0L) }
 
+    val settingsStore = to.kuudere.anisuge.AppComponent.settingsStore
+    val downloadPath by settingsStore.downloadPathFlow.collectAsState("")
+    val isPathValid = remember(downloadPath) { 
+        if (downloadPath.isBlank()) true 
+        else to.kuudere.anisuge.platform.isFolderWritable(downloadPath)
+    }
+
     val downloadTasks by to.kuudere.anisuge.utils.DownloadManager.tasks.collectAsState()
     val currentTask = downloadTasks.find { it.animeId == animeId && it.episodeNumber == episodeNumber }
 
@@ -278,10 +285,6 @@ fun DownloadEpisodeDialog(
 
             // Download Path Selection
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val settingsStore = to.kuudere.anisuge.AppComponent.settingsStore
-                val downloadPath by settingsStore.downloadPathFlow.collectAsState("")
-                val coroutineScope = rememberCoroutineScope()
-                
                 Text(text = "Download Location", color = Color.Gray, fontSize = 14.sp)
                 
                 Row(
@@ -297,7 +300,7 @@ fun DownloadEpisodeDialog(
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         Text(
-                            text = if (downloadPath.isBlank()) "Default Downloads" else downloadPath,
+                            text = to.kuudere.anisuge.platform.formatDisplayPath(downloadPath),
                             color = if (downloadPath.isBlank()) Color.Gray else Color.White,
                             fontSize = 11.sp,
                             maxLines = 1,
@@ -308,7 +311,7 @@ fun DownloadEpisodeDialog(
                     Button(
                         onClick = { 
                             to.kuudere.anisuge.platform.pickFolder { newPath ->
-                                coroutineScope.launch {
+                                scope.launch {
                                     settingsStore.setDownloadPath(newPath)
                                 }
                             }
@@ -407,7 +410,7 @@ fun DownloadEpisodeDialog(
                             onDismiss()
                         }
                     },
-                    enabled = !isFinished,
+                    enabled = !isFinished && isPathValid,
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
@@ -420,9 +423,9 @@ fun DownloadEpisodeDialog(
                     val sizeText = if (estimatedSizeBytes > 0) " (~${formatFileSize(estimatedSizeBytes)})" else ""
                     Text(
                         text = when {
-                            currentTask == null -> "Start Download$sizeText"
+                            currentTask == null -> if (isPathValid) "Start Download$sizeText" else "Choose Valid Folder"
                             isFinished -> "Downloaded"
-                            currentTask?.status?.startsWith("Failed") == true -> "Retry Download"
+                            currentTask?.status?.startsWith("Failed") == true -> if (isPathValid) "Retry Download" else "Choose Valid Folder"
                             else -> "Keep Downloading in Background"
                         },
                         color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
