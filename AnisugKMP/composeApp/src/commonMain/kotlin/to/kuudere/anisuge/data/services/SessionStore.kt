@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.Flow
 import to.kuudere.anisuge.data.models.SessionInfo
 
 /**
@@ -18,6 +19,11 @@ class SessionStore(private val dataStore: DataStore<Preferences>) {
     companion object {
         private val SESSION_KEY = stringPreferencesKey("session_info")
     }
+
+    val sessionFlow: Flow<SessionInfo?> = dataStore.data
+        .map { prefs ->
+            prefs[SESSION_KEY]?.let { Json.decodeFromString(it) }
+        }
 
     suspend fun save(session: SessionInfo) {
         dataStore.edit { prefs ->

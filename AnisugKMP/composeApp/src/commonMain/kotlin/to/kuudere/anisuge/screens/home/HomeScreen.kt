@@ -1,5 +1,7 @@
 package to.kuudere.anisuge.screens.home
 
+import to.kuudere.anisuge.ui.OfflineState
+
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -203,10 +205,8 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
-        homeViewModel.refresh()
-        searchViewModel.search()
-        watchlistViewModel.refresh()
-        scheduleViewModel.refresh()
+        // Loging states are now reactive — ViewModels handle their own initial check
+        // but we can still trigger a global sync here if needed.
     }
 
     // Join room based on current tab
@@ -413,7 +413,7 @@ private fun TabContent(
                         CircularProgressIndicator(color = Color(0xFFBF80FF), strokeWidth = 3.dp)
                     }
                 homeState.isOffline && homeState.topAiring.isEmpty() ->
-                    HomeOfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
+                    OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
                 homeState.error != null && homeState.topAiring.isEmpty() ->
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1688,82 +1688,8 @@ private object Uri {
 
 // ── Offline State ─────────────────────────────────────────────────────────
 
-@Composable
-fun HomeOfflineState(onRetry: () -> Unit, isLoading: Boolean = false) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF000000)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(horizontal = 40.dp)
-        ) {
-            // Icon
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.WifiOff,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.4f),
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+// Removed HomeOfflineState, using shared OfflineState instead
 
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text = "No Internet Connection",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = "Check your connection and tap Retry.\nYou can still browse your Downloads while offline.",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Button(
-                onClick = onRetry,
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor   = Color.Black,
-                    disabledContainerColor = Color.White.copy(alpha = 0.7f),
-                    disabledContentColor   = Color.Black.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text("Retrying…", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                } else {
-                    Text("Retry", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                }
-            }
-        }
-    }
-}
 
 // ── Downloads Tab ─────────────────────────────────────────────────────────
 
@@ -1786,47 +1712,31 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
 
     if (tasks.isEmpty()) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF000000)),
-            contentAlignment = Alignment.Center
+            modifier = Modifier.fillMaxSize().padding(top = 48.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(horizontal = 40.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text = "No Downloads Yet",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Outlined.Download,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.size(56.dp),
                 )
-
+                Text(
+                    text = "No downloads yet",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 Text(
                     text = "Episodes you download will appear here\nand play without an internet connection.",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
-                    textAlign = TextAlign.Center
+                    color = Color.White.copy(alpha = 0.45f),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp),
                 )
             }
         }

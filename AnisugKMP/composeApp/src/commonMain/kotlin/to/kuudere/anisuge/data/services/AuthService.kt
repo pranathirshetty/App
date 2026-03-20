@@ -29,11 +29,16 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.JsonObject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class AuthService(
     private val sessionStore: SessionStore,
     private val httpClient: HttpClient,
 ) {
+    private val _authState = MutableStateFlow<SessionCheckResult>(SessionCheckResult.NoSession)
+    val authState: StateFlow<SessionCheckResult> = _authState.asStateFlow()
     companion object {
         const val BASE_URL = "https://anime.anisurge.qzz.io"
     }
@@ -52,7 +57,9 @@ class AuthService(
         val body: AuthResponse = response.body()
         if (!body.success || body.session == null)
             throw Exception(body.message ?: "Login failed")
-        return body.session.toSessionInfo().also { sessionStore.save(it) }
+        val session = body.session.toSessionInfo().also { sessionStore.save(it) }
+        _authState.value = SessionCheckResult.Valid(session, body.user)
+        return session
     }
 
     suspend fun register(email: String, password: String, username: String): SessionInfo {
@@ -65,7 +72,9 @@ class AuthService(
         val body: AuthResponse = response.body()
         if (!body.success || body.session == null)
             throw Exception(body.message ?: "Registration failed")
-        return body.session.toSessionInfo().also { sessionStore.save(it) }
+        val session = body.session.toSessionInfo().also { sessionStore.save(it) }
+        _authState.value = SessionCheckResult.Valid(session, body.user)
+        return session
     }
 
     suspend fun forgotPassword(email: String): String {
@@ -99,19 +108,29 @@ class AuthService(
 
     /** Returns true if there is a valid, non-expired stored session. */
     suspend fun checkSession(): SessionCheckResult {
-        val stored = sessionStore.get() ?: return SessionCheckResult.NoSession
-        if (sessionStore.isExpired(stored)) return SessionCheckResult.Expired
+        val stored = sessionStore.get()
+        if (stored == null) {
+            _authState.value = SessionCheckResult.NoSession
+            return SessionCheckResult.NoSession
+        }
+        if (sessionStore.isExpired(stored)) {
+            _authState.value = SessionCheckResult.Expired
+            return SessionCheckResult.Expired
+        }
 
         return try {
             val response = httpClient.get("$BASE_URL/api/user/current") {
                 header("Cookie", sessionToCookie(stored))
             }
             val body: CurrentUserResponse = response.body()
-            if (body.success != false) SessionCheckResult.Valid(stored, body.user)
-            else SessionCheckResult.Expired
+            if (body.success != false) {
+                SessionCheckResult.Valid(stored, body.user).also { _authState.value = it }
+            } else {
+                SessionCheckResult.Expired.also { _authState.value = it }
+            }
         } catch (e: Exception) {
             // Network error — session might still be valid, just no connectivity
-            SessionCheckResult.NetworkError
+            SessionCheckResult.NetworkError.also { _authState.value = it }
         }
     }
 
@@ -131,6 +150,7 @@ class AuthService(
             println("[AuthService] logout API call failed (proceeding with local clear): ${e.message}")
         } finally {
             sessionStore.clear()
+            _authState.value = SessionCheckResult.NoSession
         }
     }
 

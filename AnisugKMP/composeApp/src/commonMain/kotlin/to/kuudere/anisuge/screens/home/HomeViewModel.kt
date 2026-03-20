@@ -42,38 +42,57 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
-    init { refresh() }
+    init {
+        scope.launch {
+            authService.authState.collect { result ->
+                val userProfile = (result as? SessionCheckResult.Valid)?.user
+                _uiState.update { it.copy(userProfile = userProfile) }
+
+                if (userProfile != null) {
+                    userProfile.effectiveId?.let { uid ->
+                        realtimeService.connect(
+                            to.kuudere.anisuge.data.models.UserInfoData(
+                                userId = uid,
+                                username = userProfile.username ?: "User",
+                                avatar = userProfile.avatar
+                            )
+                        )
+                    }
+                    fetchPersonalizedData()
+                } else {
+                    realtimeService.disconnect()
+                }
+            }
+        }
+        refresh()
+    }
+
+    private fun fetchPersonalizedData() {
+        scope.launch {
+            try {
+                val continueWatching = homeService.fetchContinueWatching()
+                _uiState.update { it.copy(continueWatching = continueWatching) }
+            } catch (e: Exception) {
+                println("[HomeVM] Failed to fetch personalized data: ${e.message}")
+            }
+        }
+    }
 
     fun refresh() {
         scope.launch {
             _uiState.update { it.copy(isLoading = true, isOffline = false, error = null) }
             try {
-                val userRes = authService.checkSession()
-                val userProfile = (userRes as? SessionCheckResult.Valid)?.user
-                
-                userProfile?.let { prof ->
-                    prof.effectiveId?.let { uid ->
-                        realtimeService.connect(
-                            to.kuudere.anisuge.data.models.UserInfoData(
-                                userId = uid,
-                                username = prof.username ?: "User",
-                                avatar = prof.avatar
-                            )
-                        )
-                    }
-                }
+                // Trigger auth check — results will flow into our collector in init
+                authService.checkSession()
 
                 val homeData = homeService.fetchHomeData()
-                val continueWatching = homeService.fetchContinueWatching()
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
                         isLoading        = false,
-                        userProfile      = userProfile,
                         topAiring        = homeData?.topAired    ?: emptyList(),
                         latestEpisodes   = homeData?.latestEps   ?: emptyList(),
                         newOnSite        = homeData?.lastUpdated ?: emptyList(),
                         topUpcoming      = homeData?.topUpcoming ?: emptyList(),
-                        continueWatching = continueWatching,
                     )
                 }
             } catch (e: Exception) {

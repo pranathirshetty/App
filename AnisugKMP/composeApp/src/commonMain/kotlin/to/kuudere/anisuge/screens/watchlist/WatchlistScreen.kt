@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +34,7 @@ import coil3.compose.AsyncImage
 
 import to.kuudere.anisuge.data.models.AnimeItem
 import to.kuudere.anisuge.ui.AnimeCard
-import to.kuudere.anisuge.screens.home.HomeOfflineState
+import to.kuudere.anisuge.ui.OfflineState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -454,7 +455,7 @@ fun WatchlistScreen(
             val showOffline = state.isOffline && state.items.isEmpty()
 
             if (showOffline) {
-                HomeOfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) }, isLoading = state.isLoading)
+                OfflineState(onRetry = { viewModel.onFolderChange(state.selectedFolder) }, isLoading = state.isLoading)
             } else {
                 if (isDesktop) {
                     searchOptionsBlock(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 16.dp, bottom = 8.dp))
@@ -555,12 +556,28 @@ fun WatchlistScreen(
                     } else if (!hasAnyItems && !state.isLoading) {
                         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                             Box(Modifier.fillMaxWidth().height(300.dp), Alignment.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.SentimentDissatisfied, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
-                                    Spacer(Modifier.height(16.dp))
-                                    Text("Nothing here", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("This list is empty", color = Color.Gray, fontSize = 16.sp)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Inventory2,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.25f),
+                                        modifier = Modifier.size(56.dp),
+                                    )
+                                    Text(
+                                        text = "Nothing here",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = "This list is currently empty.",
+                                        color = Color.White.copy(alpha = 0.45f),
+                                        fontSize = 13.sp,
+                                        textAlign = TextAlign.Center,
+                                    )
                                 }
                             }
                         }

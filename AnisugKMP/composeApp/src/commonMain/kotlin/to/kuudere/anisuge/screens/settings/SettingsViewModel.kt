@@ -24,6 +24,7 @@ import to.kuudere.anisuge.data.services.SettingsStore
 import to.kuudere.anisuge.data.services.StorageService
 import to.kuudere.anisuge.data.services.AuthService
 import to.kuudere.anisuge.data.models.SessionCheckResult
+import to.kuudere.anisuge.utils.isNetworkError
 
 data class SettingsUiState(
     // Loading states
@@ -91,6 +92,7 @@ data class SettingsUiState(
     val deleteAnimeId: String? = null,
     val deleteAnimeTitle: String? = null,
     val showClearCacheConfirm: Boolean = false,
+    val isOffline: Boolean = false,
 )
 
 sealed class SettingsTab {
@@ -119,41 +121,52 @@ class SettingsViewModel(
     private var exportJob: Job? = null
 
     init {
-        loadUserProfile()
-        loadPreferences()
-        loadSessions()
-        
+        // Reactive Authentication: any login/logout event automatically triggers data population
+        viewModelScope.launch {
+            authService.authState.collect { result ->
+                if (result is SessionCheckResult.Valid) {
+                    _uiState.update { it.copy(userProfile = result.user, isLoadingProfile = false) }
+                    loadPreferences()
+                    loadSessions()
+                } else if (result is SessionCheckResult.NoSession || result is SessionCheckResult.Expired) {
+                    _uiState.update { it.copy(userProfile = null, sessions = emptyList()) }
+                }
+            }
+        }
+
+        refresh()
+
         // Watch for local changes (e.g. from player) so the UI stays in sync
         viewModelScope.launch {
-            settingsStore.autoPlayFlow.collect { v -> 
+            settingsStore.autoPlayFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(autoPlay = v)) }
                 }
             }
         }
         viewModelScope.launch {
-            settingsStore.autoNextFlow.collect { v -> 
+            settingsStore.autoNextFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(autoNext = v)) }
                 }
             }
         }
         viewModelScope.launch {
-            settingsStore.autoSkipIntroFlow.collect { v -> 
+            settingsStore.autoSkipIntroFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(skipIntro = v)) }
                 }
             }
         }
         viewModelScope.launch {
-            settingsStore.autoSkipOutroFlow.collect { v -> 
+            settingsStore.autoSkipOutroFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(skipOutro = v)) }
                 }
             }
         }
         viewModelScope.launch {
-            settingsStore.defaultLangFlow.collect { v -> 
+            settingsStore.defaultLangFlow.collect { v ->
                 if (!_uiState.value.hasPreferencesChanges) {
                     _uiState.update { it.copy(preferences = it.preferences.copy(defaultLang = v)) }
                 }
@@ -188,9 +201,13 @@ class SettingsViewModel(
     }
 
     fun refresh() {
-        loadUserProfile()
-        loadPreferences()
-        loadSessions()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingProfile = true, isLoading = true) }
+            // Triggering the auth check updates authService.authState,
+            // which in turn triggers our reactive collection above.
+            authService.checkSession()
+            _uiState.update { it.copy(isLoadingProfile = false, isLoading = false) }
+        }
     }
 
     fun clearMessages() {
@@ -232,20 +249,36 @@ class SettingsViewModel(
 
     fun loadUserProfile() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingProfile = true) }
-            val response = settingsService.getUserProfile()
-            if (response?.success == true && response.user != null) {
-                _uiState.update {
-                    it.copy(
-                        userProfile = response.user,
-                        isLoadingProfile = false
-                    )
+            _uiState.update { it.copy(isLoadingProfile = true, isOffline = false) }
+            // Guard: ensure a valid session exists before hitting API
+            val sessionResult = authService.checkSession()
+            if (sessionResult !is SessionCheckResult.Valid) {
+                _uiState.update { it.copy(isLoadingProfile = false) }
+                return@launch
+            }
+            try {
+                val response = settingsService.getUserProfile()
+                if (response?.success == true && response.user != null) {
+                    _uiState.update {
+                        it.copy(
+                            userProfile = response.user,
+                            isLoadingProfile = false,
+                            isOffline = false
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingProfile = false,
+                            errorMessage = "Failed to load user profile"
+                        )
+                    }
                 }
-            } else {
+            } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoadingProfile = false,
-                        errorMessage = "Failed to load user profile"
+                        isOffline = e.isNetworkError()
                     )
                 }
             }
@@ -312,32 +345,42 @@ class SettingsViewModel(
 
     fun loadPreferences() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            val response = settingsService.getPreferences()
-            if (response?.success == true && response.preferences != null) {
-                originalPreferences = response.preferences
-                _uiState.update {
-                    it.copy(
-                        preferences = response.preferences,
-                        isLoading = false,
-                        hasPreferencesChanges = false
-                    )
+            _uiState.update { it.copy(isLoading = true, isOffline = false) }
+            try {
+                val response = settingsService.getPreferences()
+                if (response?.success == true && response.preferences != null) {
+                    originalPreferences = response.preferences
+                    _uiState.update {
+                        it.copy(
+                            preferences = response.preferences,
+                            isLoading = false,
+                            hasPreferencesChanges = false,
+                            isOffline = false
+                        )
+                    }
+                    // Also sync local settings store
+                    response.preferences.let { prefs ->
+                        settingsStore.setAutoPlay(prefs.autoPlay)
+                        settingsStore.setAutoNext(prefs.autoNext)
+                        settingsStore.setAutoSkipIntro(prefs.skipIntro)
+                        settingsStore.setAutoSkipOutro(prefs.skipOutro)
+                        settingsStore.setDefaultLang(prefs.defaultLang)
+                        settingsStore.setSyncPercentage(prefs.syncPercentage)
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = response?.message ?: "Failed to load preferences"
+                        )
+                    }
                 }
-                // Also sync local settings store
-                response.preferences.let { prefs ->
-                    settingsStore.setAutoPlay(prefs.autoPlay)
-                    settingsStore.setAutoNext(prefs.autoNext)
-                    settingsStore.setAutoSkipIntro(prefs.skipIntro)
-                    settingsStore.setAutoSkipOutro(prefs.skipOutro)
-                    settingsStore.setDefaultLang(prefs.defaultLang)
-                    settingsStore.setSyncPercentage(prefs.syncPercentage)
-                }
-            } else {
-                _uiState.update {
+            } catch (e: Exception) {
+                _uiState.update { 
                     it.copy(
-                        isLoading = false,
-                        errorMessage = response?.message ?: "Failed to load preferences"
-                    )
+                        isLoading = false, 
+                        isOffline = e.isNetworkError()
+                    ) 
                 }
             }
         }
@@ -398,6 +441,12 @@ class SettingsViewModel(
     fun loadSessions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            // Guard: ensure a valid session exists before hitting API
+            val sessionResult = authService.checkSession()
+            if (sessionResult !is SessionCheckResult.Valid) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
             val response = settingsService.getSessions()
             if (response?.success == true) {
                 _uiState.update {

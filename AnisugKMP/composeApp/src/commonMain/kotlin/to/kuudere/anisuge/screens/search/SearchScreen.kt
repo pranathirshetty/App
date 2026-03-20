@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import coil3.compose.AsyncImage
 import to.kuudere.anisuge.data.models.AnimeItem
-import to.kuudere.anisuge.screens.home.HomeOfflineState
+import to.kuudere.anisuge.ui.OfflineState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -77,7 +77,7 @@ fun SearchScreen(
             val showOffline = state.isOffline && state.results.isEmpty()
 
             if (showOffline) {
-                HomeOfflineState(onRetry = { viewModel.search() }, isLoading = state.isLoading)
+                OfflineState(onRetry = { viewModel.search() }, isLoading = state.isLoading)
             } else {
             LazyVerticalGrid(
                 columns = columns,

@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import to.kuudere.anisuge.screens.home.HomeOfflineState
+import to.kuudere.anisuge.ui.OfflineState
 import to.kuudere.anisuge.ui.AnimeCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,7 +78,7 @@ fun LatestEpisodesScreen(
             val showOffline = state.isOffline && state.results.isEmpty()
 
             if (showOffline) {
-                HomeOfflineState(onRetry = { viewModel.refresh() }, isLoading = state.isLoading)
+                OfflineState(onRetry = { viewModel.refresh() }, isLoading = state.isLoading)
             } else {
                 LazyVerticalGrid(
                     columns = columns,

@@ -53,6 +53,7 @@ data class AuthResponse(
     val success: Boolean,
     val message: String? = null,
     val session: SessionData? = null,
+    val user: UserProfile? = null,
 )
 
 @Serializable

@@ -3,6 +3,9 @@ package to.kuudere.anisuge.screens.settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.PaddingValues
+import to.kuudere.anisuge.ui.OfflineState
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -259,12 +262,12 @@ fun SettingsScreen(
                     label = "mobile_settings"
                 ) { detailTab ->
                     if (detailTab == null) {
-                        // Main settings list
                         MobileSettingsList(
                             navItems = navItems.filter { it.tab != SettingsTab.Profile },
                             uiState = uiState,
                             onLogout = onLogout,
                             isLoggingOut = isLoggingOut,
+                            onRetry = { viewModel.refresh() },
                             onItemClick = {
                                 showDetail = it
                                 // Load data when opening detail
@@ -497,6 +500,7 @@ private fun MobileSettingsList(
     onLogout: () -> Unit,
     onItemClick: (SettingsTab) -> Unit,
     isLoggingOut: Boolean = false,
+    onRetry: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -507,7 +511,33 @@ private fun MobileSettingsList(
             .padding(top = 16.dp, bottom = 16.dp)
     ) {
         // Profile Card at the Top
-        if (!uiState.isLoadingProfile && uiState.userProfile != null) {
+        if (uiState.isOffline && uiState.userProfile == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BG_CARD)
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Outlined.WifiOff,
+                        contentDescription = null,
+                        tint = MUTED,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Internet connection lost", color = MUTED, fontSize = 14.sp)
+                    TextButton(
+                        onClick = onRetry
+                    ) {
+                        Text("Retry", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else if (!uiState.isLoadingProfile && uiState.userProfile != null) {
             val user = uiState.userProfile
             Box(
                 modifier = Modifier
@@ -731,7 +761,10 @@ private fun MobileSettingsDetail(
                 .padding(top = 8.dp, bottom = 16.dp)
         ) {
             when (tab) {
-                is SettingsTab.Profile -> MobileProfileContent(uiState = uiState)
+                is SettingsTab.Profile -> MobileProfileContent(
+                uiState = uiState,
+                onRetry = { viewModel.refresh() }
+            )
                 is SettingsTab.Preferences -> MobilePreferencesContent(
                     uiState = uiState,
                     onAutoPlayChange = viewModel::setAutoPlay,
@@ -809,7 +842,7 @@ private fun SettingsContent(
         modifier = modifier
     ) { tab ->
         when (tab) {
-            is SettingsTab.Profile -> ProfileTab(uiState = uiState)
+            is SettingsTab.Profile -> ProfileTab(uiState = uiState, onRetry = { viewModel.refresh() })
             is SettingsTab.Preferences -> PreferencesTab(
                 uiState = uiState,
                 onAutoPlayChange = viewModel::setAutoPlay,
@@ -2230,6 +2263,7 @@ private fun MobileSyncStatRow(label: String, value: String) {
 }
 
 // ── Mobile Content Composables ──────────────────────────────────────────────────
+
 @Composable
 private fun MobilePreferencesContent(
     uiState: SettingsUiState,
@@ -3701,7 +3735,8 @@ private fun MobileServersContent(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProfileTab(
-    uiState: SettingsUiState
+    uiState: SettingsUiState,
+    onRetry: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -3718,7 +3753,13 @@ private fun ProfileTab(
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
-        if (uiState.isLoadingProfile) {
+        if (uiState.isOffline && uiState.userProfile == null) {
+            OfflineState(
+                onRetry = onRetry,
+                isLoading = uiState.isLoadingProfile,
+                modifier = Modifier.fillMaxWidth().height(400.dp)
+            )
+        } else if (uiState.isLoadingProfile) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White)
             }
@@ -3844,9 +3885,16 @@ private fun ProfileDetailItem(label: String, value: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MobileProfileContent(
-    uiState: SettingsUiState
+    uiState: SettingsUiState,
+    onRetry: () -> Unit = {}
 ) {
-    if (uiState.isLoadingProfile) {
+    if (uiState.isOffline && uiState.userProfile == null) {
+        OfflineState(
+            onRetry = onRetry,
+            isLoading = uiState.isLoadingProfile,
+            modifier = Modifier.fillMaxWidth().height(400.dp)
+        )
+    } else if (uiState.isLoadingProfile) {
         Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.White)
         }
