@@ -1278,14 +1278,53 @@ private fun EpisodeListSection(
             inRange && (matchNum || titleMatches)
         }.sortedBy { it.number }
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            filtered.forEach { episode ->
-                EpisodeItemRow(
-                    episode = episode,
-                    thumbnail = state.thumbnails[episode.number.toString()],
-                    onClick = { onWatchEpisode(episode.number) },
-                    onDownloadClick = { onDownloadEpisode(episode) }
-                )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 480.dp)
+        ) {
+            val epScrollState = rememberScrollState()
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(epScrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                filtered.forEach { episode ->
+                    EpisodeItemRow(
+                        episode = episode,
+                        thumbnail = state.thumbnails[episode.number.toString()],
+                        onClick = { onWatchEpisode(episode.number) },
+                        onDownloadClick = { onDownloadEpisode(episode) }
+                    )
+                }
+            }
+
+            // Custom Scrollbar
+            if (filtered.size > 5) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 4.dp)
+                        .width(4.dp)
+                        .fillMaxHeight(0.9f)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.05f))
+                ) {
+                    val scrollFraction = if (epScrollState.maxValue > 0) {
+                        epScrollState.value.toFloat() / epScrollState.maxValue
+                    } else 0f
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.2f)
+                            .offset(y = (scrollFraction * 0.8f * 432).dp) // Adjusted for approximate bar height
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.3f))
+                    )
+                }
             }
         }
     }
