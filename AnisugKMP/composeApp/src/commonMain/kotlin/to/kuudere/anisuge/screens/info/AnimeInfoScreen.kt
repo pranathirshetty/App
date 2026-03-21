@@ -183,67 +183,70 @@ private fun MobileLayout(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Box(Modifier.fillMaxSize().verticalScroll(scrollState)) {
-            Column(Modifier.fillMaxWidth()) {
-                Box {
-                    // Blur Background — use cover as fallback with stronger blur
-                    val bannerUrl = anime.banner?.takeIf { 
-                        it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
+             // Header Background (Image + Gradient) — stays under but is not in the flow
+             Box(Modifier.fillMaxWidth().height(250.dp)) {
+                // Blur Background — use cover as fallback with stronger blur
+                val bannerUrl = anime.banner?.takeIf { 
+                    it.isNotBlank() && it != "null" && !it.contains("placeholder") && it.startsWith("http")
+                }
+                val bgImage = bannerUrl ?: anime.cover
+                val hasBanner = bannerUrl != null
+                AsyncImage(
+                    model = bgImage,
+                    contentDescription = "Background",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .blur(if (hasBanner) 16.dp else 48.dp)
+                        .alpha(if (hasBanner) 0.6f else 0.75f)
+                )
+                // Background Gradient
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to Color.Black.copy(alpha = 0.0f),
+                                0.4f to Color.Black.copy(alpha = 0.4f),
+                                1.0f to Color.Black
+                            )
+                        )
+                )
+             }
+
+             // Foreground content (starts partially overlapping the header)
+             Column(Modifier.fillMaxWidth()) {
+                // Top Bar for Mobile positioned over the image
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .statusBarsPadding(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
-                    val bgImage = bannerUrl ?: anime.cover
-                    val hasBanner = bannerUrl != null
-                    AsyncImage(
-                        model = bgImage,
-                        contentDescription = "Background",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(250.dp)
-                            .blur(if (hasBanner) 16.dp else 48.dp)
-                            .alpha(if (hasBanner) 0.6f else 0.75f)
-                    )
-                    // Background Gradient
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(250.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    0.0f to Color.Black.copy(alpha = 0.0f),
-                                    0.4f to Color.Black.copy(alpha = 0.4f),
-                                    1.0f to Color.Black
-                                )
-                            )
-                    )
-                    // Top Bar for Mobile positioned over the image
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .statusBarsPadding(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { /* Share */ }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { /* Share */ }) {
-                                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White)
-                            }
-                            IconButton(onClick = onDownloadsClick) {
-                                Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
-                            }
-                            WatchlistDropdownIcon(
-                                state = state,
-                                onUpdate = onWatchlistUpdate
-                            )
+                        IconButton(onClick = onDownloadsClick) {
+                            Icon(Icons.Default.Download, contentDescription = "Download", tint = Color.White)
                         }
+                        WatchlistDropdownIcon(
+                            state = state,
+                            onUpdate = onWatchlistUpdate
+                        )
                     }
                 }
-                
-                // Lift the top details block significantly into the header
-                Box(Modifier.offset(y = (-150).dp)) {
-                    Column {
+
+                Spacer(Modifier.height(50.dp)) // Added space so the details start at ~100dp from top (150dp overlap)
+
+                Column {
              
              // Top details block
              Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.Top) {
@@ -397,15 +400,13 @@ private fun MobileLayout(
                                  }
                              }
                          }
-                     }
-                 }
-             }
-             Spacer(Modifier.height(40.dp))
-                    }
-                }
-            }
-        }
-    }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
 }
 
 @Composable
