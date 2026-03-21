@@ -1279,53 +1279,15 @@ private fun EpisodeListSection(
             inRange && (matchNum || titleMatches)
         }.sortedBy { it.number }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 480.dp)
-        ) {
-            val epScrollState = rememberScrollState()
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(epScrollState),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                filtered.forEach { episode ->
-                    EpisodeItemRow(
-                        episode = episode,
-                        thumbnail = state.thumbnails[episode.number.toString()],
-                        onClick = { onWatchEpisode(episode.number) },
-                        onDownloadClick = { onDownloadEpisode(episode) }
-                    )
-                }
-            }
-
-            // Custom Scrollbar
-            if (filtered.size > 5) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 4.dp)
-                        .width(4.dp)
-                        .fillMaxHeight(0.9f)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.05f))
-                ) {
-                    val scrollFraction = if (epScrollState.maxValue > 0) {
-                        epScrollState.value.toFloat() / epScrollState.maxValue
-                    } else 0f
-                    
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.2f)
-                            .offset(y = (scrollFraction * 0.8f * 432).dp) // Adjusted for approximate bar height
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.3f))
-                    )
-                }
+        // List of episodes
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            filtered.forEach { episode ->
+                EpisodeItemRow(
+                    episode = episode,
+                    thumbnail = state.thumbnails[episode.number.toString()],
+                    onClick = { onWatchEpisode(episode.number) },
+                    onDownloadClick = { onDownloadEpisode(episode) }
+                )
             }
         }
     }
@@ -1333,79 +1295,118 @@ private fun EpisodeListSection(
 
 @Composable
 private fun EpisodeItemRow(episode: EpisodeItem, thumbnail: String?, onClick: () -> Unit, onDownloadClick: () -> Unit = {}) {
-    Row(
-        Modifier
+    // Modernized card style for episode item
+    Box(
+        modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
     ) {
-        // Thumbnail — 20:9 aspect ratio
-        Box(
-            Modifier
-                .weight(0.45f)
-                .aspectRatio(20f / 9f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF000000)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (thumbnail != null) {
-                AsyncImage(
-                    model = thumbnail,
-                    contentDescription = "Episode ${episode.number}",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
-            Icon(
-                Icons.Default.PlayCircle,
-                contentDescription = "Play",
-                tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(32.dp)
-            )
-            Text(
-                text = episode.number.toString().padStart(2, '0'),
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(8.dp)
-            )
-        }
-
-        // Right side — title, subtitle, download icon top-right
-        Box(Modifier.weight(0.55f)) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val title = episode.titles?.filterNotNull()?.firstOrNull()
-                Text(
-                    text = title ?: "Episode ${episode.number}",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(end = 32.dp)
-                )
-                Text(
-                    text = "Episode ${episode.number}",
-                    color = Color.Gray,
-                    fontSize = 13.sp
-                )
-            }
-            // Download icon top-right
-            IconButton(
-                onClick = onDownloadClick,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(28.dp)
+            // Thumbnail — 16:9 aspect ratio with modern overlay
+            Box(
+                Modifier
+                    .weight(0.42f)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF000000))
             ) {
-                Icon(
-                    Icons.Default.Download,
-                    contentDescription = "Download",
-                    tint = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(18.dp)
+                if (thumbnail != null) {
+                    AsyncImage(
+                        model = thumbnail,
+                        contentDescription = "Episode ${episode.number}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                
+                // Gradient overlay
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                        )
+                    )
                 )
+
+                Icon(
+                    Icons.Default.PlayCircle,
+                    contentDescription = "Play",
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(32.dp).align(Alignment.Center)
+                )
+
+                Text(
+                    text = episode.number.toString().padStart(2, '0'),
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+
+            // Info and Download
+            Row(
+                modifier = Modifier.weight(0.58f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val title = episode.titles?.filterNotNull()?.firstOrNull() ?: "Episode ${episode.number}"
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "EP ${episode.number}",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (episode.ago != null) {
+                            Text(
+                                text = "• ${episode.ago}",
+                                color = Color.White.copy(alpha = 0.3f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                // Modernized Download button
+                IconButton(
+                    onClick = onDownloadClick,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .size(32.dp)
+                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = "Download",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
