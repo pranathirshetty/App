@@ -1040,57 +1040,52 @@ private fun PreferencesTab(
             description = "Custom directory for your downloaded anime files",
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(BG)
-                        .border(1.dp, BORDER, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    val isPathValid = remember(uiState.downloadPath) {
-                        if (uiState.downloadPath.isBlank()) true
-                        else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
-                    }
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
-                            color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (!isPathValid) {
-                            Text(
-                                "Locked folder: pick a subfolder in 'Downloads' for write access.",
-                                color = Color.Red.copy(alpha = 0.8f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Button(
-                    onClick = { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.height(36.dp)
-                ) {
-                    Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Black)
+                .border(1.dp, BORDER, RoundedCornerShape(12.dp))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isPathValid = remember(uiState.downloadPath) {
+                if (uiState.downloadPath.isBlank()) true
+                else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isPathValid) to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath) else "Location Unavailable",
+                    color = if (uiState.downloadPath.isBlank() || !isPathValid) MUTED else TEXT,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!isPathValid) {
+                    Text(
+                        "Pick a subfolder in 'Downloads' for access.",
+                        color = Color.Red.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Text(
+                text = "Change",
+                color = Color.Black,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .clickable { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
         }
 
         // Save Button
@@ -2422,55 +2417,50 @@ private fun MobilePreferencesContent(
             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
         )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.Black)
+                .border(1.dp, BORDER, RoundedCornerShape(10.dp))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(BG_CARD)
-                    .border(1.dp, BORDER, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                val isPathValid = remember(uiState.downloadPath) {
-                    if (uiState.downloadPath.isBlank()) true
-                    else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
-                }
-                Column(modifier = Modifier.fillMaxWidth()) {
+            val isPathValid = remember(uiState.downloadPath) {
+                if (uiState.downloadPath.isBlank()) true
+                else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isPathValid) to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath) else "Location Restricted",
+                    color = if (uiState.downloadPath.isBlank() || !isPathValid) MUTED else TEXT,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!isPathValid) {
                     Text(
-                        text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
-                        color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        "Pick a subfolder in 'Downloads' for access.",
+                        color = Color.Red.copy(alpha = 0.8f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
-                    if (!isPathValid) {
-                        Text(
-                            "Locked: pick a subfolder in 'Downloads' for write access.",
-                            color = Color.Red.copy(alpha = 0.8f),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
                 }
             }
             
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             
-            Button(
-                onClick = { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text("Select", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+            Text(
+                text = "Change",
+                color = Color.Black,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White)
+                    .clickable { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
         }
 
         if (uiState.hasPreferencesChanges) {

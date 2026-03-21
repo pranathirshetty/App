@@ -1,6 +1,7 @@
 package to.kuudere.anisuge.screens.info
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
@@ -288,55 +289,52 @@ fun DownloadEpisodeDialog(
                 Text(text = "Download Location", color = Color.Gray, fontSize = 14.sp)
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black)
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1D1D1D))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Column {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isPathValid) to.kuudere.anisuge.platform.formatDisplayPath(downloadPath) else "Location Unavailable",
+                            color = if (downloadPath.isBlank() || !isPathValid) Color.Gray else Color.White,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!isPathValid) {
                             Text(
-                                text = to.kuudere.anisuge.platform.formatDisplayPath(downloadPath),
-                                color = if (downloadPath.isBlank()) Color.Gray else Color.White,
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                "Pick a subfolder in 'Downloads' for access.",
+                                color = Color.Red.copy(alpha = 0.8f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
-                            if (!isPathValid) {
-                                Text(
-                                    "Locked: Pick a subfolder in 'Downloads'",
-                                    color = Color.Red.copy(alpha = 0.8f),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
                         }
                     }
                     
-                    Button(
-                        onClick = { 
-                            to.kuudere.anisuge.platform.pickFolder { newPath ->
-                                scope.launch {
-                                    settingsStore.setDownloadPath(newPath)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Text(
+                        text = "Change",
+                        color = Color.Black,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White)
+                            .clickable { 
+                                to.kuudere.anisuge.platform.pickFolder { newPath ->
+                                    scope.launch {
+                                        settingsStore.setDownloadPath(newPath)
+                                    }
                                 }
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.1f),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("Change", fontSize = 11.sp)
-                    }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
 
