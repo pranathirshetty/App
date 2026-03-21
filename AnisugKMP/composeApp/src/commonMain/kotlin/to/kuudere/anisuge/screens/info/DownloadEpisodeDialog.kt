@@ -419,7 +419,7 @@ fun DownloadEpisodeDialog(
                             onDismiss()
                         }
                     },
-                    enabled = !isFinished && isPathValid,
+                    enabled = !isFinished && isPathValid && !isLoadingSubs,
                     modifier = Modifier
                         .weight(1f)
                         .height(50.dp),
@@ -429,19 +429,35 @@ fun DownloadEpisodeDialog(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    val sizeText = if (estimatedSizeBytes > 0) " (~${formatFileSize(estimatedSizeBytes)})" else ""
-                    Text(
-                        text = when {
-                            currentTask == null -> if (isPathValid) "Start Download$sizeText" else "Choose Valid Folder"
-                            isFinished -> "Downloaded"
-                            currentTask?.status?.startsWith("Failed") == true -> if (isPathValid) "Retry Download" else "Choose Valid Folder"
-                            else -> "Keep Downloading in Background"
-                        },
-                        color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        maxLines = 1
-                    )
+                    if (isLoadingSubs) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.Black,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Preparing...",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            maxLines = 1
+                        )
+                    } else {
+                        val sizeText = if (estimatedSizeBytes > 0) " (~${formatFileSize(estimatedSizeBytes)})" else ""
+                        Text(
+                            text = when {
+                                currentTask == null -> if (isPathValid) "Start Download$sizeText" else "Choose Valid Folder"
+                                isFinished -> "Downloaded"
+                                currentTask?.status?.startsWith("Failed") == true -> if (isPathValid) "Retry Download" else "Choose Valid Folder"
+                                else -> "Keep Downloading in Background"
+                            },
+                            color = if (isFinished) Color.Black.copy(alpha = 0.5f) else Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
