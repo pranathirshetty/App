@@ -212,7 +212,11 @@ class SettingsViewModel(
             _uiState.update { it.copy(isLoadingProfile = true, isLoading = true) }
             // Triggering the auth check updates authService.authState,
             // which in turn triggers our reactive collection above.
-            authService.checkSession()
+            val result = authService.checkSession()
+            if (result is SessionCheckResult.Valid) {
+                // Fetch full profile info for badges and dates
+                loadUserProfile()
+            }
             _uiState.update { it.copy(isLoadingProfile = false, isLoading = false) }
         }
     }
