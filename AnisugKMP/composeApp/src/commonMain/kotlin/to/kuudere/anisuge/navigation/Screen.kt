@@ -4,11 +4,17 @@ package to.kuudere.anisuge.navigation
 sealed class Screen(val route: String) {
     data object Splash : Screen("splash")
     data object Auth   : Screen("auth")
-    data class Home(val startOnDownloads: Boolean = false) : Screen(
-        if (startOnDownloads) "home?downloads=true" else "home"
+    data class Home(val startTab: String? = null, val startOnDownloads: Boolean = false) : Screen(
+        buildString {
+            append("home?")
+            val params = mutableListOf<String>()
+            if (startTab != null) params.add("tab=$startTab")
+            if (startOnDownloads) params.add("downloads=true")
+            append(params.joinToString("&"))
+        }
     ) {
         companion object {
-            const val route = "home?downloads={downloads}"
+            const val route = "home?downloads={downloads}&tab={tab}"
         }
     }
     data object Search : Screen("search")

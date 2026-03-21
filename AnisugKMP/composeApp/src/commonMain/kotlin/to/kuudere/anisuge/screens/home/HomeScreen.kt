@@ -188,9 +188,15 @@ fun HomeScreen(
     onExit: () -> Unit = {},
     onViewLatestMore: () -> Unit = {},
     startOnDownloads: Boolean = false,
+    startTab: String? = null,
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
-    var currentTab by remember(startOnDownloads) { mutableStateOf(if (startOnDownloads) AnisugTab.Downloads else AnisugTab.Home) }
+    var currentTab by remember(startOnDownloads, startTab) { 
+        val initial = if (startOnDownloads) AnisugTab.Downloads else {
+            AnisugTab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: AnisugTab.Home
+        }
+        mutableStateOf(initial) 
+    }
     var prevTabIndex by remember { mutableStateOf(0) }
     var showWatchlistFor by remember { mutableStateOf<AnimeItem?>(null) }
     var showLogoutConfirm by remember { mutableStateOf(false) }

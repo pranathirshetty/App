@@ -121,10 +121,12 @@ fun App(onAppExit: () -> Unit = {}) {
                 composable(
                     route = Screen.Home.route,
                     arguments = listOf(
-                        navArgument("downloads") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
+                        navArgument("downloads") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null },
+                        navArgument("tab") { type = androidx.navigation.NavType.StringType; nullable = true; defaultValue = null }
                     )
                 ) { backStackEntry ->
                     val downloadsArg = backStackEntry.arguments?.getString("downloads") == "true"
+                    val requestedTab = backStackEntry.arguments?.getString("tab")
                     HomeScreen(
                         homeViewModel = homeVm,
                         searchViewModel = searchVm,
@@ -143,7 +145,8 @@ fun App(onAppExit: () -> Unit = {}) {
                         },
                         onExit = onAppExit,
                         onViewLatestMore = { navController.navigate(Screen.Latest.route) },
-                        startOnDownloads = downloadsArg || (splashVm.destination.value == SplashDestination.GoHomeOffline)
+                        startOnDownloads = downloadsArg || (splashVm.destination.value == SplashDestination.GoHomeOffline),
+                        startTab = requestedTab
                     )
                 }
 
@@ -171,7 +174,9 @@ fun App(onAppExit: () -> Unit = {}) {
                             searchVm.clearFilters()
                             searchVm.onGenreToggle(genre)
                             searchVm.search()
-                            navController.navigate(Screen.Search.route)
+                            navController.navigate(Screen.Home(startTab = "Search").route) {
+                                popUpTo(Screen.Home().route) { inclusive = true }
+                            }
                         }
                     )
                 }
