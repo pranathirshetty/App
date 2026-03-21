@@ -80,29 +80,31 @@ actual fun VideoPlayerSurface(
 
     // ── Global Media Keys (Earphones/Headphones) ─────────────────────────────
     DisposableEffect(player) {
-        val onPlayPause = { state.pauseRequested = !state.isPaused }
-        val onStop = { state.pauseRequested = true }
-        val onNext = { 
-            if (state.hasNextEpisode) {
-                // Future view model wiring can happen here natively
+        if (!state.config.muted) {
+            val onPlayPause = { state.pauseRequested = !state.isPaused }
+            val onStop = { state.pauseRequested = true }
+            val onNext = { 
+                if (state.hasNextEpisode) {
+                    // Future view model wiring can happen here natively
+                }
             }
-        }
-        val onPrev = { 
-            if (state.hasPrevEpisode) { }
-        }
+            val onPrev = { 
+                if (state.hasPrevEpisode) { }
+            }
 
-        to.kuudere.anisuge.platform.GlobalMediaKeys.register(
-            onPlayPause = onPlayPause,
-            onStop = onStop,
-            onNext = onNext,
-            onPrevious = onPrev
-        )
-        to.kuudere.anisuge.platform.MprisManager.register(
-            onPlayPause = onPlayPause,
-            onStop = onStop,
-            onNext = onNext,
-            onPrevious = onPrev
-        )
+            to.kuudere.anisuge.platform.GlobalMediaKeys.register(
+                onPlayPause = onPlayPause,
+                onStop = onStop,
+                onNext = onNext,
+                onPrevious = onPrev
+            )
+            to.kuudere.anisuge.platform.MprisManager.register(
+                onPlayPause = onPlayPause,
+                onStop = onStop,
+                onNext = onNext,
+                onPrevious = onPrev
+            )
+        }
         onDispose {
             to.kuudere.anisuge.platform.GlobalMediaKeys.unregister()
             to.kuudere.anisuge.platform.MprisManager.unregister()

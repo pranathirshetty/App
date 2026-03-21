@@ -36,41 +36,45 @@ class MediaSessionManager(private val context: Context) {
         onNext: (() -> Unit)? = null,
         onPrev: (() -> Unit)? = null
     ) {
-        // Request audio focus
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-                    .build()
-            )
-            .setOnAudioFocusChangeListener { focusChange ->
-                when (focusChange) {
-                    AudioManager.AUDIOFOCUS_LOSS,
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        // Pause playback when losing focus
-                        onPlayPauseToggle(true)
-                    }
-                    AudioManager.AUDIOFOCUS_GAIN -> {
-                        // For video we don't auto-resume on regain
+        // Only request audio focus and start MediaSession if we are NOT muted.
+        // Background videos (like splash or auth loops) are usually muted and should
+        // NOT steal focus from background music apps or show up in the lock screen.
+        if (!state.config.muted) {
+            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener { focusChange ->
+                    when (focusChange) {
+                        AudioManager.AUDIOFOCUS_LOSS,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                            // Pause playback when losing focus
+                            onPlayPauseToggle(true)
+                        }
+                        AudioManager.AUDIOFOCUS_GAIN -> {
+                            // For video we don't auto-resume on regain
+                        }
                     }
                 }
-            }
-            .build()
+                .build()
 
-        audioFocusRequest = focusReq
-        audioManager?.requestAudioFocus(focusReq)
+            audioFocusRequest = focusReq
+            audioManager?.requestAudioFocus(focusReq)
 
-        // Create the player adapter and media session
-        val adapter = PlayerAdapter(state, onPlayPauseToggle, onNext, onPrev)
-        playerAdapter = adapter
+            // Create the player adapter and media session
+            val adapter = PlayerAdapter(state, onPlayPauseToggle, onNext, onPrev)
+            playerAdapter = adapter
 
-        val session = MediaSession.Builder(context, adapter)
-            .setId("AnisugVideoSession_${System.currentTimeMillis()}")
-            .build()
+            val session = MediaSession.Builder(context, adapter)
+                .setId("AnisugVideoSession_${System.currentTimeMillis()}")
+                .build()
 
-        mediaSession = session
+            mediaSession = session
+        }
     }
 
     /**
