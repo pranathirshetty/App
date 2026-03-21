@@ -60,6 +60,37 @@ actual fun RequestStoragePermission(onResult: (Boolean) -> Unit) {
     }
 }
 
+actual fun hasNotificationPermission(): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+    
+    return ContextCompat.checkSelfPermission(
+        androidAppContext,
+        Manifest.permission.POST_NOTIFICATIONS
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+@Composable
+actual fun RequestNotificationPermission(onResult: (Boolean) -> Unit) {
+    if (hasNotificationPermission()) {
+        onResult(true)
+        return
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val launcher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            onResult(isGranted)
+        }
+
+        SideEffect {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    } else {
+        onResult(true)
+    }
+}
+
 actual fun openDirectory(path: String) {
     try {
         val file = File(path)

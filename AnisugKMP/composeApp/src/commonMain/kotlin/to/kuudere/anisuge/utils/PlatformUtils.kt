@@ -9,6 +9,11 @@ expect fun hasStoragePermission(): Boolean
 @androidx.compose.runtime.Composable
 expect fun RequestStoragePermission(onResult: (Boolean) -> Unit)
 
+expect fun hasNotificationPermission(): Boolean
+
+@androidx.compose.runtime.Composable
+expect fun RequestNotificationPermission(onResult: (Boolean) -> Unit)
+
 expect suspend fun muxToMkv(
     videoPath: String,
     audioPath: String?,

@@ -18,6 +18,13 @@ actual fun RequestStoragePermission(onResult: (Boolean) -> Unit) {
     onResult(true)
 }
 
+actual fun hasNotificationPermission(): Boolean = true
+
+@androidx.compose.runtime.Composable
+actual fun RequestNotificationPermission(onResult: (Boolean) -> Unit) {
+    onResult(true)
+}
+
 actual fun openDirectory(path: String) {
     try {
         val file = File(path)

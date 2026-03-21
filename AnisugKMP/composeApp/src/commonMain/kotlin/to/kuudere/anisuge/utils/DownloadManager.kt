@@ -47,6 +47,24 @@ object DownloadManager {
 
     init {
         loadTasks()
+        
+        // Update system notification when tasks change
+        scope.launch {
+            tasks.collect { list ->
+                val active = list.filter { 
+                    (it.status == "Downloading" || it.status.contains("...") || it.status.contains("task")) &&
+                    !it.isPaused
+                }
+                
+                if (active.isEmpty()) {
+                    to.kuudere.anisuge.platform.clearDownloadNotification()
+                } else {
+                    val count = active.size
+                    val totalProgress = if (count > 0) active.sumOf { it.progress.toDouble() }.toFloat() / count else 0f
+                    to.kuudere.anisuge.platform.updateDownloadNotification(count, totalProgress)
+                }
+            }
+        }
     }
 
     private fun loadTasks() {

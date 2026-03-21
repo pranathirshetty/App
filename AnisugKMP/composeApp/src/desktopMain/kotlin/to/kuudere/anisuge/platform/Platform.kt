@@ -106,3 +106,11 @@ actual fun isFolderWritable(path: String): Boolean {
         false
     }
 }
+
+actual fun updateDownloadNotification(activeTasksCount: Int, totalProgress: Float, isInitial: Boolean) {
+    // Desktop notifications could be added here if needed, but for now no-op
+}
+
+actual fun clearDownloadNotification() {
+    // No-op for desktop
+}

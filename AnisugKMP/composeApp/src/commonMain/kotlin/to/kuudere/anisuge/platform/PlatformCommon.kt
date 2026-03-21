@@ -29,6 +29,16 @@ expect fun pickFolder(onPathSelected: (String) -> Unit)
 /** Returns true if the app has permission to write and create files in the given directory. */
 expect fun isFolderWritable(path: String): Boolean
 
+/** Updates a system notification with the current download progress (Android only, no-op elsewhere) */
+expect fun updateDownloadNotification(
+    activeTasksCount: Int,
+    totalProgress: Float,
+    isInitial: Boolean = false
+)
+
+/** Clears the download notification when all tasks are finished or cancelled */
+expect fun clearDownloadNotification()
+
 /** Converts a raw technical path into a human-friendly display string. */
 fun formatDisplayPath(path: String): String {
     if (path.isBlank()) return "Default Downloads"

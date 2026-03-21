@@ -59,6 +59,8 @@ fun DownloadEpisodeDialog(
     var availableAudioTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var isLoadingSubs by remember { mutableStateOf(false) }
     var estimatedSizeBytes by remember { mutableStateOf(0L) }
+    var shouldRequestNotificationPermission by remember { mutableStateOf(false) }
+    var shouldRequestPermission by remember { mutableStateOf(false) }
 
     val settingsStore = to.kuudere.anisuge.AppComponent.settingsStore
     val downloadPath by settingsStore.downloadPathFlow.collectAsState("")
@@ -141,6 +143,36 @@ fun DownloadEpisodeDialog(
             println("Failed to fetch subs/audio for $selectedServer: ${e.message}")
         } finally {
             isLoadingSubs = false
+        }
+    }
+
+    if (shouldRequestPermission) {
+        to.kuudere.anisuge.utils.RequestStoragePermission { granted ->
+            shouldRequestPermission = false
+            if (granted) {
+                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+            }
+        }
+    }
+
+    LaunchedEffect(currentTask) {
+        if (currentTask != null && !currentTask.isPaused && 
+            currentTask.status != "Finished" && !currentTask.status.startsWith("Failed") &&
+            !to.kuudere.anisuge.utils.hasNotificationPermission()) {
+            shouldRequestNotificationPermission = true
+        }
+    }
+
+    if (shouldRequestNotificationPermission) {
+        to.kuudere.anisuge.utils.RequestNotificationPermission { granted ->
+            shouldRequestNotificationPermission = false
+            // We don't block download for now because it might still work in foreground, 
+            // but user won't see notification. We just try to get it.
+            if (to.kuudere.anisuge.utils.hasStoragePermission()) {
+                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+            } else {
+                shouldRequestPermission = true
+            }
         }
     }
 
@@ -410,13 +442,19 @@ fun DownloadEpisodeDialog(
                 Button(
                     onClick = {
                         if (currentTask == null || currentTask.status.startsWith("Failed")) {
-                            if (to.kuudere.anisuge.utils.hasStoragePermission()) {
+                            if (!to.kuudere.anisuge.utils.hasNotificationPermission()) {
+                                shouldRequestNotificationPermission = true
+                            } else if (to.kuudere.anisuge.utils.hasStoragePermission()) {
                                 onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
                             } else {
                                 shouldRequestPermission = true
                             }
                         } else {
-                            onDismiss()
+                            if (!to.kuudere.anisuge.utils.hasNotificationPermission()) {
+                                shouldRequestNotificationPermission = true
+                            } else {
+                                onDismiss()
+                            }
                         }
                     },
                     enabled = !isFinished && isPathValid && !isLoadingSubs,

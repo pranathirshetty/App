@@ -11,6 +11,11 @@ import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import to.kuudere.anisuge.MainActivity
 import android.provider.DocumentsContract
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import to.kuudere.anisuge.R
 
 var currentMainActivity: MainActivity? = null
 var onFolderPickedCallback: ((String) -> Unit)? = null
@@ -133,4 +138,52 @@ actual fun isFolderWritable(path: String): Boolean {
     } catch (e: Exception) {
         false
     }
+}
+
+private const val DOWNLOAD_CHANNEL_ID = "anisurge_downloads"
+private const val DOWNLOAD_NOTIF_ID = 1001
+
+actual fun updateDownloadNotification(
+    activeTasksCount: Int,
+    totalProgress: Float,
+    isInitial: Boolean
+) {
+    val manager = androidAppContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (manager.getNotificationChannel(DOWNLOAD_CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                DOWNLOAD_CHANNEL_ID,
+                "Active Downloads",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows progress of active anime downloads"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    val progressInt = (totalProgress * 100).toInt()
+    val contentTitle = if (activeTasksCount == 1) "Downloading Anime" else "Downloading $activeTasksCount items"
+    val contentText = if (progressInt >= 0) "$progressInt% total progress" else "Calculating..."
+
+    val notification = NotificationCompat.Builder(androidAppContext, DOWNLOAD_CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.stat_sys_download) // Standard download icon for status bar
+        .setContentTitle(contentTitle)
+        .setContentText(contentText)
+        .setProgress(100, progressInt, progressInt <= 0)
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setAutoCancel(false)
+        .build()
+
+    manager.notify(DOWNLOAD_NOTIF_ID, notification)
+}
+
+actual fun clearDownloadNotification() {
+    val manager = androidAppContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    manager.cancel(DOWNLOAD_NOTIF_ID)
 }
