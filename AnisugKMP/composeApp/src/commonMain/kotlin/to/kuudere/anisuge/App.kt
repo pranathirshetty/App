@@ -59,6 +59,7 @@ fun App(onAppExit: () -> Unit = {}) {
         val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository, AppComponent.authService) }
         val latestVm = remember { LatestViewModel(AppComponent.latestService) }
         val updateVm = remember { UpdateViewModel(AppComponent.updateService) }
+        val updateState by updateVm.state.collectAsState()
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -73,12 +74,33 @@ fun App(onAppExit: () -> Unit = {}) {
                     SplashScreen(
                         viewModel        = splashVm,
                         onNavigateToAuth = {
-                            navController.navigate(Screen.Update(Screen.Auth.route).route) {
+                            val targetRoute = if (updateState.isUpdateAvailable == true) {
+                                Screen.Update(Screen.Auth.route).route
+                            } else if (updateState.isUpdateAvailable == null) {
+                                // Still checking, go to Update screen which shows spinner
+                                Screen.Update(Screen.Auth.route).route
+                            } else {
+                                // Definitely NO update, skip to Auth
+                                Screen.Auth.route
+                            }
+                            
+                            navController.navigate(targetRoute) {
                                 popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         },
                         onNavigateToHome = {
-                            navController.navigate(Screen.Update(Screen.Home().route).route) {
+                            val nextRoute = Screen.Home().route
+                            val targetRoute = if (updateState.isUpdateAvailable == true) {
+                                Screen.Update(nextRoute).route
+                            } else if (updateState.isUpdateAvailable == null) {
+                                // Still checking, go to Update screen which shows spinner
+                                Screen.Update(nextRoute).route
+                            } else {
+                                // Definitely NO update, skip to Home
+                                nextRoute
+                            }
+
+                            navController.navigate(targetRoute) {
                                 popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         },

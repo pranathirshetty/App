@@ -1050,25 +1050,26 @@ private fun PreferencesTab(
                         .clip(RoundedCornerShape(8.dp))
                         .background(BG)
                         .border(1.dp, BORDER, RoundedCornerShape(8.dp))
-                        .padding(12.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     val isPathValid = remember(uiState.downloadPath) {
                         if (uiState.downloadPath.isBlank()) true
                         else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
                     }
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
                             color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (!isPathValid) {
                             Text(
-                                "Locked folder: try 'Downloads'",
-                                color = Color.Red.copy(alpha = 0.7f),
-                                fontSize = 11.sp,
+                                "Locked folder: pick a subfolder in 'Downloads' for write access.",
+                                color = Color.Red.copy(alpha = 0.8f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(top = 2.dp)
                             )
                         }
@@ -1083,9 +1084,11 @@ private fun PreferencesTab(
                         containerColor = Color.White,
                         contentColor = Color.Black
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(36.dp)
                 ) {
-                    Text("Select", fontWeight = FontWeight.Medium)
+                    Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -2428,32 +2431,33 @@ private fun MobilePreferencesContent(
                     .clip(RoundedCornerShape(8.dp))
                     .background(BG_CARD)
                     .border(1.dp, BORDER, RoundedCornerShape(8.dp))
-                    .padding(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 val isPathValid = remember(uiState.downloadPath) {
                     if (uiState.downloadPath.isBlank()) true
                     else to.kuudere.anisuge.platform.isFolderWritable(uiState.downloadPath)
                 }
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = to.kuudere.anisuge.platform.formatDisplayPath(uiState.downloadPath),
                         color = if (uiState.downloadPath.isBlank()) MUTED else TEXT,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     if (!isPathValid) {
                         Text(
-                            "Locked folder: try 'Downloads'",
-                            color = Color.Red.copy(alpha = 0.7f),
-                            fontSize = 10.sp,
+                            "Locked: pick a subfolder in 'Downloads' for write access.",
+                            color = Color.Red.copy(alpha = 0.8f),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             
             Button(
                 onClick = { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } },
@@ -2462,9 +2466,10 @@ private fun MobilePreferencesContent(
                     contentColor = Color.Black
                 ),
                 shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp)
             ) {
-                Text("Select", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("Select", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
 

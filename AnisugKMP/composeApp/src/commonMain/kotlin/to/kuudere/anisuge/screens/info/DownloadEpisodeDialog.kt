@@ -297,15 +297,26 @@ fun DownloadEpisodeDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFF1D1D1D))
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text(
-                            text = to.kuudere.anisuge.platform.formatDisplayPath(downloadPath),
-                            color = if (downloadPath.isBlank()) Color.Gray else Color.White,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Column {
+                            Text(
+                                text = to.kuudere.anisuge.platform.formatDisplayPath(downloadPath),
+                                color = if (downloadPath.isBlank()) Color.Gray else Color.White,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (!isPathValid) {
+                                Text(
+                                    "Locked: Pick a subfolder in 'Downloads'",
+                                    color = Color.Red.copy(alpha = 0.8f),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
                     }
                     
                     Button(
