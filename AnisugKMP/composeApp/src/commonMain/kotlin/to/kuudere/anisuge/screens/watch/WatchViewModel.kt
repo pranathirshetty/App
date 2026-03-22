@@ -21,6 +21,7 @@ import to.kuudere.anisuge.player.VideoPlayerState
 import to.kuudere.anisuge.screens.watch.SettingsMenuPage
 
 data class WatchUiState(
+    val animeId: String = "",
     val isLoading: Boolean = true,
     val isLoadingVideo: Boolean = false,
     val loadingMessage: String? = null,
@@ -89,6 +90,7 @@ class WatchViewModel(
         // to offline would briefly show the old online video.
         _uiState.update {
             it.copy(
+                animeId = animeId,
                 currentEpisodeNumber = episodeNumber,
                 isLoading = true,
                 loadingMessage = if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber...",

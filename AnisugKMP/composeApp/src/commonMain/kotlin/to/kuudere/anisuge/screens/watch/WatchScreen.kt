@@ -97,6 +97,19 @@ fun WatchScreen(
         to.kuudere.anisuge.AppComponent.realtimeService.joinRoom(animeId)
     }
 
+    // Check if the current state in the shared ViewModel corresponds to the requested parameters.
+    // This prevents a "ghost" frame of the previous video from showing while transitioning.
+    val isStateStale = uiState.animeId != animeId || 
+            uiState.currentEpisodeNumber != episodeNumber || 
+            uiState.offlinePath != offlinePath
+            
+    val isLoading = uiState.isLoading || isStateStale
+    val loadingMessage = if (isStateStale) {
+        if (offlinePath != null) "Loading offline video..." else "Fetching episode $episodeNumber..."
+    } else {
+        uiState.loadingMessage
+    }
+
     Scaffold(
         containerColor = Color.Black
     ) { paddingValues ->
@@ -105,14 +118,14 @@ fun WatchScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (uiState.isLoading) {
+            if (isLoading) {
                 Box(Modifier.fillMaxSize().background(Color.Black)) {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         CircularProgressIndicator(color = Color.White)
-                        uiState.loadingMessage?.let { msg ->
+                        loadingMessage?.let { msg ->
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
                         }
