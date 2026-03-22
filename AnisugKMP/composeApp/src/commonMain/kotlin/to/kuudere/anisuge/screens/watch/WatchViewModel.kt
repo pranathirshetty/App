@@ -435,8 +435,19 @@ class WatchViewModel(
     }
 
     fun setServer(server: String) {
-        _uiState.update { it.copy(showSettingsOverlay = false) }
         loadJob?.cancel()
+        _uiState.update { 
+            it.copy(
+                showSettingsOverlay = false,
+                isLoadingVideo = true,
+                loadingMessage = "Fetching streaming URL...",
+                streamingData = null,
+                availableQualities = emptyList(),
+                availableSubtitles = emptyList(),
+                currentSubtitleUrl = null,
+                currentFontsDir = null
+            ) 
+        }
         loadJob = viewModelScope.launch {
             loadVideoStream(server)
         }
@@ -449,16 +460,23 @@ class WatchViewModel(
         targetSubtitleLang: String?,
         targetSubtitleLangCode: String? = null
     ) {
+        loadJob?.cancel()
         _uiState.update { 
             it.copy(
                 savedWatchPosition = position,
                 targetLang = targetAudioLang,
                 targetSubtitleLang = targetSubtitleLang,
                 targetSubtitleLangCode = targetSubtitleLangCode,
-                showSettingsOverlay = false
+                showSettingsOverlay = false,
+                isLoadingVideo = true,
+                loadingMessage = "Fetching streaming URL...",
+                streamingData = null,
+                availableQualities = emptyList(),
+                availableSubtitles = emptyList(),
+                currentSubtitleUrl = null,
+                currentFontsDir = null
             ) 
         }
-        loadJob?.cancel()
         loadJob = viewModelScope.launch {
             loadVideoStream(newServer)
         }
@@ -497,8 +515,23 @@ class WatchViewModel(
 
     fun onEpisodeSelected(episodeNumber: Int) {
         loadJob?.cancel()
+        _uiState.update { 
+            it.copy(
+                currentEpisodeNumber = episodeNumber, 
+                activeSidePanel = null, 
+                didMarkWatched = false, 
+                offlinePath = null,
+                isLoading = true,
+                isLoadingVideo = false,
+                loadingMessage = "Fetching episode $episodeNumber...",
+                streamingData = null,
+                availableQualities = emptyList(),
+                availableSubtitles = emptyList(),
+                currentSubtitleUrl = null,
+                currentFontsDir = null
+            ) 
+        }
         loadJob = viewModelScope.launch {
-            _uiState.update { it.copy(currentEpisodeNumber = episodeNumber, activeSidePanel = null, didMarkWatched = false, offlinePath = null) }
             fetchEpisodeData(episodeNumber)
         }
     }
