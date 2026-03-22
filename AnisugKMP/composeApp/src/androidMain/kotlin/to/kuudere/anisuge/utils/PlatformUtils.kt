@@ -30,6 +30,10 @@ actual fun getDownloadsDirectory(): String {
     return dir.absolutePath
 }
 
+actual fun getCacheDirectory(): String {
+    return androidAppContext.filesDir.absolutePath
+}
+
 actual fun hasStoragePermission(): Boolean {
     // Android 11+ doesn't need WRITE_EXTERNAL_STORAGE for app-created files in Downloads
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return true

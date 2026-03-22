@@ -44,7 +44,7 @@ object DownloadManager {
     private val httpClient = AppComponent.httpClient
     private val infoService = AppComponent.infoService
     
-    private val persistenceFile = "${getDownloadsDirectory()}/tasks.json".toPath()
+    private val persistenceFile = "${getCacheDirectory()}/tasks.json".toPath()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
     init {
@@ -431,13 +431,11 @@ object DownloadManager {
         cancelDownload(id)
     }
 
+
     private fun updateTask(id: String, update: (DownloadTask) -> DownloadTask) {
         tasks.update { list ->
             list.map { if (it.id == id) update(it) else it }
         }
-        val task = tasks.value.find { it.id == id }
-        if (task?.status == "Finished" || task?.status?.startsWith("Failed") == true) {
-            saveTasks()
-        }
+        saveTasks()
     }
 }

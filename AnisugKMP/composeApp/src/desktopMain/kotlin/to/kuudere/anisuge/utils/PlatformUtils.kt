@@ -11,6 +11,13 @@ actual fun getDownloadsDirectory(): String {
     return dir.absolutePath
 }
 
+actual fun getCacheDirectory(): String {
+    val home = System.getProperty("user.home")
+    val dir = File(home, ".anisug")
+    if (!dir.exists()) dir.mkdirs()
+    return dir.absolutePath
+}
+
 actual fun hasStoragePermission(): Boolean = true
 
 @androidx.compose.runtime.Composable
