@@ -173,7 +173,8 @@ class AuthService(
     suspend fun getWsToken(): String? {
         val stored = sessionStore.get() ?: return null
         return try {
-            val response = httpClient.get("$BASE_URL/api/ws/token") {
+            // Fetch token directly from kuudere.to since we're using its realtime server
+            val response = httpClient.get("https://kuudere.to/api/ws/token") {
                 header("Cookie", sessionToCookie(stored))
             }
             if (response.status == HttpStatusCode.OK) {

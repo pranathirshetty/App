@@ -3,6 +3,7 @@ package to.kuudere.anisuge.data.services
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.url
+import io.ktor.client.request.header
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
@@ -46,10 +47,15 @@ class RealtimeService(
                     return@launch
                 }
                 
-                val urlWithToken = "$wsUrl?token=$token"
-                
                 session = httpClient.webSocketSession {
-                    url(urlWithToken)
+                    url(wsUrl)
+                    url {
+                        parameters.append("token", token)
+                        parameters.append("userId", user.userId)
+                        parameters.append("username", user.username)
+                        user.avatar?.let { parameters.append("avatar", it) }
+                    }
+                    header("Origin", "https://kuudere.to")
                 }
                 
                 _isConnected.value = true
