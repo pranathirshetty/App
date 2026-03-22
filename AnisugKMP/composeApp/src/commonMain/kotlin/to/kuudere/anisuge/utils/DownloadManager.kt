@@ -2,6 +2,7 @@ package to.kuudere.anisuge.utils
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readBytes
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,7 @@ data class DownloadTask(
     val eta: String = "",
     val localPath: String? = null,
     val isPaused: Boolean = false,
+    val headers: Map<String, String>? = null,
     @kotlinx.serialization.Transient internal var job: Job? = null
 )
 
@@ -107,7 +109,8 @@ object DownloadManager {
         server: String,
         subLang: String?,
         audioLang: String?,
-        downloadFonts: Boolean
+        downloadFonts: Boolean,
+        headers: Map<String, String>? = null
     ) {
         val taskId = "${animeId}_$episodeNumber"
         val existing = tasks.value.find { it.id == taskId }
@@ -116,7 +119,7 @@ object DownloadManager {
             return
         }
 
-        val newTask = DownloadTask(taskId, animeId, title, episodeNumber, coverImage, 0f, "Fetching stream...")
+        val newTask = DownloadTask(taskId, animeId, title, episodeNumber, coverImage, 0f, "Fetching stream...", headers = headers)
         tasks.update { it + newTask }
         saveTasks()
 
@@ -132,6 +135,7 @@ object DownloadManager {
         downloadFonts: Boolean
     ) {
         val taskId = task.id
+        val headers = task.headers
         val job = scope.launch {
             try {
                 // 1. Fetch stream URL
@@ -164,7 +168,9 @@ object DownloadManager {
                     streamData.fonts.forEach { font ->
                         if (font.url != null && font.name != null) {
                             try {
-                                val fontBytes = httpClient.get(font.url).readBytes()
+                                val fontBytes = httpClient.get(font.url) {
+                                    headers?.forEach { (k, v) -> header(k, v) }
+                                }.readBytes()
                                 val fontFile = "$epDir/${font.name}"
                                 FileSystem.SYSTEM.write(fontFile.toPath()) { write(fontBytes) }
                                 downloadedFonts.add(fontFile)
@@ -190,7 +196,9 @@ object DownloadManager {
                     subsToDownload.forEach { sub ->
                         if (sub.url != null) {
                             try {
-                                val subBytes = httpClient.get(sub.url).readBytes()
+                                val subBytes = httpClient.get(sub.url) {
+                                    headers?.forEach { (k, v) -> header(k, v) }
+                                }.readBytes()
                                 val label = (sub.title ?: sub.resolvedLang)?.replace("[^A-Za-z0-9 ]".toRegex(), "_") ?: "unknown"
                                 val format = if (sub.url.contains(".vtt")) "vtt" else if (sub.url.contains(".srt")) "srt" else "ass"
                                 val fileName = "subtitle_$label.$format"
@@ -204,14 +212,20 @@ object DownloadManager {
 
                 // 4. Download Video & Audio
                 updateTask(taskId) { it.copy(status = "Parsing playlist...") }
-                val masterPlaylist = httpClient.get(m3u8Url).bodyAsText()
+                val masterPlaylist = httpClient.get(m3u8Url) {
+                    headers?.forEach { (k, v) -> header(k, v) }
+                }.bodyAsText()
                 
                 val audioPlaylistUrl = parseAudioPlaylistUrl(m3u8Url, masterPlaylist, audioLang ?: "jpn")
                 val videoPlaylistUrl = getFinalPlaylistUrl(m3u8Url, masterPlaylist)
                 
-                val videoSegments = parseSegments(videoPlaylistUrl, httpClient.get(videoPlaylistUrl).bodyAsText())
+                val videoSegments = parseSegments(videoPlaylistUrl, httpClient.get(videoPlaylistUrl) {
+                    headers?.forEach { (k, v) -> header(k, v) }
+                }.bodyAsText())
                 val audioSegments = if (audioPlaylistUrl != null) {
-                    parseSegments(audioPlaylistUrl, httpClient.get(audioPlaylistUrl).bodyAsText())
+                    parseSegments(audioPlaylistUrl, httpClient.get(audioPlaylistUrl) {
+                        headers?.forEach { (k, v) -> header(k, v) }
+                    }.bodyAsText())
                 } else emptyList()
 
                 if (videoSegments.isEmpty()) {
@@ -253,7 +267,9 @@ object DownloadManager {
                             lastMeasureTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                         }
 
-                        val segmentBytes = httpClient.get(segmentUrl).readBytes()
+                        val segmentBytes = httpClient.get(segmentUrl) {
+                            headers?.forEach { (k, v) -> header(k, v) }
+                        }.readBytes()
                         videoSink.write(segmentBytes)
                         totalBytesDownloaded += segmentBytes.size
                         bytesSinceLastMeasure += segmentBytes.size
@@ -286,7 +302,9 @@ object DownloadManager {
                             while (tasks.value.find { it.id == taskId }?.isPaused == true) {
                                 kotlinx.coroutines.delay(1000)
                             }
-                            val segmentBytes = httpClient.get(segmentUrl).readBytes()
+                            val segmentBytes = httpClient.get(segmentUrl) {
+                                headers?.forEach { (k, v) -> header(k, v) }
+                            }.readBytes()
                             audioSink.write(segmentBytes)
                             
                             val progress = (videoSegments.size + index + 1).toFloat() / (videoSegments.size + audioSegments.size)

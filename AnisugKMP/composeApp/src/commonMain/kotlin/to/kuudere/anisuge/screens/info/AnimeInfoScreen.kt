@@ -81,7 +81,7 @@ fun AnimeInfoScreen(
             infoService = to.kuudere.anisuge.AppComponent.infoService,
             serverRepository = to.kuudere.anisuge.AppComponent.serverRepository,
             onDismiss = { selectedEpisodeForDownload = null },
-            onStartDownload = { server, subLang, audioLang, downloadFonts ->
+            onStartDownload = { server, subLang, audioLang, downloadFonts, headers ->
                 val title = state.details!!.title
                 to.kuudere.anisuge.utils.DownloadManager.startDownload(
                     animeId = state.details!!.id,
@@ -92,7 +92,8 @@ fun AnimeInfoScreen(
                     server = server,
                     subLang = subLang,
                     audioLang = audioLang,
-                    downloadFonts = downloadFonts
+                    downloadFonts = downloadFonts,
+                    headers = headers
                 )
             }
         )

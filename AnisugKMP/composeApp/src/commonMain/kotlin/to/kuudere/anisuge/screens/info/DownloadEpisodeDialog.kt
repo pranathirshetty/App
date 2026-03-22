@@ -33,6 +33,7 @@ import to.kuudere.anisuge.data.repository.ServerRepository
 import to.kuudere.anisuge.data.services.InfoService
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +46,7 @@ fun DownloadEpisodeDialog(
     infoService: InfoService,
     serverRepository: ServerRepository,
     onDismiss: () -> Unit,
-    onStartDownload: (server: String, subLang: String?, audioLang: String?, downloadFonts: Boolean) -> Unit
+    onStartDownload: (server: String, subLang: String?, audioLang: String?, downloadFonts: Boolean, headers: Map<String, String>?) -> Unit
 ) {
     var selectedServer by remember { mutableStateOf("zen2") }
     var selectedSubLang by remember { mutableStateOf<String?>("English") }
@@ -59,6 +60,7 @@ fun DownloadEpisodeDialog(
     var availableAudioTracks by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var isLoadingSubs by remember { mutableStateOf(false) }
     var estimatedSizeBytes by remember { mutableStateOf(0L) }
+    var currentHeaders by remember { mutableStateOf<Map<String, String>?>(null) }
     var shouldRequestNotificationPermission by remember { mutableStateOf(false) }
     var shouldRequestPermission by remember { mutableStateOf(false) }
 
@@ -101,8 +103,11 @@ fun DownloadEpisodeDialog(
 
             // 2. Audio Tracks and Size Estimation from M3U8
             val m3u8Url = streamData?.m3u8_url
+            currentHeaders = streamData?.headers
             if (m3u8Url != null) {
-                val masterContent = to.kuudere.anisuge.AppComponent.httpClient.get(m3u8Url).bodyAsText()
+                val masterContent = to.kuudere.anisuge.AppComponent.httpClient.get(m3u8Url) {
+                    currentHeaders?.forEach { (k, v) -> header(k, v) }
+                }.bodyAsText()
                 val tracks = mutableListOf<Pair<String, String>>()
                 var maxBandwidth = 0L
 
@@ -150,7 +155,7 @@ fun DownloadEpisodeDialog(
         to.kuudere.anisuge.utils.RequestStoragePermission { granted ->
             shouldRequestPermission = false
             if (granted) {
-                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true, currentHeaders)
             }
         }
     }
@@ -169,7 +174,7 @@ fun DownloadEpisodeDialog(
             // We don't block download for now because it might still work in foreground, 
             // but user won't see notification. We just try to get it.
             if (to.kuudere.anisuge.utils.hasStoragePermission()) {
-                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true, currentHeaders)
             } else {
                 shouldRequestPermission = true
             }
@@ -413,7 +418,7 @@ fun DownloadEpisodeDialog(
                 to.kuudere.anisuge.utils.RequestStoragePermission { granted ->
                     shouldRequestPermission = false
                     if (granted) {
-                        onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                        onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true, currentHeaders)
                     }
                 }
             }
@@ -445,7 +450,7 @@ fun DownloadEpisodeDialog(
                             if (!to.kuudere.anisuge.utils.hasNotificationPermission()) {
                                 shouldRequestNotificationPermission = true
                             } else if (to.kuudere.anisuge.utils.hasStoragePermission()) {
-                                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true)
+                                onStartDownload(selectedServer, selectedSubLang, selectedAudioLang, true, currentHeaders)
                             } else {
                                 shouldRequestPermission = true
                             }
