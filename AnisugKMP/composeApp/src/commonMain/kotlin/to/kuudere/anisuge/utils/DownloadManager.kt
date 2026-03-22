@@ -54,7 +54,7 @@ object DownloadManager {
         scope.launch {
             tasks.collect { list ->
                 val active = list.filter { 
-                    (it.status == "Downloading" || it.status.contains("...") || it.status.contains("task")) &&
+                    (it.status.contains("Downloading") || it.status.contains("...") || it.status.contains("task")) &&
                     !it.isPaused
                 }
                 

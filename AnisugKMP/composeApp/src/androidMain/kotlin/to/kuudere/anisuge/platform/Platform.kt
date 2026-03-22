@@ -155,12 +155,12 @@ actual fun updateDownloadNotification(
             val channel = NotificationChannel(
                 DOWNLOAD_CHANNEL_ID,
                 "Active Downloads",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "Shows progress of active anime downloads"
                 setSound(null, null)
                 enableVibration(false)
-                setShowBadge(false)
+                setShowBadge(true)
             }
             manager.createNotificationChannel(channel)
         }
@@ -169,18 +169,35 @@ actual fun updateDownloadNotification(
     val progressInt = (totalProgress * 100).toInt()
     val contentTitle = if (activeTasksCount == 1) "Downloading Anime" else "Downloading $activeTasksCount items"
     val contentText = if (progressInt >= 0) "$progressInt% total progress" else "Calculating..."
+    
+    val intent = Intent(androidAppContext, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val pendingIntent = android.app.PendingIntent.getActivity(
+        androidAppContext, 
+        0, 
+        intent, 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) android.app.PendingIntent.FLAG_IMMUTABLE else 0
+    )
 
-    val notification = NotificationCompat.Builder(androidAppContext, DOWNLOAD_CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_sys_download) // Standard download icon for status bar
+    val notificationBuilder = NotificationCompat.Builder(androidAppContext, DOWNLOAD_CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.stat_sys_download)
         .setContentTitle(contentTitle)
         .setContentText(contentText)
         .setProgress(100, progressInt, progressInt <= 0)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
         .setAutoCancel(false)
-        .build()
+        .setContentIntent(pendingIntent)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-    manager.notify(DOWNLOAD_NOTIF_ID, notification)
+    // On some newer Android versions, standard R.drawable might not render properly.
+    // Try to use app icon as fallback or overlay.
+    try {
+        notificationBuilder.setSmallIcon(to.kuudere.anisuge.R.mipmap.ic_launcher)
+    } catch (e: Exception) { }
+
+    manager.notify(DOWNLOAD_NOTIF_ID, notificationBuilder.build())
 }
 
 actual fun clearDownloadNotification() {
