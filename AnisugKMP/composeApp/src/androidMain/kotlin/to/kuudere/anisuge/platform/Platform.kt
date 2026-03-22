@@ -15,6 +15,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import android.graphics.BitmapFactory
 import to.kuudere.anisuge.R
 
 var currentMainActivity: MainActivity? = null
@@ -181,7 +182,7 @@ actual fun updateDownloadNotification(
     )
 
     val notificationBuilder = NotificationCompat.Builder(androidAppContext, DOWNLOAD_CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.stat_sys_download)
+        .setSmallIcon(to.kuudere.anisuge.R.mipmap.ic_launcher_foreground)
         .setContentTitle(contentTitle)
         .setContentText(contentText)
         .setProgress(100, progressInt, progressInt <= 0)
@@ -190,12 +191,6 @@ actual fun updateDownloadNotification(
         .setAutoCancel(false)
         .setContentIntent(pendingIntent)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-
-    // On some newer Android versions, standard R.drawable might not render properly.
-    // Try to use app icon as fallback or overlay.
-    try {
-        notificationBuilder.setSmallIcon(to.kuudere.anisuge.R.mipmap.ic_launcher)
-    } catch (e: Exception) { }
 
     manager.notify(DOWNLOAD_NOTIF_ID, notificationBuilder.build())
 }
