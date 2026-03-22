@@ -17,6 +17,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.graphics.BitmapFactory
 import to.kuudere.anisuge.R
+import to.kuudere.anisuge.services.DownloadService
 
 var currentMainActivity: MainActivity? = null
 var onFolderPickedCallback: ((String) -> Unit)? = null
@@ -151,6 +152,19 @@ actual fun updateDownloadNotification(
 ) {
     val manager = androidAppContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     
+    if (activeTasksCount > 0) {
+        val serviceIntent = Intent(androidAppContext, DownloadService::class.java)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                androidAppContext.startForegroundService(serviceIntent)
+            } else {
+                androidAppContext.startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         if (manager.getNotificationChannel(DOWNLOAD_CHANNEL_ID) == null) {
             val channel = NotificationChannel(
@@ -198,4 +212,9 @@ actual fun updateDownloadNotification(
 actual fun clearDownloadNotification() {
     val manager = androidAppContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     manager.cancel(DOWNLOAD_NOTIF_ID)
+    try {
+        androidAppContext.stopService(Intent(androidAppContext, DownloadService::class.java))
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 }
