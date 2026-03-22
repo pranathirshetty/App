@@ -187,6 +187,26 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("stream-buffer-size", "1M")
         MPVLib.setOptionString("prefetch-playlist", "yes")
 
+        // Fix for Cloudflare/Anti-bot
+        val headers = state.config.headers ?: emptyMap()
+        val ua = headers["User-Agent"] ?: headers["user-agent"] ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        MPVLib.setOptionString("user-agent", ua)
+        
+        val referer = headers["Referer"] ?: headers["referer"]
+        if (referer != null) {
+            MPVLib.setOptionString("referrer", referer)
+        }
+
+        // Apply other headers
+        val headerStrings = headers.filterKeys { k -> !listOf("user-agent", "referer").contains(k.lowercase()) }
+            .map { "${it.key}: ${it.value}" }
+            .joinToString(",")
+        if (headerStrings.isNotEmpty()) {
+            MPVLib.setOptionString("http-header-fields", headerStrings)
+        }
+        
+        MPVLib.setOptionString("ytdl-raw-options", "extractor-args=generic:impersonate")
+
         // Use safe decoding threads (auto usually handles this best with hwdec)
         MPVLib.setOptionString("vd-lavc-threads", "0") 
         

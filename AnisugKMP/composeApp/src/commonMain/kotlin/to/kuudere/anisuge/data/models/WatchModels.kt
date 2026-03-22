@@ -24,7 +24,8 @@ data class StreamingData(
     val sources: List<SourceData>? = null,
     val intro: SkipData? = null,
     val outro: SkipData? = null,
-    val chapters: List<ChapterData>? = null
+    val chapters: List<ChapterData>? = null,
+    val headers: Map<String, String>? = null
 )
 
 @Serializable

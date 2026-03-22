@@ -867,7 +867,8 @@ fun WatchVideoPlayer(
                 embeddedFonts = useEmbeddedFonts,
                 showControls = useOsc,
                 autoPlay = uiState.autoPlay,
-                speed = uiState.playbackSpeed
+                speed = uiState.playbackSpeed,
+                headers = uiState.streamingData?.headers
             )
 
             LaunchedEffect(Unit) {

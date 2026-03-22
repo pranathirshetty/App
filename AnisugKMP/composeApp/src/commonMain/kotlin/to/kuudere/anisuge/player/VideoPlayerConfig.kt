@@ -29,5 +29,7 @@ data class VideoPlayerConfig(
     /** Should video start playing automatically */
     val autoPlay: Boolean = true,
     /** Default playback speed */
-    val speed: Double = 1.0
+    val speed: Double = 1.0,
+    /** Custom HTTP headers (Referer, User-Agent, etc) */
+    val headers: Map<String, String>? = null
 )

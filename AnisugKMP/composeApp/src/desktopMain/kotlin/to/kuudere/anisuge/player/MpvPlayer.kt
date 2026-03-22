@@ -101,6 +101,27 @@ internal class MpvPlayer(
         mpv.mpv_set_option_string(handle, "stream-buffer-size", "1M")
         mpv.mpv_set_option_string(handle, "prefetch-playlist", "yes")
 
+        // Fix for Cloudflare/Anti-bot
+        val headers = config.headers ?: emptyMap()
+        val ua = headers["User-Agent"] ?: headers["user-agent"] ?: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        mpv.mpv_set_option_string(handle, "user-agent", ua)
+        
+        val referer = headers["Referer"] ?: headers["referer"]
+        if (referer != null) {
+            mpv.mpv_set_option_string(handle, "referrer", referer)
+        }
+
+        // Apply other headers (like X-Requested-With, etc)
+        val headerStrings = headers.filterKeys { k -> !listOf("user-agent", "referer").contains(k.lowercase()) }
+            .map { "${it.key}: ${it.value}" }
+            .joinToString(",")
+        if (headerStrings.isNotEmpty()) {
+            mpv.mpv_set_option_string(handle, "http-header-fields", headerStrings)
+        }
+        
+        mpv.mpv_set_option_string(handle, "ytdl-raw-options", "extractor-args=generic:impersonate")
+        
+
         // Use safe decoding threads
         mpv.mpv_set_option_string(handle, "vd-lavc-threads", "0")
 

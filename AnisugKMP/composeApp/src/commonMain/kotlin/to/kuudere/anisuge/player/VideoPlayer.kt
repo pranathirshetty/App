@@ -74,6 +74,7 @@ fun rememberVideoPlayerState(
     fontsDir:     String? = null,
     autoPlay:     Boolean = true,
     speed:        Double  = 1.0,
+    headers:      Map<String, String>? = null
 ): VideoPlayerState = remember(url) {
     VideoPlayerState(
         VideoPlayerConfig(
@@ -88,6 +89,7 @@ fun rememberVideoPlayerState(
             fontsDir      = fontsDir,
             autoPlay      = autoPlay,
             speed         = speed,
+            headers       = headers
         )
     ).apply {
         pauseRequested = !autoPlay
