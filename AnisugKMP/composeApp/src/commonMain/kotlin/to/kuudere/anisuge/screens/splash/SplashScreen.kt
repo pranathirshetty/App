@@ -17,6 +17,14 @@ import kotlinx.coroutines.delay
 import to.kuudere.anisuge.player.VideoPlayerSurface
 import to.kuudere.anisuge.player.rememberVideoPlayerState
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel,
@@ -24,6 +32,7 @@ fun SplashScreen(
     onNavigateToHome: () -> Unit,
 ) {
     val destination by viewModel.destination.collectAsState()
+    val status by viewModel.status.collectAsState()
     var videoFinished by remember { mutableStateOf(false) }
 
     val playerState = rememberVideoPlayerState(
@@ -60,6 +69,21 @@ fun SplashScreen(
             modifier   = Modifier.fillMaxSize(),
             onFinished = { videoFinished = true },
         )
+
+        // Status text at bottom center
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Status: $status",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                letterSpacing = 1.sp
+            )
+        }
     }
 }
 

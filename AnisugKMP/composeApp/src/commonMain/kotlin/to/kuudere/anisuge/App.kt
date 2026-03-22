@@ -48,7 +48,7 @@ import to.kuudere.anisuge.screens.update.UpdateViewModel
 fun App(onAppExit: () -> Unit = {}) {
     AnisugTheme {
         val navController = rememberNavController()
-        val splashVm = remember { SplashViewModel(AppComponent.authService) }
+        val splashVm = remember { SplashViewModel(AppComponent.authService, AppComponent.updateService, AppComponent.homeService) }
         val authVm   = remember { AuthViewModel(AppComponent.authService) }
         val homeVm   = remember { HomeViewModel(AppComponent.homeService, AppComponent.authService, AppComponent.infoService, AppComponent.realtimeService) }
         val searchVm = remember { SearchViewModel(AppComponent.searchService) }
