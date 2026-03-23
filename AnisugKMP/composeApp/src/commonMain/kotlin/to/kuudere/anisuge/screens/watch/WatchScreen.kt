@@ -149,7 +149,7 @@ fun WatchScreen(
                     }
 
                     to.kuudere.anisuge.platform.DraggableWindowArea(
-                        modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+                        modifier = Modifier.fillMaxWidth().height(48.dp).align(Alignment.TopStart)
                     ) { }
 
                     to.kuudere.anisuge.platform.WindowManagementButtons(
@@ -876,7 +876,7 @@ fun WatchVideoPlayer(
             }
 
             to.kuudere.anisuge.platform.DraggableWindowArea(
-                modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+                modifier = Modifier.fillMaxWidth().height(48.dp).align(Alignment.TopStart)
             ) { }
 
             to.kuudere.anisuge.platform.WindowManagementButtons(
