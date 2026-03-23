@@ -220,7 +220,8 @@ fun App(onAppExit: () -> Unit = {}) {
                         offlinePath = offlinePath,
                         offlineTitle = offlineTitle,
                         viewModel = watchVm,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onExit = onAppExit
                     )
                 }
 

@@ -466,11 +466,19 @@ private fun TabContent(
             )
         }
 
+        to.kuudere.anisuge.platform.DraggableWindowArea(
+            modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+        ) { }
+
         if (tab != AnisugTab.Bookmarks) {
-            WindowManagementButtons(
-                onClose = onExit,
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp) // Ensure on top
-            )
+            to.kuudere.anisuge.platform.DraggableWindowArea(
+                modifier = Modifier.fillMaxWidth().height(80.dp).align(Alignment.TopStart)
+            ) {
+                to.kuudere.anisuge.platform.WindowManagementButtons(
+                    onClose = onExit,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                )
+            }
         }
     }
 }

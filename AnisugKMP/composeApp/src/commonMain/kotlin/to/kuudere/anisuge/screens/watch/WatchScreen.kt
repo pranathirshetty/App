@@ -75,7 +75,8 @@ fun WatchScreen(
     offlinePath: String? = null,
     offlineTitle: String? = null,
     viewModel: WatchViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onExit: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var isLandscape by remember { mutableStateOf(true) }
@@ -146,6 +147,15 @@ fun WatchScreen(
                             modifier = Modifier.size(28.dp)
                         )
                     }
+
+                    to.kuudere.anisuge.platform.DraggableWindowArea(
+                        modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+                    ) { }
+
+                    to.kuudere.anisuge.platform.WindowManagementButtons(
+                        onClose = onExit,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                    )
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -163,7 +173,8 @@ fun WatchScreen(
                                     viewModel = viewModel,
                                     modifier = Modifier.fillMaxSize(),
                                     onFullscreenToggle = { viewModel.setFullscreen(!uiState.isFullscreen) },
-                                    onBack = handleBack
+                                    onBack = handleBack,
+                                    onExit = onExit
                                 )
                             }
                         }
@@ -829,7 +840,8 @@ fun WatchVideoPlayer(
     viewModel: WatchViewModel,
     modifier: Modifier = Modifier,
     onFullscreenToggle: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onExit: () -> Unit = {}
 ) {
     var showWatchlistSheet by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
@@ -862,6 +874,15 @@ fun WatchVideoPlayer(
                     modifier = Modifier.size(28.dp)
                 )
             }
+
+            to.kuudere.anisuge.platform.DraggableWindowArea(
+                modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+            ) { }
+
+            to.kuudere.anisuge.platform.WindowManagementButtons(
+                onClose = onExit,
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+            )
         }
     } else {
         val currentUrl = uiState.availableQualities.find { it.first == uiState.currentQuality }?.second
@@ -1234,6 +1255,7 @@ fun WatchVideoPlayer(
                     isInWatchlist = uiState.episodeData?.inWatchlist ?: false,
                     currentFolder = uiState.episodeData?.folder,
                     isOffline = isOffline,
+                    onExit = onExit,
                     modifier = Modifier.fillMaxSize()
                 )
 

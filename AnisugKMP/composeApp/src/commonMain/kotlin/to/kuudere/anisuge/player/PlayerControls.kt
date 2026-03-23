@@ -68,6 +68,7 @@ fun PlayerControls(
     isInWatchlist: Boolean = false,
     currentFolder: String? = null,
     isOffline: Boolean = false,
+    onExit: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
@@ -356,6 +357,9 @@ fun PlayerControls(
                             .align(Alignment.TopCenter)
                             .padding(bottom = 24.dp) 
                     ) {
+                    to.kuudere.anisuge.platform.DraggableWindowArea(
+                        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+                    ) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -400,7 +404,12 @@ fun PlayerControls(
                                     modifier = Modifier.size(26.dp)
                                 )
                             }
+                            
+                            to.kuudere.anisuge.platform.WindowManagementButtons(
+                                onClose = onExit
+                            )
                         }
+                    }
                     }
                 }
 
