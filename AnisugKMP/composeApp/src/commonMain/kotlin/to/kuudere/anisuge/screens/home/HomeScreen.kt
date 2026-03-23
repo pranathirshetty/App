@@ -290,8 +290,8 @@ fun HomeScreen(
             } else {
                 // Mobile: Glass layout with overlapping bars
                 val density = LocalDensity.current
-                var topBarHeightPx by remember { mutableStateOf(0) }
-                var bottomBarHeightPx by remember { mutableStateOf(0) }
+                var topBarHeightPx by remember { mutableStateOf(with(density) { 76.dp.roundToPx() }) }
+                var bottomBarHeightPx by remember { mutableStateOf(with(density) { 80.dp.roundToPx() }) }
                 val topBarHeight = with(density) { topBarHeightPx.toDp() }
                 val bottomBarHeight = with(density) { bottomBarHeightPx.toDp() }
 
@@ -413,33 +413,39 @@ private fun TabContent(
 ) {
     when (tab) {
         AnisugTab.Home -> {
-            when {
-                homeState.isLoading && homeState.topAiring.isEmpty() ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
-                    }
-                homeState.isOffline && homeState.topAiring.isEmpty() ->
-                    OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
-                homeState.error != null && homeState.topAiring.isEmpty() ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
-                            Button(
-                                onClick = { homeViewModel.refresh() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
-                            ) { Text("Retry") }
+            AnimatedContent(
+                targetState = homeState.isLoading && homeState.topAiring.isEmpty(),
+                transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) },
+                label = "HomeLoadingTransition"
+            ) { isLoading ->
+                when {
+                    isLoading ->
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                         }
+                    homeState.isOffline && homeState.topAiring.isEmpty() ->
+                        to.kuudere.anisuge.ui.OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
+                    homeState.error != null && homeState.topAiring.isEmpty() ->
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                                Button(
+                                    onClick = { homeViewModel.refresh() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
+                                ) { Text("Retry") }
+                            }
+                        }
+                    else -> {
+                        HomeContent(
+                            homeState,
+                            onAnimeClick,
+                            onWatchClick,
+                            onWatchlistClick = onWatchlistClick,
+                            onRefresh = { homeViewModel.refresh() },
+                            onViewLatestMore = onViewLatestMore,
+                            onViewNewOnAppMore = onSearchLatest
+                        )
                     }
-                else -> {
-                    HomeContent(
-                        homeState,
-                        onAnimeClick,
-                        onWatchClick,
-                        onWatchlistClick = onWatchlistClick,
-                        onRefresh = { homeViewModel.refresh() },
-                        onViewLatestMore = onViewLatestMore,
-                        onViewNewOnAppMore = onSearchLatest
-                    )
                 }
             }
         }
