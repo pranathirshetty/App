@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import to.kuudere.anisuge.screens.update.UpdateScreen
 import to.kuudere.anisuge.screens.update.UpdateViewModel
+import to.kuudere.anisuge.platform.LockScreenOrientation
 
 @Composable
 fun App(onAppExit: () -> Unit = {}) {
@@ -63,6 +64,7 @@ fun App(onAppExit: () -> Unit = {}) {
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            LockScreenOrientation(landscape = false)
             NavHost(
                 navController    = navController,
                 startDestination = Screen.Splash.route,
