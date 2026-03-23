@@ -51,7 +51,8 @@ import to.kuudere.anisuge.ui.OfflineState
 fun SearchScreen(
     viewModel: SearchViewModel,
     onAnimeClick: (String) -> Unit,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    onExit: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val scrollState = rememberLazyGridState()
@@ -87,6 +88,15 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 verticalArrangement = Arrangement.spacedBy(itemSpacing)
             ) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                   Box(Modifier.fillMaxWidth()) {
+                        to.kuudere.anisuge.platform.WindowManagementButtons(
+                            onClose = onExit,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp)
+                        )
+                   }
+                }
+
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     FilterSection(state, viewModel)
                 }

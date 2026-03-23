@@ -129,6 +129,7 @@ private fun daysInMonth(y: Int, m: Int): Int {
 fun ScheduleScreen(
     viewModel: ScheduleViewModel,
     onAnimeClick: (String) -> Unit,
+    onExit: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -186,6 +187,15 @@ fun ScheduleScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp),
                     ) {
+                        item {
+                           Box(Modifier.fillMaxWidth()) {
+                                to.kuudere.anisuge.platform.WindowManagementButtons(
+                                    onClose = onExit,
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                )
+                           }
+                        }
+
                         sortedDates.forEachIndexed { dateIdx, dateStr ->
                             val animeList = state.schedule[dateStr] ?: return@forEachIndexed
                             val isToday = dateStr == todayString()

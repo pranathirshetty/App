@@ -153,6 +153,7 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onRefresh: () -> Unit = {},
     isLoggingOut: Boolean = false,
+    onExit: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -235,16 +236,24 @@ fun SettingsScreen(
                             .verticalScroll(rememberScrollState()),
                         contentAlignment = Alignment.TopCenter
                     ) {
-                        SettingsContent(
-                            selectedTab = selectedTab,
-                            uiState = uiState,
-                            navItems = navItems,
-                            onLogout = onLogout,
-                            viewModel = viewModel,
-                            modifier = Modifier
-                                .widthIn(max = 900.dp)
-                                .padding(horizontal = 48.dp, vertical = 40.dp)
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.fillMaxWidth()) {
+                                to.kuudere.anisuge.platform.WindowManagementButtons(
+                                    onClose = onExit,
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 16.dp, end = 16.dp)
+                                )
+                            }
+                            SettingsContent(
+                                selectedTab = selectedTab,
+                                uiState = uiState,
+                                navItems = navItems,
+                                onLogout = onLogout,
+                                viewModel = viewModel,
+                                modifier = Modifier
+                                    .widthIn(max = 900.dp)
+                                    .padding(horizontal = 48.dp, vertical = 40.dp)
+                            )
+                        }
                     }
                 }
             } else {

@@ -416,6 +416,10 @@ private fun TabContent(
     onExit: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
+        to.kuudere.anisuge.platform.DraggableWindowArea(
+            modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+        ) { }
+
         when (tab) {
             AnisugTab.Home -> {
                 AnimatedContent(
@@ -448,32 +452,23 @@ private fun TabContent(
                                 onWatchlistClick = onWatchlistClick,
                                 onRefresh = { homeViewModel.refresh() },
                                 onViewLatestMore = onViewLatestMore,
-                                onViewNewOnAppMore = onSearchLatest
+                                onViewNewOnAppMore = onSearchLatest,
+                                onExit = onExit
                             )
                         }
                     }
                 }
             }
-            AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+            AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick, onExit = onExit)
             AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
-            AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
-            AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
+            AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick, onExit = onExit)
+            AnisugTab.Downloads -> DownloadsTab(onWatchOffline, onExit = onExit)
             AnisugTab.Settings -> SettingsScreen(
                 viewModel = settingsViewModel,
                 onLogout = onLogout,
                 onRefresh = { homeViewModel.refresh() },
-                isLoggingOut = homeState.isLoggingOut
-            )
-        }
-
-        if (tab != AnisugTab.Bookmarks) {
-            to.kuudere.anisuge.platform.DraggableWindowArea(
-                modifier = Modifier.fillMaxWidth().height(48.dp).align(Alignment.TopStart)
-            ) { }
-
-            to.kuudere.anisuge.platform.WindowManagementButtons(
-                onClose = onExit,
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                isLoggingOut = homeState.isLoggingOut,
+                onExit = onExit
             )
         }
     }
@@ -489,18 +484,26 @@ private fun HomeContent(
     onRefresh: () -> Unit = {},
     onViewLatestMore: () -> Unit = {},
     onViewNewOnAppMore: () -> Unit = {},
+    onExit: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     
     val innerContent: @Composable () -> Unit = {
         Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
-        // ── Hero Carousel ──────────────────────────────────────────────
-        if (state.topAiring.isNotEmpty()) {
-            HeroCarousel(
-                items = state.topAiring,
-                onAnimeClick = { onAnimeClick(it.id) },
-                onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep, null) },
-                onWatchlistClick = onWatchlistClick
+        Box(Modifier.fillMaxWidth()) {
+            // ── Hero Carousel ──────────────────────────────────────────────
+            if (state.topAiring.isNotEmpty()) {
+                HeroCarousel(
+                    items = state.topAiring,
+                    onAnimeClick = { onAnimeClick(it.id) },
+                    onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep, null) },
+                    onWatchlistClick = onWatchlistClick
+                )
+            }
+
+            to.kuudere.anisuge.platform.WindowManagementButtons(
+                onClose = onExit,
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
             )
         }
 
@@ -1727,7 +1730,10 @@ private object Uri {
 // ── Downloads Tab ─────────────────────────────────────────────────────────
 
 @Composable
-fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _, _, _ -> }) {
+fun DownloadsTab(
+    onWatchOffline: (String, Int, String, String) -> Unit = { _, _, _, _ -> },
+    onExit: () -> Unit = {}
+) {
     val tasks by DownloadManager.tasks.collectAsState()
     val sortedTasks = remember(tasks) {
         tasks.sortedWith(
@@ -1748,6 +1754,11 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
             modifier = Modifier.fillMaxSize().padding(top = 48.dp),
             contentAlignment = Alignment.Center,
         ) {
+            to.kuudere.anisuge.platform.WindowManagementButtons(
+                onClose = onExit,
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+            )
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1793,6 +1804,14 @@ fun DownloadsTab(onWatchOffline: (String, Int, String, String) -> Unit = { _, _,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(bottom = 32.dp, top = 20.dp)
             ) {
+                item {
+                    Box(Modifier.fillMaxWidth()) {
+                        to.kuudere.anisuge.platform.WindowManagementButtons(
+                            onClose = onExit,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
+                }
                 item(key = "downloads-header") {
                     DownloadsAnimatedEntry(delayMs = 0) {
                         Column {

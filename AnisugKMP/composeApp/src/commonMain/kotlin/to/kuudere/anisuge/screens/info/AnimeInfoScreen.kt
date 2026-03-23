@@ -101,6 +101,10 @@ fun AnimeInfoScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        to.kuudere.anisuge.platform.DraggableWindowArea(
+            modifier = Modifier.fillMaxWidth().height(84.dp).align(Alignment.TopStart)
+        ) { }
+
         if (state.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
@@ -122,22 +126,10 @@ fun AnimeInfoScreen(
                         onWatchEpisode = { epNum -> onWatchEpisode(anime.id, "sub", epNum) },
                         onGenreClick = onGenreClick,
                         onDownloadEpisode = { selectedEpisodeForDownload = it },
-                        onDownloadsClick = onDownloadsClick
+                        onDownloadsClick = onDownloadsClick,
+                        onExit = onExit,
+                        onBack = onBack
                     )
-                    // Top Bar Back Button overlay
-                    Box(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .statusBarsPadding()
-                    ) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier
-                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                        }
-                    }
                 } else {
                     MobileLayout(
                         anime = anime,
@@ -160,15 +152,6 @@ fun AnimeInfoScreen(
                 }
             }
         }
-
-        to.kuudere.anisuge.platform.DraggableWindowArea(
-            modifier = Modifier.fillMaxWidth().height(48.dp).align(Alignment.TopStart)
-        ) { }
-
-        to.kuudere.anisuge.platform.WindowManagementButtons(
-            onClose = onExit,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-        )
     }
 }
 
@@ -429,7 +412,9 @@ private fun DesktopLayout(
     onWatchEpisode: (Int) -> Unit,
     onGenreClick: (String) -> Unit,
     onDownloadEpisode: (to.kuudere.anisuge.data.models.EpisodeItem) -> Unit,
-    onDownloadsClick: () -> Unit
+    onDownloadsClick: () -> Unit,
+    onExit: () -> Unit,
+    onBack: () -> Unit,
 ) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val baseWidth = 1400.dp
@@ -483,6 +468,27 @@ private fun DesktopLayout(
                     )
                 )
             )
+
+            // Window management buttons and Back button - inside scrollable Column
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .align(Alignment.TopStart)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+
+                to.kuudere.anisuge.platform.WindowManagementButtons(
+                    onClose = onExit,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                )
+            }
 
             // Constrained inner content
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
