@@ -13,7 +13,15 @@ private interface CLib : Library {
     companion object {
         const val LC_NUMERIC = 1
         const val LC_ALL     = 6
-        val INSTANCE: CLib = Native.load("c", CLib::class.java)
+        val INSTANCE: CLib? = try {
+            val libName = when {
+                System.getProperty("os.name").lowercase().contains("win") -> "msvcrt"
+                else -> "c"
+            }
+            Native.load(libName, CLib::class.java) as CLib
+        } catch (e: Exception) {
+            null
+        }
     }
 }
 
@@ -86,7 +94,7 @@ internal interface LibMpv : Library {
         fun load(): LibMpv? {
             // mpv REQUIRES LC_NUMERIC=C or mpv_create() returns null
             try {
-                CLib.INSTANCE.setlocale(CLib.LC_NUMERIC, "C")
+                CLib.INSTANCE?.setlocale(CLib.LC_NUMERIC, "C")
             } catch (_: Exception) {}
 
             // 1. Try system library

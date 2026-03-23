@@ -65,7 +65,14 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev rpm desktop-file-utils fakeroot
+          sudo apt-get install -y dpkg-dev rpm desktop-file-utils fakeroot p7zip-full
+
+      - name: Download and Bundle MPV Library
+        run: |
+          mkdir -p composeApp/src/desktopMain/resources/native
+          # MPV for Linux - using system library is preferred, but we can bundle if needed
+          # For now, skip bundling as most Linux systems have libmpv installed
+          echo "Linux will use system libmpv library"
 
       - name: Build Linux Distributions
         run: |
@@ -98,6 +105,16 @@ jobs:
         run: |
           echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
           echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Download and Bundle MPV Library
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "composeApp\src\desktopMain\resources\native"
+          Invoke-WebRequest -Uri "https://www.7-zip.org/a/7zr.exe" -OutFile "7zr.exe"
+          # Using the latest release from March 2026
+          Invoke-WebRequest -Uri "https://github.com/zhongfly/mpv-winbuild/releases/download/2026-03-22-c798884/mpv-dev-x86_64-20260322-git-c798884.7z" -OutFile "mpv-dev.7z" -UserAgent "Mozilla/5.0"
+          .\7zr.exe x mpv-dev.7z -ompv-extracted
+          Copy-Item "mpv-extracted\libmpv-2.dll" "composeApp\src\desktopMain\resources\native\mpv-2.dll"
 
       - name: Decode Signing Certificate
         shell: pwsh
