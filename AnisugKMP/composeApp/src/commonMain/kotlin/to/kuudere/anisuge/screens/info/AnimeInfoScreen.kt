@@ -51,7 +51,8 @@ fun AnimeInfoScreen(
     onBack: () -> Unit,
     onWatchEpisode: (String, String, Int) -> Unit,
     onDownloadsClick: () -> Unit = {},
-    onGenreClick: (String) -> Unit = {}
+    onGenreClick: (String) -> Unit = {},
+    onExit: () -> Unit = {}
 ) {
     LaunchedEffect(animeId) {
         viewModel.loadAnimeInfo(animeId)
@@ -159,6 +160,11 @@ fun AnimeInfoScreen(
                 }
             }
         }
+
+        to.kuudere.anisuge.platform.WindowManagementButtons(
+            onClose = onExit,
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+        )
     }
 }
 

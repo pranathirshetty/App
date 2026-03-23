@@ -466,10 +466,12 @@ private fun TabContent(
             )
         }
 
-        WindowManagementButtons(
-            onClose = onExit,
-            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp) // Ensure on top
-        )
+        if (tab != AnisugTab.Bookmarks) {
+            WindowManagementButtons(
+                onClose = onExit,
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp) // Ensure on top
+            )
+        }
     }
 }
 

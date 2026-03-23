@@ -184,7 +184,8 @@ fun App(onAppExit: () -> Unit = {}) {
                             navController.navigate(Screen.Home(startTab = "Search").route) {
                                 popUpTo(Screen.Home().route) { inclusive = true }
                             }
-                        }
+                        },
+                        onExit = onAppExit
                     )
                 }
 
