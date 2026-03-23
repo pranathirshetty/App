@@ -21,8 +21,10 @@ jobs:
       - name: Generate Versioning
         id: version
         run: |
-          echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          OFFSET=15
+          BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
+          echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
 
       - name: Decode Keystore
         run: |
@@ -59,8 +61,10 @@ jobs:
       - name: Generate Versioning
         id: version
         run: |
-          echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          OFFSET=15
+          BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
+          echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
           
       - name: Install Build Dependencies
         run: |
@@ -103,8 +107,10 @@ jobs:
         id: version
         shell: bash
         run: |
-          echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          OFFSET=15
+          BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
+          echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
 
       - name: Download and Bundle MPV Library
         shell: pwsh
