@@ -106,10 +106,23 @@ actual suspend fun muxToMkv(
             .redirectErrorStream(true)
             .start()
         
+        // Consume output stream to prevent blocking on Windows
+        val outputReader = Thread {
+            try {
+                process.inputStream.bufferedReader().forEachLine { line ->
+                    println("[FFmpeg] $line")
+                }
+            } catch (e: Exception) {
+                // Stream closed, ignore
+            }
+        }
+        outputReader.start()
+        
         val exitCode = process.waitFor()
+        outputReader.join(1000) // Wait up to 1 second for output thread to finish
+        
         if (exitCode != 0) {
-            val error = process.inputStream.bufferedReader().readText()
-            println("[FFmpeg] Error ($exitCode): $error")
+            println("[FFmpeg] Process exited with code $exitCode")
         }
         exitCode == 0
     } catch (e: Exception) {

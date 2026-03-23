@@ -57,17 +57,24 @@ actual fun VideoPlayerSurface(
     // ── Resolve URL (resource or absolute path) ──────────────────────────────
     val resolvedUrl = remember(state.config.url) {
         val url = state.config.url
-        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
-            url
-        } else {
-            val stream = Thread.currentThread().contextClassLoader
-                ?.getResourceAsStream(url)
-            if (stream != null) {
-                val ext = url.substringAfterLast('.', "mp4")
-                val tmp = java.io.File.createTempFile("mpv_res_", ".$ext").also { it.deleteOnExit() }
-                tmp.outputStream().use { out -> stream.copyTo(out) }
-                tmp.absolutePath
-            } else ""
+        when {
+            // HTTP/HTTPS URLs
+            url.startsWith("http://") || url.startsWith("https://") -> url
+            // Unix absolute paths
+            url.startsWith("/") -> url
+            // Windows absolute paths (C:\, D:\, etc.)
+            url.matches(Regex("^[A-Za-z]:\\\\.*")) -> url
+            // Resource file
+            else -> {
+                val stream = Thread.currentThread().contextClassLoader
+                    ?.getResourceAsStream(url)
+                if (stream != null) {
+                    val ext = url.substringAfterLast('.', "mp4")
+                    val tmp = java.io.File.createTempFile("mpv_res_", ".$ext").also { it.deleteOnExit() }
+                    tmp.outputStream().use { out -> stream.copyTo(out) }
+                    tmp.absolutePath
+                } else ""
+            }
         }
     }
 

@@ -123,12 +123,19 @@ class WatchViewModel(
     private suspend fun loadOfflineStream(path: String) {
         // Guard: if state shows we're not in offline mode anymore, abort
         if (_uiState.value.offlinePath != path) {
-            println("[WatchVM] loadOfflineStream aborted - path mismatch: expected $path, got ${_uiState.value.offlinePath}")
             return
         }
 
+        // Normalize path separators to the system default
+        val normalizedPath = path.replace('/', java.io.File.separatorChar).replace('\\', java.io.File.separatorChar)
+
         // Check for local subs/fonts in same dir
-        val dir = try { path.substringBeforeLast("/") } catch(e: Exception) { null }
+        val dir = try { 
+            val file = java.io.File(normalizedPath)
+            file.parent
+        } catch(e: Exception) { 
+            null 
+        }
         val subs = mutableListOf<to.kuudere.anisuge.data.models.SubtitleData>()
 
         if (dir != null) {
@@ -140,9 +147,10 @@ class WatchViewModel(
                         val name = file.name
                         if (name.startsWith("subtitle") && (name.endsWith(".ass") || name.endsWith(".vtt") || name.endsWith(".srt"))) {
                             val label = name.substringAfter("subtitle_", "").substringBeforeLast(".").ifEmpty { "Default" }
+                            val fileUrl = "file://${file.toString()}"
                             subs.add(to.kuudere.anisuge.data.models.SubtitleData(
                                 languageName = label,
-                                url = "file://${file.toString()}",
+                                url = fileUrl,
                                 format = name.substringAfterLast(".")
                             ))
                         }
@@ -159,7 +167,7 @@ class WatchViewModel(
             isLoading = false,
             isLoadingVideo = false,
             currentQuality = "Offline",
-            availableQualities = listOf("Offline" to path),
+            availableQualities = listOf("Offline" to normalizedPath),
             availableSubtitles = subs,
             currentSubtitleUrl = defaultSub?.url,
             currentFontsDir = dir,
