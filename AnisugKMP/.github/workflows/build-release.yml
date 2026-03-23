@@ -47,6 +47,7 @@ jobs:
         with:
           name: android-apks
           path: composeApp/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
   build-linux:
     runs-on: ubuntu-latest
@@ -81,7 +82,7 @@ jobs:
       - name: Build Linux Distributions
         run: |
           chmod +x gradlew
-          ./gradlew packageDeb packageRpm packageAppImage :composeApp:createPortableZip --no-daemon -PappVersion="${{ steps.version.outputs.version_name }}" -PappBuildNumber="${{ steps.version.outputs.build_num }}"
+          ./gradlew :composeApp:packageDeb :composeApp:packageRpm :composeApp:packageAppImage :composeApp:createPortableZip --no-daemon -PappVersion="${{ steps.version.outputs.version_name }}" -PappBuildNumber="${{ steps.version.outputs.build_num }}"
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -92,6 +93,7 @@ jobs:
             composeApp/build/compose/binaries/main/rpm/*.rpm
             composeApp/build/compose/binaries/main/appimage/*.AppImage
             composeApp/build/distributions/*.zip
+          if-no-files-found: error
 
   build-windows:
     runs-on: windows-latest
@@ -131,7 +133,7 @@ jobs:
       - name: Build Windows Distributions
         shell: pwsh
         run: |
-          ./gradlew packageMsi packageExe :composeApp:createPortableZip --no-daemon "-PappVersion=${{ steps.version.outputs.version_name }}" "-PappBuildNumber=${{ steps.version.outputs.build_num }}" "-Pcompose.desktop.signing.sign=true" "-Pcompose.desktop.signing.certificateFile=../signing/windows.pfx" "-Pcompose.desktop.signing.keyPassword=${{ secrets.KEYSTORE_PASSWORD }}"
+          ./gradlew :composeApp:packageMsi :composeApp:packageExe :composeApp:createPortableZip --no-daemon "-PappVersion=${{ steps.version.outputs.version_name }}" "-PappBuildNumber=${{ steps.version.outputs.build_num }}" "-Pcompose.desktop.signing.sign=true" "-Pcompose.desktop.signing.certificateFile=../signing/windows.pfx" "-Pcompose.desktop.signing.keyPassword=${{ secrets.KEYSTORE_PASSWORD }}"
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
@@ -140,6 +142,7 @@ jobs:
           path: |
             composeApp/build/compose/binaries/main/msi/*.msi
             composeApp/build/distributions/*.zip
+          if-no-files-found: error
 
   create-release:
     needs: [build-android, build-linux, build-windows]
@@ -150,6 +153,9 @@ jobs:
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+
+      - name: List Artifacts (Debug)
+        run: ls -R .
         
       - name: Create Release
         uses: softprops/action-gh-release@v2
