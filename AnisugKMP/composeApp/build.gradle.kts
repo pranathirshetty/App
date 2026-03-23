@@ -98,7 +98,12 @@ kotlin {
             
             // JNativeHook for cross-platform global media keys (earphone play/pause)
             implementation(libs.jnativehook)
-            implementation(libs.dbus.java)
+            // D-Bus is Linux-only. The native transport requires libc which crashes on Windows.
+            if (System.getProperty("os.name").lowercase().contains("linux")) {
+                implementation(libs.dbus.java)
+            } else {
+                compileOnly(libs.dbus.java)
+            }
             implementation(libs.jave.all.deps)
         }
 
@@ -134,11 +139,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = appBuildNum
         versionName = appVersionName
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
     }
 
     buildFeatures {
@@ -212,18 +212,36 @@ compose.desktop {
                 // MSI version must be MAJOR.MINOR.BUILD (max 3 segments)
                 packageVersion = windowsVersion
                 upgradeUuid = "d7e9b1a0-3f2d-4e9b-8a1c-5d6e7f8a9b0c" // Stable UUID for updates
+                
+                shortcut = true
+                menu = true
+                menuGroup = "Anisurge"
+                
+                // Note: Signing is now handled via project properties in the CI workflow
+                // by passing -Pcompose.desktop.signing.sign=true etc.
+                // This avoids DSL compilation issues.
             }
         }
     }
 }
 
 tasks.register<Zip>("createPortableZip") {
+    val osName = System.getProperty("os.name").lowercase()
+    val platform = when {
+        osName.contains("win") -> "windows"
+        osName.contains("linux") -> "linux"
+        osName.contains("mac") -> "macos"
+        else -> "portable"
+    }
+
     group = "compose desktop"
     description = "Creates a portable zip of the application"
     from("build/compose/binaries/main/app")
-    archiveFileName.set("Anisurge-${appVersionName}.${appBuildNum}-portable.zip")
+    archiveFileName.set("Anisurge-${appVersionName}.${appBuildNum}-${platform}-portable.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
-    dependsOn("createDistributable", "packageAppImage")
+    dependsOn("createDistributable")
+    // Ensure this runs after other packaging tasks if they are in the graph to avoid implicit dependency warnings
+    mustRunAfter(tasks.matching { it.name.startsWith("package") })
 }
 
 
