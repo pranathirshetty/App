@@ -415,54 +415,60 @@ private fun TabContent(
     onSearchLatest: () -> Unit,
     onExit: () -> Unit,
 ) {
-    when (tab) {
-        AnisugTab.Home -> {
-            AnimatedContent(
-                targetState = homeState.isLoading && homeState.topAiring.isEmpty(),
-                transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) },
-                label = "HomeLoadingTransition"
-            ) { isLoading ->
-                when {
-                    isLoading ->
-                        Box(Modifier.fillMaxSize(), Alignment.Center) {
-                            CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
-                        }
-                    homeState.isOffline && homeState.topAiring.isEmpty() ->
-                        to.kuudere.anisuge.ui.OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
-                    homeState.error != null && homeState.topAiring.isEmpty() ->
-                        Box(Modifier.fillMaxSize(), Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
-                                Button(
-                                    onClick = { homeViewModel.refresh() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
-                                ) { Text("Retry") }
+    Box(Modifier.fillMaxSize()) {
+        when (tab) {
+            AnisugTab.Home -> {
+                AnimatedContent(
+                    targetState = homeState.isLoading && homeState.topAiring.isEmpty(),
+                    transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) },
+                    label = "HomeLoadingTransition"
+                ) { isLoading ->
+                    when {
+                        isLoading ->
+                            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                             }
+                        homeState.isOffline && homeState.topAiring.isEmpty() ->
+                            to.kuudere.anisuge.ui.OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
+                        homeState.error != null && homeState.topAiring.isEmpty() ->
+                            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                                    Button(
+                                        onClick = { homeViewModel.refresh() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
+                                    ) { Text("Retry") }
+                                }
+                            }
+                        else -> {
+                            HomeContent(
+                                homeState,
+                                onAnimeClick,
+                                onWatchClick,
+                                onWatchlistClick = onWatchlistClick,
+                                onRefresh = { homeViewModel.refresh() },
+                                onViewLatestMore = onViewLatestMore,
+                                onViewNewOnAppMore = onSearchLatest
+                            )
                         }
-                    else -> {
-                        HomeContent(
-                            homeState,
-                            onAnimeClick,
-                            onWatchClick,
-                            onWatchlistClick = onWatchlistClick,
-                            onRefresh = { homeViewModel.refresh() },
-                            onViewLatestMore = onViewLatestMore,
-                            onViewNewOnAppMore = onSearchLatest,
-                            onExit = onExit
-                        )
                     }
                 }
             }
+            AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
+            AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
+            AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
+            AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
+            AnisugTab.Settings -> SettingsScreen(
+                viewModel = settingsViewModel,
+                onLogout = onLogout,
+                onRefresh = { homeViewModel.refresh() },
+                isLoggingOut = homeState.isLoggingOut
+            )
         }
-        AnisugTab.Search -> SearchScreen(searchViewModel, onAnimeClick)
-        AnisugTab.Bookmarks -> WatchlistScreen(watchlistViewModel, onAnimeClick)
-        AnisugTab.Calendar -> ScheduleScreen(scheduleViewModel, onAnimeClick)
-        AnisugTab.Downloads -> DownloadsTab(onWatchOffline)
-        AnisugTab.Settings -> SettingsScreen(
-            viewModel = settingsViewModel,
-            onLogout = onLogout,
-            onRefresh = { homeViewModel.refresh() },
-            isLoggingOut = homeState.isLoggingOut
+
+        WindowManagementButtons(
+            onClose = onExit,
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp) // Ensure on top
         )
     }
 }
@@ -477,7 +483,6 @@ private fun HomeContent(
     onRefresh: () -> Unit = {},
     onViewLatestMore: () -> Unit = {},
     onViewNewOnAppMore: () -> Unit = {},
-    onExit: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     
@@ -489,8 +494,7 @@ private fun HomeContent(
                 items = state.topAiring,
                 onAnimeClick = { onAnimeClick(it.id) },
                 onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep, null) },
-                onWatchlistClick = onWatchlistClick,
-                onExit = onExit
+                onWatchlistClick = onWatchlistClick
             )
         }
 
@@ -575,7 +579,6 @@ private fun HeroCarousel(
     onAnimeClick: (AnimeItem) -> Unit,
     onWatchClick: (AnimeItem, String, Int) -> Unit,
     onWatchlistClick: (AnimeItem) -> Unit,
-    onExit: () -> Unit,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
     val item = items[currentIndex]
@@ -850,11 +853,6 @@ private fun HeroCarousel(
                         )
                     }
                 }
-
-                WindowManagementButtons(
-                    onClose = onExit,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-                )
             }
         }
     }

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.delay
 import to.kuudere.anisuge.player.VideoPlayerSurface
 import to.kuudere.anisuge.player.rememberVideoPlayerState
+import to.kuudere.anisuge.platform.DraggableWindowArea
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -60,29 +61,31 @@ fun SplashScreen(
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
-        contentAlignment = Alignment.Center,
-    ) {
-        VideoPlayerSurface(
-            state      = playerState,
-            modifier   = Modifier.fillMaxSize(),
-            onFinished = { videoFinished = true },
-        )
-
-        // Status text at bottom center
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+    DraggableWindowArea(Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Black),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "Status: $status",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 12.sp,
-                letterSpacing = 1.sp
+            VideoPlayerSurface(
+                state      = playerState,
+                modifier   = Modifier.fillMaxSize(),
+                onFinished = { videoFinished = true },
             )
+
+            // Status text at bottom center
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Status: $status",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    letterSpacing = 1.sp
+                )
+            }
         }
     }
 }
