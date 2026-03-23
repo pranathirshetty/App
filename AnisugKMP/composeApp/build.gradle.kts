@@ -205,6 +205,13 @@ compose.desktop {
                 iconFile.set(project.file("src/desktopMain/resources/logo.png"))
                 // Combine version and build number for Linux (e.g., 0.9.9.12)
                 packageVersion = "${appVersionName.replace("-", ".")}.$appBuildNum"
+                
+                shortcut = true
+                menu = true
+                appCategory = "Video"
+                
+                debPackageName = "anisurge"
+                rpmPackageName = "anisurge"
             }
 
             windows {
