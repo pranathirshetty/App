@@ -133,7 +133,6 @@ jobs:
           name: windows-distributions
           path: |
             composeApp/build/compose/binaries/main/msi/*.msi
-            composeApp/build/compose/binaries/main/exe/*.exe
             composeApp/build/distributions/*.zip
 
   create-release:
@@ -156,7 +155,6 @@ jobs:
             linux-distributions/*.AppImage
             linux-distributions/*.zip
             windows-distributions/*.msi
-            windows-distributions/*.exe
             windows-distributions/*.zip
           generate_release_notes: true
           draft: false

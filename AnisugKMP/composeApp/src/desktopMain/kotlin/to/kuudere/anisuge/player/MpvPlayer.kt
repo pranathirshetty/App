@@ -70,7 +70,8 @@ internal class MpvPlayer(
         if (config.fontsDir != null) {
             mpv.mpv_set_option_string(handle, "sub-fonts-dir", config.fontsDir)
         }
-        mpv.mpv_set_option_string(handle, "sub-font-provider", "fontconfig")
+        // Use auto font provider - Windows uses DirectWrite, Linux uses fontconfig
+        mpv.mpv_set_option_string(handle, "sub-font-provider", "auto")
         mpv.mpv_set_option_string(handle, "sub-ass", "yes")
         mpv.mpv_set_option_string(handle, "sub-ass-override", "scale")
 
