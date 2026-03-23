@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -60,11 +61,15 @@ fun App(onAppExit: () -> Unit = {}) {
         val settingsVm = remember { SettingsViewModel(AppComponent.settingsService, AppComponent.settingsStore, AppComponent.serverRepository, AppComponent.authService) }
         val latestVm = remember { LatestViewModel(AppComponent.latestService) }
         val updateVm = remember { UpdateViewModel(AppComponent.updateService) }
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val isWatchScreen = navBackStackEntry?.destination?.route?.startsWith("watch/") == true
         val updateState by updateVm.state.collectAsState()
 
 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            LockScreenOrientation(landscape = false)
+            if (!isWatchScreen) {
+                LockScreenOrientation(landscape = false)
+            }
             NavHost(
                 navController    = navController,
                 startDestination = Screen.Splash.route,
