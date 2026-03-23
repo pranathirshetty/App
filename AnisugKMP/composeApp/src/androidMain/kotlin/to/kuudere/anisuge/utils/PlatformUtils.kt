@@ -184,7 +184,8 @@ actual suspend fun muxToMkv(
     try {
         val response = RxFFmpegInvoke.getInstance().runCommand(cmdArray.toTypedArray(), null)
         response == 0
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
+        e.printStackTrace()
         false
     }
 }

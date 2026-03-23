@@ -6,5 +6,11 @@
 # directive in build.gradle.kts.
 
 -keep class to.kuudere.anisuge.data.models.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
+-keepattributes Signature,Annotation,InnerClasses,EnclosingMethod
+
+# RxFFmpeg rules
+-keep class io.microshow.rxffmpeg.** { *; }
+-dontwarn io.microshow.rxffmpeg.**
+-keepclasseswithmembernames class io.microshow.rxffmpeg.RxFFmpegInvoke {
+    native <methods>;
+}

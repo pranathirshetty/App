@@ -182,6 +182,12 @@ android {
     }
 }
 
+compose {
+    resources {
+        packageOfResClass = "anisurge.composeapp.generated.resources"
+    }
+}
+
 compose.desktop {
     application {
         mainClass = "to.kuudere.anisuge.MainKt"
