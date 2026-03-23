@@ -35,8 +35,15 @@ class HomeService(
     private fun sessionToCookie(s: SessionInfo): String =
         "session_id=${s.sessionId}; session_secret=${s.session}; user_id=${s.userId}"
 
+    private var cachedHomeData: HomeData? = null
+
     /** Fetches the home screen data. Returns null on network/parse failure. */
-    suspend fun fetchHomeData(): HomeData? {
+    suspend fun fetchHomeData(forceRefresh: Boolean = false): HomeData? {
+        if (!forceRefresh && cachedHomeData != null) {
+            println("[HomeService] Returning cached HomeData")
+            return cachedHomeData
+        }
+
         return try {
             val stored = sessionStore.get()
             val response = httpClient.get("$BASE_URL/") {
@@ -58,6 +65,7 @@ class HomeService(
                 topUpcoming  = parseList("topUpcoming"),
             )
             println("[HomeService] topAired=${result.topAired.size} latestEps=${result.latestEps.size} lastUpdated=${result.lastUpdated.size} topUpcoming=${result.topUpcoming.size}")
+            cachedHomeData = result
             result
         } catch (e: Exception) {
             println("[HomeService] fetchHomeData error: ${e.message}")

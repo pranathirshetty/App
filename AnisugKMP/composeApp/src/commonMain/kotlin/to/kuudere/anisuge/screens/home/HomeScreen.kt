@@ -441,13 +441,13 @@ private fun TabContent(
                                 CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
                             }
                         homeState.isOffline && homeState.topAiring.isEmpty() ->
-                            to.kuudere.anisuge.ui.OfflineState(onRetry = { homeViewModel.refresh() }, isLoading = homeState.isLoading)
+                            to.kuudere.anisuge.ui.OfflineState(onRetry = { homeViewModel.refresh(force = true) }, isLoading = homeState.isLoading)
                         homeState.error != null && homeState.topAiring.isEmpty() ->
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     Text(homeState.error!!, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
                                     Button(
-                                        onClick = { homeViewModel.refresh() },
+                                        onClick = { homeViewModel.refresh(force = true) },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBF80FF))
                                     ) { Text("Retry") }
                                 }
@@ -458,7 +458,7 @@ private fun TabContent(
                                 onAnimeClick,
                                 onWatchClick,
                                 onWatchlistClick = onWatchlistClick,
-                                onRefresh = { homeViewModel.refresh() },
+                                onRefresh = { homeViewModel.refresh(force = true) },
                                 onViewLatestMore = onViewLatestMore,
                                 onViewNewOnAppMore = onSearchLatest,
                                 onExit = onExit
@@ -474,7 +474,7 @@ private fun TabContent(
             AnisugTab.Settings -> SettingsScreen(
                 viewModel = settingsViewModel,
                 onLogout = onLogout,
-                onRefresh = { homeViewModel.refresh() },
+                 onRefresh = { homeViewModel.refresh(force = true) },
                 isLoggingOut = homeState.isLoggingOut,
                 initialTab = initialSettingsTab,
                 onExit = onExit

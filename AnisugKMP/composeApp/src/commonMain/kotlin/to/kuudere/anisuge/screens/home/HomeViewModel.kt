@@ -78,14 +78,14 @@ class HomeViewModel(
         }
     }
 
-    fun refresh() {
+    fun refresh(force: Boolean = false) {
         scope.launch {
             _uiState.update { it.copy(isLoading = true, isOffline = false, error = null) }
             try {
                 // Trigger auth check — results will flow into our collector in init
                 authService.checkSession()
 
-                val homeData = homeService.fetchHomeData()
+                val homeData = homeService.fetchHomeData(forceRefresh = force)
                 _uiState.update {
                     it.copy(
                         isLoading        = false,

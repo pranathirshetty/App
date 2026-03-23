@@ -13,6 +13,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import kotlinx.coroutines.delay
 import to.kuudere.anisuge.player.VideoPlayerSurface
 import to.kuudere.anisuge.player.rememberVideoPlayerState
@@ -44,9 +46,9 @@ fun SplashScreen(
         enableSubs   = false,
     )
 
-    // Timeout fallback
+    // Timeout fallback - reduced to 3s for faster loading
     LaunchedEffect(Unit) {
-        delay(6000)
+        delay(3000)
         videoFinished = true
     }
 
@@ -63,7 +65,15 @@ fun SplashScreen(
 
     DraggableWindowArea(Modifier.fillMaxSize()) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color.Black),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    videoFinished = true
+                },
             contentAlignment = Alignment.Center,
         ) {
             VideoPlayerSurface(

@@ -35,19 +35,32 @@ class SplashViewModel(
     }
 
     private fun performInitialChecks() = viewModelScope.launch {
-        // Step 1: Verify User
-        _status.value = "Verifying user..."
-        val authResult = authService.checkSession()
+        // Step 1 & 2: Parallelize User Verification and Update Check
+        _status.value = "Initializing..."
         
-        // Step 2: Check for Updates
-        _status.value = "Checking for updates..."
-        updateService.checkUpdate() // We just trigger it, navigation in App.kt handles destination
+        val authJob = viewModelScope.launch {
+            _status.value = "Verifying user..."
+            authService.checkSession()
+        }
+        
+        val updateJob = viewModelScope.launch {
+            _status.value = "Checking for updates..."
+            updateService.checkUpdate()
+        }
+
+        // Wait for auth to finish so we know if we should prefetch home data
+        authJob.join()
+        
+        val authResult = authService.authState.value
         
         // Step 3: Loading content (prefetch)
-        if (authResult is SessionCheckResult.Valid) {
+        if (authResult is SessionCheckResult.Valid || authResult is SessionCheckResult.NetworkError) {
             _status.value = "Loading home data..."
             homeService.fetchHomeData()
         }
+
+        // Ensure update check also finished
+        updateJob.join()
 
         _status.value = "Ready"
         
