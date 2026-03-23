@@ -8,3 +8,9 @@ expect fun DraggableWindowArea(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 )
+
+@Composable
+expect fun WindowManagementButtons(
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+)

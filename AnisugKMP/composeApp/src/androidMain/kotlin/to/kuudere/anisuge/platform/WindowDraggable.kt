@@ -12,3 +12,11 @@ actual fun DraggableWindowArea(
 ) {
     Box(modifier) { content() }
 }
+
+@Composable
+actual fun WindowManagementButtons(
+    onClose: () -> Unit,
+    modifier: Modifier
+) {
+    // No-op for Android
+}

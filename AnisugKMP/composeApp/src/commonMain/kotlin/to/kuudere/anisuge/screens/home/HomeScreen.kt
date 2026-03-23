@@ -155,6 +155,7 @@ import to.kuudere.anisuge.data.models.ContinueWatchingItem
 import to.kuudere.anisuge.utils.DownloadManager
 import to.kuudere.anisuge.utils.DownloadTask
 import to.kuudere.anisuge.platform.DraggableWindowArea
+import to.kuudere.anisuge.platform.WindowManagementButtons
 import to.kuudere.anisuge.screens.search.SearchScreen
 import to.kuudere.anisuge.screens.search.SearchViewModel
 import to.kuudere.anisuge.screens.watchlist.WatchlistScreen
@@ -282,7 +283,8 @@ fun HomeScreen(
                                     searchViewModel.search()
                                     prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                                     currentTab = AnisugTab.Search
-                                }
+                                },
+                                onExit = onExit
                             )
                         }
                     }
@@ -333,7 +335,8 @@ fun HomeScreen(
                                     searchViewModel.search()
                                     prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                                     currentTab = AnisugTab.Search
-                                }
+                                },
+                                onExit = onExit
                             )
                         }
                     }
@@ -410,6 +413,7 @@ private fun TabContent(
     onViewLatestMore: () -> Unit,
     onWatchlistClick: (AnimeItem) -> Unit,
     onSearchLatest: () -> Unit,
+    onExit: () -> Unit,
 ) {
     when (tab) {
         AnisugTab.Home -> {
@@ -443,7 +447,8 @@ private fun TabContent(
                             onWatchlistClick = onWatchlistClick,
                             onRefresh = { homeViewModel.refresh() },
                             onViewLatestMore = onViewLatestMore,
-                            onViewNewOnAppMore = onSearchLatest
+                            onViewNewOnAppMore = onSearchLatest,
+                            onExit = onExit
                         )
                     }
                 }
@@ -472,6 +477,7 @@ private fun HomeContent(
     onRefresh: () -> Unit = {},
     onViewLatestMore: () -> Unit = {},
     onViewNewOnAppMore: () -> Unit = {},
+    onExit: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     
@@ -484,6 +490,7 @@ private fun HomeContent(
                 onAnimeClick = { onAnimeClick(it.id) },
                 onWatchClick = { item, lang, ep -> onWatchClick(item.id, lang, ep, null) },
                 onWatchlistClick = onWatchlistClick,
+                onExit = onExit
             )
         }
 
@@ -568,6 +575,7 @@ private fun HeroCarousel(
     onAnimeClick: (AnimeItem) -> Unit,
     onWatchClick: (AnimeItem, String, Int) -> Unit,
     onWatchlistClick: (AnimeItem) -> Unit,
+    onExit: () -> Unit,
 ) {
     var currentIndex by remember { mutableStateOf(0) }
     val item = items[currentIndex]
@@ -619,13 +627,17 @@ private fun HeroCarousel(
                     val animItem = items[targetIndex]
                     val imageUrl = animItem.bannerUrl ?: animItem.imageUrl
                     Box(Modifier.fillMaxSize()) {
+                        
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = animItem.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        
+                        // Slide continues...
 
-                AsyncImage(
-                    model           = imageUrl,
-                    contentDescription = animItem.title,
-                    contentScale    = ContentScale.Crop,
-                    modifier        = Modifier.fillMaxSize(),
-                )
+
 
                 Box(
                     Modifier.fillMaxSize().drawWithCache {
@@ -799,12 +811,12 @@ private fun HeroCarousel(
                                 .align(Alignment.BottomEnd)
                                 .padding(end = 16.dp, bottom = 16.dp)
                         ) {
-                            Text("24m", color = Color.White.copy(alpha=0.7f), fontSize = 13.sp)
+                        Text("24m", color = Color.White.copy(alpha=0.7f), fontSize = 13.sp)
                         }
                     }
                 }
-                } // End Box wrapping animItem content
-                } // End AnimatedContent
+            }
+        }
 
                 Row(
                     Modifier.align(Alignment.BottomEnd).padding(end = paddingAmount, bottom = paddingAmount),
@@ -838,6 +850,11 @@ private fun HeroCarousel(
                         )
                     }
                 }
+
+                WindowManagementButtons(
+                    onClose = onExit,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+                )
             }
         }
     }
