@@ -57,6 +57,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxHeight
+import to.kuudere.anisuge.screens.settings.SettingsTab
+import to.kuudere.anisuge.screens.settings.SettingsScreen
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -165,6 +167,7 @@ import to.kuudere.anisuge.screens.schedule.ScheduleViewModel
 import to.kuudere.anisuge.screens.settings.SettingsScreen
 import to.kuudere.anisuge.screens.settings.SettingsViewModel
 import to.kuudere.anisuge.ui.ConfirmDialog
+import to.kuudere.anisuge.platform.isDesktopPlatform
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -192,6 +195,7 @@ fun HomeScreen(
     startTab: String? = null,
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
+    var initialSettingsTab by remember { mutableStateOf<SettingsTab?>(null) }
     var currentTab by remember(startOnDownloads, startTab) { 
         val initial = if (startOnDownloads) AnisugTab.Downloads else {
             AnisugTab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: AnisugTab.Home
@@ -238,8 +242,9 @@ fun HomeScreen(
                     avatarUrl = homeState.userProfile?.avatar,
                     selectedTab = currentTab,
                     isLoggingOut = homeState.isLoggingOut,
-                    onTabSelect = { newTab ->
+                    onTabSelect = { newTab, initialNested ->
                         prevTabIndex = AnisugTab.entries.indexOf(currentTab)
+                        initialSettingsTab = initialNested
                         currentTab = newTab
                     },
                     onLogout = {
@@ -284,7 +289,8 @@ fun HomeScreen(
                                     prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                                     currentTab = AnisugTab.Search
                                 },
-                                onExit = onExit
+                                onExit = onExit,
+                                initialSettingsTab = initialSettingsTab
                             )
                         }
                     }
@@ -336,7 +342,8 @@ fun HomeScreen(
                                     prevTabIndex = AnisugTab.entries.indexOf(currentTab)
                                     currentTab = AnisugTab.Search
                                 },
-                                onExit = onExit
+                                onExit = onExit,
+                                initialSettingsTab = initialSettingsTab
                             )
                         }
                     }
@@ -414,6 +421,7 @@ private fun TabContent(
     onWatchlistClick: (AnimeItem) -> Unit,
     onSearchLatest: () -> Unit,
     onExit: () -> Unit,
+    initialSettingsTab: SettingsTab?,
 ) {
     Box(Modifier.fillMaxSize()) {
         to.kuudere.anisuge.platform.DraggableWindowArea(
@@ -468,6 +476,7 @@ private fun TabContent(
                 onLogout = onLogout,
                 onRefresh = { homeViewModel.refresh() },
                 isLoggingOut = homeState.isLoggingOut,
+                initialTab = initialSettingsTab,
                 onExit = onExit
             )
         }
@@ -1340,7 +1349,7 @@ private fun AnisugSidebar(
     avatarUrl: String?,
     selectedTab: AnisugTab,
     isLoggingOut: Boolean,
-    onTabSelect: (AnisugTab) -> Unit,
+    onTabSelect: (AnisugTab, SettingsTab?) -> Unit,
     onLogout: () -> Unit,
 ) {
     val fullAvatarUrl = when {
@@ -1368,7 +1377,8 @@ private fun AnisugSidebar(
                     Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f)),
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable { onTabSelect(AnisugTab.Settings, SettingsTab.Profile) },
                     contentAlignment = Alignment.Center
                 ) {
                     if (fullAvatarUrl != null) {
@@ -1393,33 +1403,33 @@ private fun AnisugSidebar(
                 SidebarIcon(
                     Icons.Outlined.CalendarToday, 
                     isSelected = selectedTab == AnisugTab.Calendar,
-                    onClick = { onTabSelect(AnisugTab.Calendar) }
+                    onClick = { onTabSelect(AnisugTab.Calendar, null) }
                 )
                 SidebarIcon(
                     Icons.Outlined.Home, 
                     isSelected = selectedTab == AnisugTab.Home, 
                     selectedTint = Color.White,
-                    onClick = { onTabSelect(AnisugTab.Home) }
+                    onClick = { onTabSelect(AnisugTab.Home, null) }
                 )
                 SidebarIcon(
                     Icons.Outlined.Explore, 
                     isSelected = selectedTab == AnisugTab.Search, 
-                    onClick = { onTabSelect(AnisugTab.Search) }
+                    onClick = { onTabSelect(AnisugTab.Search, null) }
                 )
                 SidebarIcon(
                     Icons.Outlined.Bookmarks, 
                     isSelected = selectedTab == AnisugTab.Bookmarks,
-                    onClick = { onTabSelect(AnisugTab.Bookmarks) }
+                    onClick = { onTabSelect(AnisugTab.Bookmarks, null) }
                 )
                 SidebarIcon(
                     Icons.Outlined.Download, 
                     isSelected = selectedTab == AnisugTab.Downloads,
-                    onClick = { onTabSelect(AnisugTab.Downloads) }
+                    onClick = { onTabSelect(AnisugTab.Downloads, null) }
                 )
                 SidebarIcon(
                     Icons.Outlined.Settings, 
                     isSelected = selectedTab == AnisugTab.Settings,
-                    onClick = { onTabSelect(AnisugTab.Settings) }
+                    onClick = { onTabSelect(AnisugTab.Settings, null) }
                 )
             }
             

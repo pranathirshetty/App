@@ -130,6 +130,8 @@ import to.kuudere.anisuge.platform.AppBuildNumber
 import to.kuudere.anisuge.platform.PlatformName
 import to.kuudere.anisuge.platform.isDesktopPlatform
 import to.kuudere.anisuge.ui.ConfirmDialog
+import to.kuudere.anisuge.screens.settings.SettingsTab
+import androidx.compose.ui.text.style.TextAlign
 
 // ── Colors ── Black & white theme ────────────────────────────────────────────────
 private val BG       = Color(0xFF000000)
@@ -153,11 +155,18 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onRefresh: () -> Unit = {},
     isLoggingOut: Boolean = false,
+    initialTab: SettingsTab? = null,
     onExit: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableStateOf<SettingsTab>(SettingsTab.Preferences) }
+    var selectedTab by remember { mutableStateOf<SettingsTab>(initialTab ?: SettingsTab.Preferences) }
+
+    LaunchedEffect(initialTab) {
+        if (initialTab != null) {
+            selectedTab = initialTab
+        }
+    }
 
 
 
@@ -3894,8 +3903,22 @@ private fun ProfileTab(
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color.White)
             }
-        } else if (uiState.userProfile != null) {
-            val user = uiState.userProfile
+        } else if (uiState.errorMessage != null && uiState.userProfile == null) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(uiState.errorMessage, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Color.White)) { 
+                        Text("Retry", color = Color.Black) 
+                    }
+                }
+            }
+        } else if (uiState.userProfile == null) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Text("Please log in to view your profile", color = MUTED)
+            }
+        } else {
+            val user = uiState.userProfile!!
             
             // Profile Card
             Box(
@@ -3989,15 +4012,6 @@ private fun ProfileTab(
                         ProfileDetailItem("Timezone", "UTC") // Hardcoded from example but could be dynamic
                     }
                 }
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 48.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Failed to load profile", color = Color(0xFFBF80FF))
             }
         }
     }
