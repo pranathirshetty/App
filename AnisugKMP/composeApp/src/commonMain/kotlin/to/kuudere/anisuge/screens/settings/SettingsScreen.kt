@@ -126,6 +126,7 @@ import to.kuudere.anisuge.data.models.SessionInfoResponse
 import to.kuudere.anisuge.data.models.StorageInfo
 import to.kuudere.anisuge.data.models.AnimeFolderInfo
 import to.kuudere.anisuge.platform.AppVersion
+import to.kuudere.anisuge.platform.AppBuildNumber
 import to.kuudere.anisuge.platform.PlatformName
 import to.kuudere.anisuge.platform.isDesktopPlatform
 import to.kuudere.anisuge.ui.ConfirmDialog
@@ -453,7 +454,7 @@ private fun Sidebar(
             }
 
         AppStatsSection(
-            version = uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion,
+            version = "${uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion}+$AppBuildNumber",
             platform = displayPlatform,
             userId = uiState.currentSession?.userId ?: "Not logged in",
             modifier = Modifier.padding(start = 12.dp)
@@ -653,7 +654,7 @@ private fun MobileSettingsList(
             }
 
         AppStatsSection(
-            version = uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion,
+            version = "${uiState.currentSession?.clientVersion?.takeIf { it.isNotBlank() } ?: AppVersion}+$AppBuildNumber",
             platform = displayPlatform,
             userId = uiState.currentSession?.userId ?: "Not logged in"
         )
