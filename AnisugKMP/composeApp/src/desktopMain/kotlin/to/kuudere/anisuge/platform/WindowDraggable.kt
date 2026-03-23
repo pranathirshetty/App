@@ -68,8 +68,6 @@ actual fun WindowManagementButtons(
     onClose: () -> Unit,
     modifier: Modifier
 ) {
-    if (PlatformName != "Linux") return
-
     val windowState = LocalWindowState.current
 
     Row(
