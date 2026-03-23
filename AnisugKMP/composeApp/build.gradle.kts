@@ -207,11 +207,7 @@ compose.desktop {
                 packageVersion = "${appVersionName.replace("-", ".")}.$appBuildNum"
                 
                 shortcut = true
-                menu = true
-                appCategory = "Video"
-                
-                debPackageName = "anisurge"
-                rpmPackageName = "anisurge"
+                appCategory = "AudioVideo;Video;Entertainment;"
             }
 
             windows {
