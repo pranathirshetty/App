@@ -59,6 +59,7 @@ jobs:
       - name: Generate Versioning
         id: version
         run: |
+          echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
           echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
           
       - name: Install Build Dependencies
@@ -69,8 +70,7 @@ jobs:
       - name: Build Linux Distributions
         run: |
           chmod +x gradlew
-          ./gradlew packageDeb packageRpm packageAppImage packageZip --no-daemon \
-            -PappVersion=${{ steps.version.outputs.version_name }}
+          ./gradlew packageDeb packageRpm packageAppImage :composeApp:createPortableZip --no-daemon -PappVersion="${{ steps.version.outputs.version_name }}" -PappBuildNumber="${{ steps.version.outputs.build_num }}"
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -80,7 +80,7 @@ jobs:
             composeApp/build/compose/binaries/main/deb/*.deb
             composeApp/build/compose/binaries/main/rpm/*.rpm
             composeApp/build/compose/binaries/main/appimage/*.AppImage
-            composeApp/build/compose/binaries/main/zip/*.zip
+            composeApp/build/distributions/*.zip
 
   build-windows:
     runs-on: windows-latest
@@ -96,6 +96,7 @@ jobs:
         id: version
         shell: bash
         run: |
+          echo "build_num=$(date +'%y%m%d%H%M')" >> $GITHUB_OUTPUT
           echo "version_name=0.9.9-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Decode Signing Certificate
@@ -107,11 +108,7 @@ jobs:
       - name: Build Windows Distributions
         shell: pwsh
         run: |
-          $VERSION="${{ steps.version.outputs.version_name }}"
-          ./gradlew packageMsi packageExe packageZip --no-daemon `
-            -PappVersion=$VERSION `
-            -Pcompose.desktop.signing.certificateFile=../signing/windows.pfx `
-            -Pcompose.desktop.signing.keyPassword=${{ secrets.KEYSTORE_PASSWORD }}
+          ./gradlew packageMsi packageExe :composeApp:createPortableZip --no-daemon "-PappVersion=${{ steps.version.outputs.version_name }}" "-PappBuildNumber=${{ steps.version.outputs.build_num }}" "-Pcompose.desktop.signing.sign=true" "-Pcompose.desktop.signing.certificateFile=../signing/windows.pfx" "-Pcompose.desktop.signing.keyPassword=${{ secrets.KEYSTORE_PASSWORD }}"
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
@@ -120,7 +117,7 @@ jobs:
           path: |
             composeApp/build/compose/binaries/main/msi/*.msi
             composeApp/build/compose/binaries/main/exe/*.exe
-            composeApp/build/compose/binaries/main/zip/*.zip
+            composeApp/build/distributions/*.zip
 
   create-release:
     needs: [build-android, build-linux, build-windows]
