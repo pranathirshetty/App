@@ -154,6 +154,9 @@ object DownloadManager {
                     return@launch
                 }
 
+                val currentHeaders = (headers ?: emptyMap()).toMutableMap()
+                streamData.headers?.forEach { (k, v) -> currentHeaders[k] = v }
+
                 // Create folder
                 val currentPath = AppComponent.settingsStore.downloadPathFlow.first()
                 val baseDir = if (currentPath.isNotBlank()) currentPath else getDownloadsDirectory()
@@ -169,7 +172,7 @@ object DownloadManager {
                         if (font.url != null && font.name != null) {
                             try {
                                 val fontBytes = httpClient.get(font.url) {
-                                    headers?.forEach { (k, v) -> header(k, v) }
+                                    currentHeaders.forEach { (k, v) -> header(k, v) }
                                 }.readBytes()
                                 val fontFile = "$epDir/${font.name}"
                                 FileSystem.SYSTEM.write(fontFile.toPath()) { write(fontBytes) }
@@ -197,7 +200,7 @@ object DownloadManager {
                         if (sub.url != null) {
                             try {
                                 val subBytes = httpClient.get(sub.url) {
-                                    headers?.forEach { (k, v) -> header(k, v) }
+                                    currentHeaders.forEach { (k, v) -> header(k, v) }
                                 }.readBytes()
                                 val label = (sub.title ?: sub.resolvedLang)?.replace("[^A-Za-z0-9 ]".toRegex(), "_") ?: "unknown"
                                 val format = if (sub.url.contains(".vtt")) "vtt" else if (sub.url.contains(".srt")) "srt" else "ass"
@@ -213,18 +216,22 @@ object DownloadManager {
                 // 4. Download Video & Audio
                 updateTask(taskId) { it.copy(status = "Parsing playlist...") }
                 val masterPlaylist = httpClient.get(m3u8Url) {
-                    headers?.forEach { (k, v) -> header(k, v) }
+                    currentHeaders.forEach { (k, v) -> header(k, v) }
                 }.bodyAsText()
                 
                 val audioPlaylistUrl = parseAudioPlaylistUrl(m3u8Url, masterPlaylist, audioLang ?: "jpn")
                 val videoPlaylistUrl = getFinalPlaylistUrl(m3u8Url, masterPlaylist)
                 
-                val videoSegments = parseSegments(videoPlaylistUrl, httpClient.get(videoPlaylistUrl) {
-                    headers?.forEach { (k, v) -> header(k, v) }
-                }.bodyAsText())
+                val videoPlaylistText = httpClient.get(videoPlaylistUrl) {
+                    currentHeaders.forEach { (k, v) -> header(k, v) }
+                }.bodyAsText()
+
+                val isEncrypted = videoPlaylistText.contains("#EXT-X-KEY") || masterPlaylist.contains("#EXT-X-KEY")
+                val videoSegments = if (isEncrypted) emptyList<String>() else parseSegments(videoPlaylistUrl, videoPlaylistText)
+
                 val audioSegments = if (audioPlaylistUrl != null) {
                     parseSegments(audioPlaylistUrl, httpClient.get(audioPlaylistUrl) {
-                        headers?.forEach { (k, v) -> header(k, v) }
+                        currentHeaders.forEach { (k, v) -> header(k, v) }
                     }.bodyAsText())
                 } else emptyList()
 
@@ -258,9 +265,10 @@ object DownloadManager {
                 var lastMeasureTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                 var bytesSinceLastMeasure = 0L
 
-                // Download Video
-                val videoSink = FileSystem.SYSTEM.sink(rawVideoPath.toPath()).buffer()
-                try {
+                // Download Video (Skip if already using HLS passthrough for encrypted streams)
+                if (!isEncrypted) {
+                    val videoSink = FileSystem.SYSTEM.sink(rawVideoPath.toPath()).buffer()
+                    try {
                     videoSegments.forEachIndexed { index, segmentUrl ->
                         while (tasks.value.find { it.id == taskId }?.isPaused == true) {
                             kotlinx.coroutines.delay(1000)
@@ -268,7 +276,7 @@ object DownloadManager {
                         }
 
                         val segmentBytes = httpClient.get(segmentUrl) {
-                            headers?.forEach { (k, v) -> header(k, v) }
+                            currentHeaders.forEach { (k, v) -> header(k, v) }
                         }.readBytes()
                         videoSink.write(segmentBytes)
                         totalBytesDownloaded += segmentBytes.size
@@ -290,12 +298,15 @@ object DownloadManager {
                             bytesSinceLastMeasure = 0
                         }
                     }
-                } finally {
-                    videoSink.close()
+                    } finally {
+                        videoSink.close()
+                    }
+                } else {
+                    updateTask(taskId) { it.copy(status = "Downloading Stream (HLS)...", progress = 0.5f) }
                 }
 
-                // Download Audio if separate
-                if (audioSegments.isNotEmpty()) {
+                // Download Audio if separate (Skip if encrypted as HLS handles it)
+                if (audioSegments.isNotEmpty() && !isEncrypted) {
                     val audioSink = FileSystem.SYSTEM.sink(rawAudioPath.toPath()).buffer()
                     try {
                         audioSegments.forEachIndexed { index, segmentUrl ->
@@ -322,19 +333,22 @@ object DownloadManager {
                 updateTask(taskId) { it.copy(status = "Muxing into MKV...", progress = 0.99f, downloadSpeed = "", eta = "") }
                 
                 val muxSuccess = muxToMkv(
-                    videoPath = rawVideoPath,
-                    audioPath = if (audioSegments.isNotEmpty()) rawAudioPath else null,
+                    videoPath = if (isEncrypted) m3u8Url else rawVideoPath,
+                    audioPath = if (audioSegments.isNotEmpty() && !isEncrypted) rawAudioPath else null,
                     subtitles = downloadedSubs,
                     fonts = downloadedFonts,
                     metadataPath = if (chapters.isNotEmpty()) metadataPath else null,
-                    outputPath = finalMkvPath
+                    outputPath = finalMkvPath,
+                    inputHeaders = currentHeaders
                 )
 
                 if (muxSuccess) {
                     // Cleanup
                     try {
-                        FileSystem.SYSTEM.delete(rawVideoPath.toPath())
-                        if (audioSegments.isNotEmpty()) FileSystem.SYSTEM.delete(rawAudioPath.toPath())
+                        if (!isEncrypted) {
+                            FileSystem.SYSTEM.delete(rawVideoPath.toPath())
+                            if (audioSegments.isNotEmpty()) FileSystem.SYSTEM.delete(rawAudioPath.toPath())
+                        }
                         downloadedSubs.forEach { (path, _) -> FileSystem.SYSTEM.delete(path.toPath()) }
                         downloadedFonts.forEach { FileSystem.SYSTEM.delete(it.toPath()) }
                         if (chapters.isNotEmpty()) FileSystem.SYSTEM.delete(metadataPath.toPath())
