@@ -89,18 +89,29 @@ internal class MpvPlayer(
 
         // Cache settings for faster streaming (Aggressive but stable)
         mpv.mpv_set_option_string(handle, "cache", "yes")
-        mpv.mpv_set_option_string(handle, "cache-secs", "120")
-        mpv.mpv_set_option_string(handle, "demuxer-readahead-secs", "20")
-        mpv.mpv_set_option_string(handle, "demuxer-max-bytes", "100M")
+        mpv.mpv_set_option_string(handle, "cache-secs", "300") // Buffer more once started
+        mpv.mpv_set_option_string(handle, "demuxer-readahead-secs", "6") // Reduce initial wait
+        mpv.mpv_set_option_string(handle, "demuxer-max-bytes", "150M")
         mpv.mpv_set_option_string(handle, "demuxer-max-back-bytes", "50M")
 
         // Network optimizations for HTTP/HLS streaming
-        mpv.mpv_set_option_string(handle, "network-timeout", "30")
+        mpv.mpv_set_option_string(handle, "network-timeout", "15")
         mpv.mpv_set_option_string(handle, "http-persistent", "yes")
         mpv.mpv_set_option_string(handle, "http-keepalive", "yes")
-        mpv.mpv_set_option_string(handle, "hls-bitrate", "max")
-        mpv.mpv_set_option_string(handle, "stream-buffer-size", "1M")
+        mpv.mpv_set_option_string(handle, "hls-bitrate", "max") // Skip quality probing
+        mpv.mpv_set_option_string(handle, "stream-buffer-size", "512k") // Smaller segments
         mpv.mpv_set_option_string(handle, "prefetch-playlist", "yes")
+        
+        // Fast-start: Tell FFmpeg to stop over-analyzing the stream
+        // probesize=32k, analyzeduration=0, skip_loop_filter=all skips some decoding/metadata overhead
+        mpv.mpv_set_option_string(handle, "demuxer-lavf-o", "probesize=32768,analyzeduration=0,tcp_nodelay=1,reconnect=1")
+        mpv.mpv_set_option_string(handle, "demuxer-lavf-format", "hls") // Explicitly skip format detection
+        mpv.mpv_set_option_string(handle, "cache-pause", "no") // Don't pause on small cache gaps
+        mpv.mpv_set_option_string(handle, "vd-lavc-fast", "yes") // Fast decoding bits
+        mpv.mpv_set_option_string(handle, "vd-lavc-skipframedrop", "nonref")
+        
+        // Disable ytdl probing for raw m3u8 URLs to save a process fork/network call
+        mpv.mpv_set_option_string(handle, "ytdl", "no")
 
         // Fix for Cloudflare/Anti-bot
         val headers = config.headers ?: emptyMap()
