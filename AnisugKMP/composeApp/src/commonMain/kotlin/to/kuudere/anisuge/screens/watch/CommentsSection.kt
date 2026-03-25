@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
@@ -547,7 +548,47 @@ fun CommentsSection(
             if (isLoading && comments.isEmpty()) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                        // High-Performance Dual-Circle Mini Loader
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(36.dp)) {
+                            val infiniteTransition = rememberInfiniteTransition()
+                            
+                            val rotateCW by infiniteTransition.animateFloat(
+                                initialValue = 0f, 
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = LinearEasing)
+                                ),
+                                label = "OuterRotate"
+                            )
+                            val rotateCCW by infiniteTransition.animateFloat(
+                                initialValue = 360f, 
+                                targetValue = 0f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(600, easing = LinearEasing)
+                                ),
+                                label = "InnerRotate"
+                            )
+
+                            // Outer Circle
+                            CircularProgressIndicator(
+                                progress = { 0.75f },
+                                modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = rotateCW },
+                                color = Color.White,
+                                strokeWidth = 1.5.dp,
+                                trackColor = Color.White.copy(alpha = 0.1f),
+                                strokeCap = StrokeCap.Round
+                            )
+
+                            // Inner Circle
+                            CircularProgressIndicator(
+                                progress = { 0.6f },
+                                modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = rotateCCW },
+                                color = Color.White.copy(alpha = 0.6f),
+                                strokeWidth = 1.5.dp,
+                                trackColor = Color.White.copy(alpha = 0.05f),
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
                     }
                 }
             } else if (comments.isEmpty()) {

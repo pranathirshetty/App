@@ -65,6 +65,9 @@ import to.kuudere.anisuge.ui.WatchlistBottomSheet
 import kotlinx.coroutines.launch
 import to.kuudere.anisuge.AppComponent
 import to.kuudere.anisuge.data.models.SessionCheckResult
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.StrokeCap
 
 @Composable
 fun WatchScreen(
@@ -125,10 +128,68 @@ fun WatchScreen(
                         modifier = Modifier.align(Alignment.Center),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(color = Color.White)
+                        // High-Performance Dual-Circle Loader (Psychologically feels faster)
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(70.dp)) {
+                            val infiniteTransition = rememberInfiniteTransition()
+                            
+                            val rotateCW by infiniteTransition.animateFloat(
+                                initialValue = 0f, 
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = LinearEasing)
+                                ),
+                                label = "OuterRotate"
+                            )
+                            val rotateCCW by infiniteTransition.animateFloat(
+                                initialValue = 360f, 
+                                targetValue = 0f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(600, easing = LinearEasing)
+                                ),
+                                label = "InnerRotate"
+                            )
+
+                            // Outer Circle (Clockwise)
+                            CircularProgressIndicator(
+                                progress = { 0.75f },
+                                modifier = Modifier.size(60.dp).graphicsLayer { rotationZ = rotateCW },
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                trackColor = Color.White.copy(alpha = 0.1f),
+                                strokeCap = StrokeCap.Round
+                            )
+
+                            // Inner Circle (Counter-Clockwise)
+                            CircularProgressIndicator(
+                                progress = { 0.6f },
+                                modifier = Modifier.size(35.dp).graphicsLayer { rotationZ = rotateCCW },
+                                color = Color.White.copy(alpha = 0.6f),
+                                strokeWidth = 2.dp,
+                                trackColor = Color.White.copy(alpha = 0.05f),
+                                strokeCap = StrokeCap.Round
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Dynamic Loading Steps (Perceived Progress)
                         loadingMessage?.let { msg ->
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                            Text(
+                                text = msg.uppercase(),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.alpha(0.8f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Subtle progress detail
+                            Text(
+                                text = "INITIALIZING SECURE PLAYBACK PIPELINE",
+                                color = Color.Gray,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Light,
+                                modifier = Modifier.alpha(0.5f)
+                            )
                         }
                     }
 
@@ -852,10 +913,65 @@ fun WatchVideoPlayer(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(color = Color.White)
+                // High-Performance Dual-Circle Loader (Consistency)
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(70.dp)) {
+                    val infiniteTransition = rememberInfiniteTransition()
+                    
+                    val rotateCW by infiniteTransition.animateFloat(
+                        initialValue = 0f, 
+                        targetValue = 360f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800, easing = LinearEasing)
+                        ),
+                        label = "OuterRotate"
+                    )
+                    val rotateCCW by infiniteTransition.animateFloat(
+                        initialValue = 360f, 
+                        targetValue = 0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(600, easing = LinearEasing)
+                        ),
+                        label = "InnerRotate"
+                    )
+
+                    // Outer Circle
+                    CircularProgressIndicator(
+                        progress = { 0.75f },
+                        modifier = Modifier.size(60.dp).graphicsLayer { rotationZ = rotateCW },
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        trackColor = Color.White.copy(alpha = 0.1f),
+                        strokeCap = StrokeCap.Round
+                    )
+
+                    // Inner Circle
+                    CircularProgressIndicator(
+                        progress = { 0.6f },
+                        modifier = Modifier.size(35.dp).graphicsLayer { rotationZ = rotateCCW },
+                        color = Color.White.copy(alpha = 0.6f),
+                        strokeWidth = 2.dp,
+                        trackColor = Color.White.copy(alpha = 0.05f),
+                        strokeCap = StrokeCap.Round
+                    )
+                }
+
                 uiState.loadingMessage?.let { msg ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = msg, color = Color.LightGray, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = msg.uppercase(), 
+                        color = Color.White, 
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.alpha(0.8f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "ESTABLISHING SECURE STREAMING TUNNEL",
+                        color = Color.Gray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Light,
+                        modifier = Modifier.alpha(0.5f)
+                    )
                 }
             }
 

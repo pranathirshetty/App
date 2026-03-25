@@ -2,7 +2,7 @@ package to.kuudere.anisuge.screens.watch
 
 import androidx.compose.animation.*
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,12 +20,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
@@ -184,8 +186,30 @@ fun SettingsOverlay(
                                         SettingsMenuItem(
                                             icon = { 
                                                 if (uiState.isUpdatingWatchlist) {
-                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                                } else {
+                                                     // Micro-Dual-Circle for Watchlist Sync
+                                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(20.dp)) {
+                                                         val infiniteTransition = rememberInfiniteTransition()
+                                                         val rotateCW by infiniteTransition.animateFloat(0f, 360f, infiniteRepeatable(tween(800, easing = LinearEasing)))
+                                                         val rotateCCW by infiniteTransition.animateFloat(360f, 0f, infiniteRepeatable(tween(600, easing = LinearEasing)))
+
+                                                         CircularProgressIndicator(
+                                                             progress = { 0.75f },
+                                                             modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = rotateCW },
+                                                             color = Color.White,
+                                                             strokeWidth = 1.dp,
+                                                             trackColor = Color.White.copy(alpha = 0.1f),
+                                                             strokeCap = StrokeCap.Round
+                                                         )
+                                                         CircularProgressIndicator(
+                                                             progress = { 0.6f },
+                                                             modifier = Modifier.size(10.dp).graphicsLayer { rotationZ = rotateCCW },
+                                                             color = Color.White.copy(alpha = 0.6f),
+                                                             strokeWidth = 1.dp,
+                                                             trackColor = Color.White.copy(alpha = 0.05f),
+                                                             strokeCap = StrokeCap.Round
+                                                         )
+                                                     }
+                                                 } else {
                                                     Icon(getBookmarkIcon(data.inWatchlist), contentDescription = null, tint = Color.White) 
                                                 }
                                             },
