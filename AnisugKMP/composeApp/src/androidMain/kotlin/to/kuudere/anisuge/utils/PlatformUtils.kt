@@ -141,108 +141,114 @@ actual suspend fun muxToMkv(
     inputHeaders: Map<String, String>?
 ): Boolean = withContext(Dispatchers.IO) {
     val cmd = RxFFmpegCommandList()
-    cmd.append("-hide_banner")
-    cmd.append("-v"); cmd.append("debug")
-    cmd.append("-ignore_unknown")
+    val openFds = mutableListOf<android.os.ParcelFileDescriptor>()
+    
+    fun getFfPath(path: String, mode: String = "r"): String {
+        if (path.startsWith("content://")) {
+            return try {
+                val uri = Uri.parse(path)
+                val pfd = androidAppContext.contentResolver.openFileDescriptor(uri, mode)
+                if (pfd != null) {
+                    openFds.add(pfd)
+                    "/proc/self/fd/${pfd.fd}"
+                } else path
+            } catch (e: Exception) {
+                path
+            }
+        }
+        return path
+    }
 
-    // Handle HLS/Stream Headers
-    inputHeaders?.let { headers ->
-        val referer = headers["Referer"] ?: headers["referer"]
-        if (referer != null) {
-            cmd.append("-referer"); cmd.append(referer)
+    var success = false
+    try {
+        cmd.append("-hide_banner")
+        cmd.append("-v"); cmd.append("debug")
+        cmd.append("-ignore_unknown")
+
+        // Handle HLS/Stream Headers
+        inputHeaders?.let { headers ->
+            val referer = headers["Referer"] ?: headers["referer"]
+            if (referer != null) {
+                cmd.append("-referer"); cmd.append(referer)
+            }
+            
+            val userAgent = headers["User-Agent"] ?: headers["user-agent"]
+            if (userAgent != null) {
+                cmd.append("-user_agent"); cmd.append(userAgent)
+            }
+
+            val otherHeaders = headers.filterKeys { it.lowercase() != "referer" && it.lowercase() != "user-agent" }
+            if (otherHeaders.isNotEmpty()) {
+                val headerStrings = otherHeaders.map { "${it.key}: ${it.value}" }.joinToString("\r\n") + "\r\n"
+                cmd.append("-headers"); cmd.append(headerStrings)
+            }
         }
         
-        val userAgent = headers["User-Agent"] ?: headers["user-agent"]
-        if (userAgent != null) {
-            cmd.append("-user_agent"); cmd.append(userAgent)
+        cmd.append("-fflags"); cmd.append("+genpts")
+        cmd.append("-y")
+        
+        // Inputs
+        cmd.append("-i"); cmd.append(getFfPath(videoPath))
+        if (audioPath != null) {
+            cmd.append("-i"); cmd.append(getFfPath(audioPath))
+        }
+        subtitles.forEach { (path, _) ->
+            cmd.append("-i"); cmd.append(getFfPath(path))
+        }
+        
+        val metadataIndex = if (metadataPath != null) {
+            val index = 1 + (if (audioPath != null) 1 else 0) + subtitles.size
+            cmd.append("-i"); cmd.append(getFfPath(metadataPath))
+            index
+        } else -1
+
+        // Mapping
+        cmd.append("-map"); cmd.append("0:v")
+        if (audioPath != null) {
+            cmd.append("-map"); cmd.append("1:a")
+        } else {
+            cmd.append("-map"); cmd.append("0:a?")
         }
 
-        val otherHeaders = headers.filterKeys { it.lowercase() != "referer" && it.lowercase() != "user-agent" }
-        if (otherHeaders.isNotEmpty()) {
-            val headerStrings = otherHeaders.map { "${it.key}: ${it.value}" }.joinToString("\r\n") + "\r\n"
-            cmd.append("-headers"); cmd.append(headerStrings)
+        subtitles.forEachIndexed { i, _ ->
+            val index = if (audioPath != null) i + 2 else i + 1
+            cmd.append("-map"); cmd.append("$index:s")
         }
-    }
-    
-    cmd.append("-fflags"); cmd.append("+genpts")
 
-    cmd.append("-y")
-    
-    // Inputs
-    cmd.append("-i"); cmd.append(videoPath)
-    if (audioPath != null) {
-        cmd.append("-i"); cmd.append(audioPath)
-    }
-    subtitles.forEach { (path, _) ->
-        cmd.append("-i"); cmd.append(path)
-    }
-    
-    val metadataIndex = if (metadataPath != null) {
-        val index = 1 + (if (audioPath != null) 1 else 0) + subtitles.size
-        cmd.append("-i"); cmd.append(metadataPath)
-        index
-    } else -1
-
-    // Mapping
-    cmd.append("-map"); cmd.append("0:v")
-    if (audioPath != null) {
-        cmd.append("-map"); cmd.append("1:a")
-    } else {
-        cmd.append("-map"); cmd.append("0:a?")
-    }
-
-    subtitles.forEachIndexed { i, _ ->
-        val index = if (audioPath != null) i + 2 else i + 1
-        cmd.append("-map"); cmd.append("$index:s")
-    }
-
-    if (metadataIndex != -1) {
-        // Map global metadata and chapters from the ffmetadata file explicitly to output 0
-        cmd.append("-map_metadata"); cmd.append("0:g:$metadataIndex")
-        cmd.append("-map_chapters"); cmd.append("$metadataIndex")
-    }
-
-    // Attach fonts (only if we have subtitles to use them)
-    if (subtitles.isNotEmpty()) {
-        fonts.forEachIndexed { i, fontPath ->
-            cmd.append("-attach"); cmd.append(fontPath)
-            // Set mimetype for EACH attachment stream specifically
-            cmd.append("-metadata:s:t:$i"); cmd.append("mimetype=application/x-truetype-font")
+        if (metadataIndex != -1) {
+            cmd.append("-map_metadata"); cmd.append("0:g:$metadataIndex")
+            cmd.append("-map_chapters"); cmd.append("$metadataIndex")
         }
-    }
 
-    subtitles.forEachIndexed { i, (_, label) ->
-        // Sanitize label to avoid issues with spaces or special characters in native parser
-        val safeLabel = label.replace("[^A-Za-z0-9]".toRegex(), "_")
-        // Standard subtitle metadata
-        cmd.append("-metadata:s:s:$i"); cmd.append("title=$safeLabel")
-    }
+        if (subtitles.isNotEmpty()) {
+            fonts.forEachIndexed { i, fontPath ->
+                cmd.append("-attach"); cmd.append(getFfPath(fontPath))
+                cmd.append("-metadata:s:t:$i"); cmd.append("mimetype=application/x-truetype-font")
+            }
+        }
 
-    // Copy all streams
-    // Copy video and audio streams
-    cmd.append("-c:v"); cmd.append("copy")
-    cmd.append("-c:a"); cmd.append("copy")
-    
-    // Only set subtitle codec if we actually have subtitle streams
-    if (subtitles.isNotEmpty()) {
-        cmd.append("-c:s"); cmd.append("copy")
-    }
-    
-    // Increase muxing queue size to prevent issues with many streams (subs/fonts)
-    cmd.append("-max_muxing_queue_size"); cmd.append("1024")
+        subtitles.forEachIndexed { i, (_, label) ->
+            val safeLabel = label.replace("[^A-Za-z0-9]".toRegex(), "_")
+            cmd.append("-metadata:s:s:$i"); cmd.append("title=$safeLabel")
+        }
 
-    cmd.append(outputPath)
+        cmd.append("-c:v"); cmd.append("copy")
+        cmd.append("-c:a"); cmd.append("copy")
+        
+        if (subtitles.isNotEmpty()) {
+            cmd.append("-c:s"); cmd.append("copy")
+        }
+        
+        cmd.append("-max_muxing_queue_size"); cmd.append("1024")
+        cmd.append(getFfPath(outputPath, "rwt"))
 
-    val cmdArray = cmd.build()
-    cmdArray.forEachIndexed { i, arg -> println("FFmpeg Arg[$i]: '$arg'") }
-
-    ffmpegMutex.withLock {
-        try {
-            // Enable RxFFmpeg debug logging to capture native errors in Logcat
+        val cmdArray = cmd.build()
+        cmdArray.forEachIndexed { i, arg -> println("FFmpeg Arg[$i]: '$arg'") }
+        
+        success = ffmpegMutex.withLock {
             RxFFmpegInvoke.getInstance().setDebug(true)
             
             val isRemote = videoPath.startsWith("http://") || videoPath.startsWith("https://")
-            
             if (!isRemote) {
                 val videoFile = File(videoPath)
                 if (!videoFile.exists() || videoFile.length() == 0L) {
@@ -251,8 +257,6 @@ actual suspend fun muxToMkv(
                 }
             }
 
-
-            // Using a dummy listener instead of null to avoid native NPEs in some JNI layers
             val dummyListener = object : io.microshow.rxffmpeg.RxFFmpegInvoke.IFFmpegListener {
                 override fun onFinish() {}
                 override fun onProgress(progress: Int, progressTime: Long) {}
@@ -262,9 +266,12 @@ actual suspend fun muxToMkv(
             
             val response = RxFFmpegInvoke.getInstance().runCommand(cmdArray, dummyListener)
             response == 0
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            false
         }
+        success
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
+    } finally {
+        openFds.forEach { try { it.close() } catch (ex: Exception) {} }
     }
 }

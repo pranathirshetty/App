@@ -1,4 +1,8 @@
 package to.kuudere.anisuge.platform
+import okio.Sink
+import okio.sink
+import okio.buffer
+import androidx.documentfile.provider.DocumentFile
 
 import android.app.Activity
 import android.content.Context
@@ -150,6 +154,103 @@ actual fun persistFolderPermission(path: String) {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+}
+
+actual object KmpFileSystem {
+    actual fun exists(path: String): Boolean {
+        if (path.startsWith("content://")) {
+            val doc = getDocumentFromPath(path)
+            return doc?.exists() == true
+        }
+        return java.io.File(path).exists()
+    }
+
+    actual fun createDirectories(path: String, mustCreate: Boolean) {
+        if (path.startsWith("content://")) {
+           getOrCreateDocumentFromPath(path, isDirectory = true)
+           return
+        }
+        val f = java.io.File(path)
+        if (!f.exists()) f.mkdirs()
+    }
+
+    actual fun sink(path: String, append: Boolean): Sink {
+        if (path.startsWith("content://")) {
+            val doc = getOrCreateDocumentFromPath(path, isDirectory = false)
+            val uri = doc?.uri ?: throw java.io.IOException("Could not create/open $path")
+            val pfd = androidAppContext.contentResolver.openFileDescriptor(uri, if (append) "wa" else "w")
+                ?: throw java.io.IOException("Failed to open file descriptor for $path")
+            return android.os.ParcelFileDescriptor.AutoCloseOutputStream(pfd).sink()
+        }
+        return java.io.File(path).sink(append)
+    }
+
+    actual fun delete(path: String, mustExist: Boolean) {
+        if (path.startsWith("content://")) {
+            val doc = getDocumentFromPath(path)
+            doc?.delete()
+            return
+        }
+        java.io.File(path).delete()
+    }
+
+    actual fun write(path: String, data: ByteArray) {
+        if (path.startsWith("content://")) {
+            val doc = getOrCreateDocumentFromPath(path, isDirectory = false)
+            doc?.uri?.let { uri ->
+                androidAppContext.contentResolver.openOutputStream(uri)?.use { 
+                    it.write(data) 
+                }
+            }
+            return
+        }
+        java.io.File(path).writeBytes(data)
+    }
+
+    private fun getDocumentFromPath(path: String): DocumentFile? {
+        val uri = Uri.parse(path)
+        return if (DocumentsContract.isTreeUri(uri)) {
+            DocumentFile.fromTreeUri(androidAppContext, uri)
+        } else {
+            DocumentFile.fromSingleUri(androidAppContext, uri)
+        }
+    }
+
+    // This is a naive implementation: it assumes the path string for URIs was constructed 
+    // by appending segments to a base URI, which is what DownloadManager does.
+    private fun getOrCreateDocumentFromPath(path: String, isDirectory: Boolean): DocumentFile? {
+        if (!path.startsWith("content://")) return null
+        
+        // 1. Find the base tree URI (the part we have permission for)
+        val persisted = androidAppContext.contentResolver.persistedUriPermissions
+            .filter { it.isWritePermission }
+            .map { it.uri.toString() }
+            .find { path.startsWith(it) } ?: return null
+            
+        var currentDoc = DocumentFile.fromTreeUri(androidAppContext, Uri.parse(persisted)) ?: return null
+        
+        // 2. Extract relative path and traverse
+        val relative = path.removePrefix(persisted).trim('/')
+        if (relative.isEmpty()) return currentDoc
+        
+        val segments = relative.split("/")
+        for (i in segments.indices) {
+            val name = segments[i]
+            if (name.isEmpty()) continue
+            
+            val nextDoc = currentDoc.findFile(name)
+            currentDoc = if (nextDoc != null) {
+                nextDoc
+            } else {
+                if (i == segments.size - 1 && !isDirectory) {
+                    currentDoc.createFile("application/octet-stream", name) ?: return null
+                } else {
+                    currentDoc.createDirectory(name) ?: return null
+                }
+            }
+        }
+        return currentDoc
     }
 }
 

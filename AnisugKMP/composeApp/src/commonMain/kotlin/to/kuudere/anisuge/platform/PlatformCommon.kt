@@ -1,5 +1,7 @@
 package to.kuudere.anisuge.platform
 import androidx.compose.runtime.Composable
+import okio.Sink
+import okio.Source
 
 expect val isDesktopPlatform: Boolean
 expect val PlatformName: String
@@ -39,6 +41,15 @@ expect fun updateDownloadNotification(
 
 /** Clears the download notification when all tasks are finished or cancelled */
 expect fun clearDownloadNotification()
+
+/** Bridge for file operations that handles URIs on Android and standard paths elsewhere. */
+expect object KmpFileSystem {
+    fun exists(path: String): Boolean
+    fun createDirectories(path: String, mustCreate: Boolean = false)
+    fun sink(path: String, append: Boolean = false): Sink
+    fun delete(path: String, mustExist: Boolean = false)
+    fun write(path: String, data: ByteArray)
+}
 
 /** Converts a raw technical path into a human-friendly display string. */
 fun formatDisplayPath(path: String): String {

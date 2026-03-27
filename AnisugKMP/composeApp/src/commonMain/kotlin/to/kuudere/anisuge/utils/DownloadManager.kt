@@ -11,10 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import okio.FileSystem
-import okio.Path.Companion.toPath
 import okio.buffer
 import to.kuudere.anisuge.AppComponent
+import to.kuudere.anisuge.platform.KmpFileSystem
 import to.kuudere.anisuge.data.models.StreamingData
 import kotlinx.coroutines.Job
 import kotlinx.serialization.Serializable
@@ -44,7 +43,7 @@ object DownloadManager {
     private val httpClient = AppComponent.httpClient
     private val infoService = AppComponent.infoService
     
-    private val persistenceFile = "${getCacheDirectory()}/tasks.json".toPath()
+    private val persistenceFile = "${getCacheDirectory()}/tasks.json"
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
     init {
@@ -72,8 +71,9 @@ object DownloadManager {
     private fun loadTasks() {
         scope.launch {
             try {
-                if (FileSystem.SYSTEM.exists(persistenceFile)) {
-                    val content = FileSystem.SYSTEM.read(persistenceFile) { readUtf8() }
+                if (KmpFileSystem.exists(persistenceFile)) {
+                    // JSON files are always small, use standard read
+                    val content = java.io.File(persistenceFile).readText()
                     val loaded = json.decodeFromString<List<DownloadTask>>(content)
                     // Reset transient states
                     val sanitized = loaded.map { 
@@ -93,7 +93,7 @@ object DownloadManager {
         scope.launch {
             try {
                 val content = json.encodeToString(tasks.value)
-                FileSystem.SYSTEM.write(persistenceFile) { writeUtf8(content) }
+                KmpFileSystem.write(persistenceFile, content.toByteArray())
             } catch (e: Exception) {
                 println("Failed to save tasks: ${e.message}")
             }
@@ -162,7 +162,7 @@ object DownloadManager {
                 val baseDir = if (currentPath.isNotBlank()) currentPath else getDownloadsDirectory()
                 val animeSafe = task.animeId.replace("[^A-Za-z0-9]".toRegex(), "_")
                 val epDir = "$baseDir/$animeSafe/ep_${task.episodeNumber}"
-                FileSystem.SYSTEM.createDirectories(epDir.toPath())
+                KmpFileSystem.createDirectories(epDir)
 
                 // 2. Download Fonts
                 val downloadedFonts = mutableListOf<String>()
@@ -175,7 +175,7 @@ object DownloadManager {
                                     currentHeaders.forEach { (k, v) -> header(k, v) }
                                 }.readBytes()
                                 val fontFile = "$epDir/${font.name}"
-                                FileSystem.SYSTEM.write(fontFile.toPath()) { write(fontBytes) }
+                                KmpFileSystem.write(fontFile, fontBytes)
                                 downloadedFonts.add(fontFile)
                             } catch (e: Exception) { }
                         }
@@ -206,7 +206,7 @@ object DownloadManager {
                                 val format = if (sub.url.contains(".vtt")) "vtt" else if (sub.url.contains(".srt")) "srt" else "ass"
                                 val fileName = "subtitle_$label.$format"
                                 val subFile = "$epDir/$fileName"
-                                FileSystem.SYSTEM.write(subFile.toPath()) { write(subBytes) }
+                                KmpFileSystem.write(subFile, subBytes)
                                 downloadedSubs.add(subFile to (sub.title ?: sub.resolvedLang ?: "Subtitle"))
                             } catch (e: Exception) { }
                         }
@@ -254,7 +254,7 @@ object DownloadManager {
                         sb.append("END=$endMs\n")
                         sb.append("title=${ch.title ?: "Chapter"}\n")
                     }
-                    FileSystem.SYSTEM.write(metadataPath.toPath()) { writeUtf8(sb.toString()) }
+                    KmpFileSystem.write(metadataPath, sb.toString().toByteArray())
                 }
 
                 val rawVideoPath = "$epDir/video_raw.ts"
@@ -267,7 +267,7 @@ object DownloadManager {
 
                 // Download Video (Skip if already using HLS passthrough for encrypted streams)
                 if (!isEncrypted) {
-                    val videoSink = FileSystem.SYSTEM.sink(rawVideoPath.toPath()).buffer()
+                    val videoSink = KmpFileSystem.sink(rawVideoPath).buffer()
                     try {
                     videoSegments.forEachIndexed { index, segmentUrl ->
                         while (tasks.value.find { it.id == taskId }?.isPaused == true) {
@@ -307,7 +307,7 @@ object DownloadManager {
 
                 // Download Audio if separate (Skip if encrypted as HLS handles it)
                 if (audioSegments.isNotEmpty() && !isEncrypted) {
-                    val audioSink = FileSystem.SYSTEM.sink(rawAudioPath.toPath()).buffer()
+                    val audioSink = KmpFileSystem.sink(rawAudioPath).buffer()
                     try {
                         audioSegments.forEachIndexed { index, segmentUrl ->
                             while (tasks.value.find { it.id == taskId }?.isPaused == true) {
@@ -346,12 +346,12 @@ object DownloadManager {
                     // Cleanup
                     try {
                         if (!isEncrypted) {
-                            FileSystem.SYSTEM.delete(rawVideoPath.toPath())
-                            if (audioSegments.isNotEmpty()) FileSystem.SYSTEM.delete(rawAudioPath.toPath())
+                            KmpFileSystem.delete(rawVideoPath)
+                            if (audioSegments.isNotEmpty()) KmpFileSystem.delete(rawAudioPath)
                         }
-                        downloadedSubs.forEach { (path, _) -> FileSystem.SYSTEM.delete(path.toPath()) }
-                        downloadedFonts.forEach { FileSystem.SYSTEM.delete(it.toPath()) }
-                        if (chapters.isNotEmpty()) FileSystem.SYSTEM.delete(metadataPath.toPath())
+                        downloadedSubs.forEach { (path, _) -> KmpFileSystem.delete(path) }
+                        downloadedFonts.forEach { KmpFileSystem.delete(it) }
+                        if (chapters.isNotEmpty()) KmpFileSystem.delete(metadataPath)
                     } catch (e: Exception) { }
                     
                     updateTask(taskId) { it.copy(status = "Finished", progress = 1f, localPath = finalMkvPath) }
