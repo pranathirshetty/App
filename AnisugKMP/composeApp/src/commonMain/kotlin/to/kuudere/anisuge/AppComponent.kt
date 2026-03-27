@@ -2,6 +2,7 @@ package to.kuudere.anisuge
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
@@ -28,6 +29,11 @@ object AppComponent {
                 })
             }
             install(Logging) { level = LogLevel.ALL }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 60000 // 60s
+                connectTimeoutMillis = 30000 // 30s
+                socketTimeoutMillis  = 60000 // 60s
+            }
             install(io.ktor.client.plugins.websocket.WebSockets) {
             }
         }
