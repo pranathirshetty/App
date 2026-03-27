@@ -1,5 +1,8 @@
 package to.kuudere.anisuge.screens.settings
 
+import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
+import io.github.vinceglb.filekit.absolutePath
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -936,6 +939,14 @@ private fun PreferencesTab(
     onDownloadPathChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
+    val directoryPickerLauncher = rememberDirectoryPickerLauncher {
+        it?.let { dir -> 
+            val path = dir.absolutePath()
+            to.kuudere.anisuge.platform.persistFolderPermission(path)
+            onDownloadPathChange(path) 
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         // Large Title
         Text(
@@ -1082,7 +1093,7 @@ private fun PreferencesTab(
                 )
                 if (!isPathValid) {
                     Text(
-                        "Pick a subfolder in 'Downloads' for access.",
+                        "Choose a folder with write access.",
                         color = Color.Red.copy(alpha = 0.8f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
@@ -1101,7 +1112,7 @@ private fun PreferencesTab(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.White)
-                    .clickable { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } }
+                    .clickable { directoryPickerLauncher.launch() }
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             )
         }
@@ -2354,6 +2365,14 @@ private fun MobilePreferencesContent(
     onDownloadPathChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
+    val directoryPickerLauncher = rememberDirectoryPickerLauncher {
+        it?.let { dir -> 
+            val path = dir.absolutePath()
+            to.kuudere.anisuge.platform.persistFolderPermission(path)
+            onDownloadPathChange(path) 
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         MobileSettingRow(
             title = "Auto Play",
@@ -2458,7 +2477,7 @@ private fun MobilePreferencesContent(
                 )
                 if (!isPathValid) {
                     Text(
-                        "Pick a subfolder in 'Downloads' for access.",
+                        "Choose a folder with write access.",
                         color = Color.Red.copy(alpha = 0.8f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
@@ -2477,7 +2496,7 @@ private fun MobilePreferencesContent(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.White)
-                    .clickable { to.kuudere.anisuge.platform.pickFolder { onDownloadPathChange(it) } }
+                    .clickable { directoryPickerLauncher.launch() }
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }

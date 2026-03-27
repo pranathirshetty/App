@@ -72,26 +72,8 @@ internal actual fun internalOpenUrl(url: String) {
     }
 }
 
-actual fun pickFolder(onPathSelected: (String) -> Unit) {
-    try {
-        // Run on AWT thread
-        java.awt.EventQueue.invokeLater {
-            val chooser = javax.swing.JFileChooser().apply {
-                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
-                dialogTitle = "Select Download Folder"
-                isAcceptAllFileFilterUsed = false
-            }
-            
-            // Try to set current path if possible
-            val result = chooser.showOpenDialog(null)
-            if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
-                onPathSelected(chooser.selectedFile.absolutePath)
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-}
+
+
 
 actual fun isFolderWritable(path: String): Boolean {
     if (path.isBlank()) return true
@@ -112,5 +94,9 @@ actual fun updateDownloadNotification(activeTasksCount: Int, totalProgress: Floa
 }
 
 actual fun clearDownloadNotification() {
+    // No-op for desktop
+}
+
+actual fun persistFolderPermission(path: String) {
     // No-op for desktop
 }

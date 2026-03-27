@@ -1,5 +1,8 @@
 package to.kuudere.anisuge.screens.info
 
+import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
+import io.github.vinceglb.filekit.absolutePath
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +68,17 @@ fun DownloadEpisodeDialog(
     var shouldRequestPermission by remember { mutableStateOf(false) }
 
     val settingsStore = to.kuudere.anisuge.AppComponent.settingsStore
+    
+    val directoryPickerLauncher = rememberDirectoryPickerLauncher { dir ->
+        dir?.let {
+            val path = it.absolutePath()
+            to.kuudere.anisuge.platform.persistFolderPermission(path)
+            scope.launch {
+                settingsStore.setDownloadPath(path)
+            }
+        }
+    }
+    
     val downloadPath by settingsStore.downloadPathFlow.collectAsState("")
     val isPathValid = remember(downloadPath) { 
         if (downloadPath.isBlank()) true 
@@ -344,7 +358,7 @@ fun DownloadEpisodeDialog(
                         )
                         if (!isPathValid) {
                             Text(
-                                "Pick a subfolder in 'Downloads' for access.",
+                                "Choose a folder with write access.",
                                 color = Color.Red.copy(alpha = 0.8f),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
@@ -364,11 +378,7 @@ fun DownloadEpisodeDialog(
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color.White)
                             .clickable { 
-                                to.kuudere.anisuge.platform.pickFolder { newPath ->
-                                    scope.launch {
-                                        settingsStore.setDownloadPath(newPath)
-                                    }
-                                }
+                                directoryPickerLauncher.launch()
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     )

@@ -70,6 +70,8 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             // Glassmorphism blur
             implementation(libs.haze)
+            // FileKit (cross-platform native folder picker)
+            implementation(libs.filekit.dialogs.compose)
             // Okio (path support for DataStore)
             implementation(libs.okio)
         }
@@ -86,6 +88,9 @@ kotlin {
             
             // MediaSession for earphone/headphone media button support
             implementation(libs.androidx.media3.session)
+
+            // SAF Document access
+            implementation("androidx.documentfile:documentfile:1.0.1")
         }
 
         desktopMain.dependencies {

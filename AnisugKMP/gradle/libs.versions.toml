@@ -1,8 +1,8 @@
 [versions]
-agp = "8.7.3"
+agp = "8.9.1"
 kotlin = "2.3.10"
 compose-plugin = "1.8.0-beta02"
-android-compileSdk = "35"
+android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "35"
 app-version = "0.9.11"
@@ -23,6 +23,7 @@ media3 = "1.5.1"
 ffmpeg-kit = "6.0"
 jave = "3.5.0"
 haze = "1.6.0"
+filekit = "0.13.0"
 
 [libraries]
 # Jave2 for Desktop FFmpeg bundling
@@ -72,6 +73,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 jnativehook = { module = "com.github.kwhat:jnativehook", version = "2.2.2" }
 dbus_java = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version = "4.3.1" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
