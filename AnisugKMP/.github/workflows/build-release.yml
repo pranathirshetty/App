@@ -24,7 +24,12 @@ jobs:
           OFFSET=15
           BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
           echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_NAME=$(grep '^app-version' gradle/libs.versions.toml | sed 's/.*= *"\(.*\)"/\1/')
+          fi
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Decode Keystore
         run: |
@@ -65,7 +70,12 @@ jobs:
           OFFSET=15
           BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
           echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_NAME=$(grep '^app-version' gradle/libs.versions.toml | sed 's/.*= *"\(.*\)"/\1/')
+          fi
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           
       - name: Install Build Dependencies
         run: |
@@ -112,7 +122,12 @@ jobs:
           OFFSET=15
           BUILD_NUMBER=$((OFFSET + GITHUB_RUN_NUMBER))
           echo "build_num=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-          echo "version_name=0.9.10" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_NAME=$(grep '^app-version' gradle/libs.versions.toml | sed 's/.*= *"\(.*\)"/\1/')
+          fi
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Download and Bundle MPV Library
         shell: pwsh
