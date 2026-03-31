@@ -97,10 +97,11 @@ jobs:
       - name: Collect Linux Artifacts
         run: |
           mkdir -p dist
-          find composeApp/build/compose/binaries/main/deb/     -name '*.deb'      -exec cp {} dist/ \;
-          find composeApp/build/compose/binaries/main/rpm/     -name '*.rpm'      -exec cp {} dist/ \;
-          find composeApp/build/compose/binaries/main/appimage/ -name '*.AppImage' -exec cp {} dist/ \;
-          find composeApp/build/distributions/                  -name '*.zip'      -exec cp {} dist/ \;
+          find composeApp/build/compose/binaries/main/deb/  -name '*.deb'      -exec cp {} dist/ \; 2>/dev/null || true
+          find composeApp/build/compose/binaries/main/rpm/  -name '*.rpm'      -exec cp {} dist/ \; 2>/dev/null || true
+          find composeApp/build/compose/binaries/main/app/  -name '*.AppImage' -exec cp {} dist/ \; 2>/dev/null || true
+          find composeApp/build/distributions/              -name '*.zip'      -exec cp {} dist/ \; 2>/dev/null || true
+          ls -lh dist/
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
