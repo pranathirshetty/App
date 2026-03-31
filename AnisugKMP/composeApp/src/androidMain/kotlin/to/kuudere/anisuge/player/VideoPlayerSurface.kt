@@ -172,19 +172,19 @@ actual fun VideoPlayerSurface(
         MPVLib.setOptionString("input-default-bindings", showOsc)
         MPVLib.setOptionString("input-vo-keyboard", showOsc)
 
-        // Cache settings — buffer more once started, but reduce initial readahead wait
+        // Cache: start fast, buffer in background
         MPVLib.setOptionString("cache", "yes")
-        MPVLib.setOptionString("cache-secs", "300")           // Buffer more once started
-        MPVLib.setOptionString("demuxer-readahead-secs", "6") // Reduce initial blocking wait (was 20)
-        MPVLib.setOptionString("demuxer-max-bytes", "150M")
+        MPVLib.setOptionString("cache-secs", "120")           // 2min buffer is plenty on mobile
+        MPVLib.setOptionString("demuxer-readahead-secs", "3") // Start in ~1-2s, pipeline does the rest
+        MPVLib.setOptionString("demuxer-max-bytes", "100M")   // Sweet spot for mobile RAM
         MPVLib.setOptionString("demuxer-max-back-bytes", "50M")
 
         // Network optimizations for HTTP/HLS streaming
-        MPVLib.setOptionString("network-timeout", "15")       // Fail faster on bad connections (was 30)
+        MPVLib.setOptionString("network-timeout", "10")       // Fail fast → retry faster
         MPVLib.setOptionString("http-persistent", "yes")
         MPVLib.setOptionString("http-keepalive", "yes")
         MPVLib.setOptionString("hls-bitrate", "max")          // Skip quality probing
-        MPVLib.setOptionString("stream-buffer-size", "512k")  // Smaller segment buffer (was 1M)
+        MPVLib.setOptionString("stream-buffer-size", "256k")  // HLS chunks are small
         MPVLib.setOptionString("prefetch-playlist", "yes")
 
         // Fast-start: tell FFmpeg to stop over-analyzing the stream
@@ -194,8 +194,8 @@ actual fun VideoPlayerSurface(
         if (isRemoteStream) {
             MPVLib.setOptionString("demuxer-lavf-o", "probesize=32768,analyzeduration=0,tcp_nodelay=1,reconnect=1")
         }
-        MPVLib.setOptionString("cache-pause", "no")           // Don't pause on small cache gaps
-        MPVLib.setOptionString("vd-lavc-fast", "yes")         // Fast decoding
+        MPVLib.setOptionString("cache-pause", "no")           // Never stall on micro-gaps
+        MPVLib.setOptionString("vd-lavc-fast", "yes")         // Skip unnecessary decode precision
         MPVLib.setOptionString("vd-lavc-skipframedrop", "nonref")
 
 
