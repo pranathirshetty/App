@@ -155,9 +155,9 @@ class _AuthScreenState extends State<AuthScreen>
           );
         } else {
           sessionInfo = await _authService.register(
-            _emailController.text,
-            _passwordController.text,
-            _displayNameController.text,
+            _displayNameController.text, // username
+            _emailController.text,        // email
+            _passwordController.text,     // password
           );
         }
 

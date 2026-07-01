@@ -93,14 +93,13 @@ class _SearchTabState extends State<SearchTab> {
       // This uses the same search page that has proper pagination
       // Allow empty keyword - backend will return all results (or filtered results)
       final queryParams = <String, String>{
-        'page': _currentPage.toString(),
-        'format':
-            'api', // Request JSON response (use 'format' instead of 'type' to avoid conflict with filter 'type')
+        'limit': '20',
+        'offset': _currentPage.toString(),
       };
 
       // Only add keyword if it's not empty
       if (searchQuery.isNotEmpty) {
-        queryParams['keyword'] = searchQuery;
+        queryParams['q'] = searchQuery;
       }
 
       // Add filters if selected
@@ -151,36 +150,29 @@ class _SearchTabState extends State<SearchTab> {
 
       // Search doesn't require authentication
       final response =
-          await httpService.get('/search', queryParams: queryParams);
+          await httpService.getProjectR('/search', queryParams: queryParams);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // /search?type=api returns { success: true, animeData: [...], total: number, totalPages: number, currentPage: number }
-        if (data['success'] == true && data['animeData'] != null) {
-          final results =
-              List<Map<String, dynamic>>.from(data['animeData'] ?? []);
-          if (mounted) {
+        // Project-R /search returns { results: [...], total, limit, offset }
+        final results = data['results'] ?? [];
+        if (mounted) {
             setState(() {
               if (loadMore) {
-                // Only add new results that aren't already in the list (prevent duplicates)
                 final existingIds =
-                    _searchResults.map((r) => r['id'] ?? r['mainId']).toSet();
+                    _searchResults.map((r) => r['anime_id'] ?? r['id']).toSet();
                 final newResults = results
-                    .where((r) => !existingIds.contains(r['id'] ?? r['mainId']))
+                    .where((r) => !existingIds.contains(r['anime_id'] ?? r['id']))
                     .toList();
                 _searchResults.addAll(newResults);
               } else {
                 _searchResults = results;
-                _currentPage = 1;
               }
               _isLoading = false;
               _isLoadingMore = false;
-              // Update pagination info from backend
-              _currentPage =
-                  data['currentPage'] ?? data['page'] ?? _currentPage;
-              // Only increment page if we got results and there are more
-              if (results.isNotEmpty && (data['hasMore'] ?? false)) {
-                _currentPage++;
+              // Offset-based pagination: increment offset by limit (default 20)
+              if (results.isNotEmpty && (results.length >= 20)) {
+                _currentPage += 20;
               }
             });
           }
@@ -607,17 +599,32 @@ class _SearchTabState extends State<SearchTab> {
   }
 
   Widget _buildAnimeCard(Map<String, dynamic> anime) {
-    // /search?type=api returns full anime documents with fields like:
-    // { id, mainId, english, romaji, native, type, year, epCount, subbedCount, dubbedCount, cover, ... }
+    // Project-R /search returns:
+    // { anime_id, title: { english, romaji, native }, cover_image: { extra_large, large, medium }, format, episodes, subbed, dubbed, ... }
+    String title = '';
+    final titleField = anime['title'];
+    if (titleField is Map<String, dynamic>) {
+      title = titleField['english'] ?? titleField['romaji'] ?? titleField['native'] ?? 'Unknown';
+    } else if (titleField is String) {
+      title = titleField;
+    }
+
+    String imageUrl = '';
+    final coverImage = anime['cover_image'];
+    if (coverImage is Map<String, dynamic>) {
+      imageUrl = coverImage['extra_large'] ?? coverImage['large'] ?? coverImage['medium'] ?? '';
+    } else {
+      imageUrl = anime['cover'] ?? '';
+    }
+
     return AnimeCard(
       item: AnimeItem(
-        id: anime['id'] ?? anime['mainId'] ?? '',
-        title:
-            anime['english'] ?? anime['romaji'] ?? anime['native'] ?? 'Unknown',
-        episodeCount: anime['epCount'] ?? 0,
-        audioLanguages: anime['dubbedCount'] ?? 0,
-        imageUrl: anime['cover'] ?? '/placeholder.svg',
-        type: anime['type'] ?? 'Unknown',
+        id: anime['anime_id'] ?? anime['id'] ?? '',
+        title: title,
+        episodeCount: anime['episodes'] ?? anime['episodes_total'] ?? 0,
+        audioLanguages: anime['dubbed'] ?? 0,
+        imageUrl: imageUrl,
+        type: anime['format'] ?? anime['type'] ?? 'Unknown',
       ),
     );
   }

@@ -160,28 +160,18 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   Future<AnimeDetails> fetchAnimeDetails(String id) async {
     final httpService = HttpService();
     final sessionInfo = await authService.getStoredSession();
+    final slug = id; // Project-R uses slug from anime_id
 
     try {
-      // Anime info can be fetched without auth, but user-specific data (like watchlist status) requires auth
-      // Use /anime/[id]?type=api to get the same data as the SvelteKit frontend
-      // Pass cookies when user is logged in to get user-specific data (watchlist status, likes, etc.)
-      final response = await httpService.get(
-        '/anime/$id',
-        queryParams: {'type': 'api'},
-        requireAuth: sessionInfo != null,
+      final response = await httpService.getProjectR(
+        '/anime/$slug',
+        session: sessionInfo,
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final AnimeDetails details;
-        // SvelteKit might return data directly or wrapped
-        if (data['data'] != null) {
-          details = AnimeDetails.fromJson(data);
-        } else {
-          details = AnimeDetails.fromJson({'data': data});
-        }
+        final details = AnimeDetails.fromJson({'data': data['data'] ?? data});
 
-        // Initialize watchlist state from fetched data
         setState(() {
           _inWatchlist = details.inWatchlist;
           _folder = details.folder;
@@ -193,32 +183,13 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
             'Failed to load anime details. Status code: ${response.statusCode}');
       }
     } catch (e) {
-      // print('Error fetching anime details: $e');
       throw Exception('Failed to load anime details: $e');
     }
   }
 
   Future<void> fetchNotificationCount() async {
-    try {
-      final httpService = HttpService();
-      final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        final response = await httpService.get('/api/notifications/count',
-            requireAuth: true);
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['success'] ?? true) {
-            setState(() {
-              notificationCount =
-                  data['total']?.toString() ?? data['count']?.toString() ?? '0';
-            });
-          }
-        }
-      }
-    } catch (e) {
-      // print('Error fetching notification count: $e');
-    }
+    // Notification count requires the old SvelteKit API — skip for now
+    setState(() => notificationCount = '0');
   }
 
   Future<void> fetchEpisodeData() async {
@@ -226,28 +197,24 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       isLoadingEpisodes = true;
     });
 
-    final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
     final httpService = HttpService();
 
     try {
-      // Fetch episode 1 to get the list of all episodes
-      final response = await httpService.get(
-        '/api/watch/${widget.animeId}/1',
-        requireAuth: sessionInfo != null,
+      // Fetch episodes from Project-R API: GET /anime/:slug/episodes
+      final slug = widget.animeId;
+      final response = await httpService.getProjectR(
+        '/anime/$slug/episodes',
+        session: sessionInfo,
       );
 
       if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // Response: { data: [episode_items], total, limit, offset }
+        final episodes = data['data'] ?? [];
         setState(() {
-          final data = json.decode(response.body);
           episodeData = data;
-          // print("Episode Data Response: ${response.body}"); // Log the response
           isLoadingEpisodes = false;
-
-          if (data['anime_info'] != null &&
-              data['anime_info']['anilist'] != null) {
-            fetchThumbnails(data['anime_info']['anilist']);
-          }
         });
       } else {
         setState(() {
@@ -321,22 +288,20 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     final httpService = HttpService();
 
     try {
-      // Use the correct endpoint and field names that match SvelteKit backend
-      final response = await httpService.post(
-        '/api/anime/watchlist',
+      // Update watchlist via BFF: POST /v1/watchlist { animeId, folder }
+      final response = await httpService.postBff(
+        '/watchlist',
         body: {
-          'animeId': anime.id, // Backend expects camelCase
-          'folder': newStatus, // Backend expects 'folder' not 'status'
+          'animeId': widget.animeId,
+          'folder': newStatus,
         },
-        requireAuth: true,
+        session: sessionInfo,
       );
 
-      if (response.statusCode == 200) {
-        // Only update the watchlist state variables, not the entire Future
-        // This prevents the whole page from reloading
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          _inWatchlist = newStatus != 'Remove';
-          _folder = newStatus != 'Remove' ? newStatus : null;
+          _inWatchlist = newStatus != 'Remove' && newStatus != 'REMOVE';
+          _folder = _inWatchlist ? newStatus : null;
           _isUpdatingWatchlist = false;
         });
       } else {

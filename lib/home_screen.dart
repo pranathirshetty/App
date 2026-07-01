@@ -78,101 +78,82 @@ class _HomeScreenState extends State<HomeScreen> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
 
-      // Fetch home data (no auth required for public data, but auth needed for user-specific data)
-      // Use /?type=api to get the same data as the SvelteKit frontend
-      // Pass cookies when user is logged in to get user-specific data (continue watching count, etc.)
-      final homeResponse = await httpService.get(
-        '/',
-        queryParams: {'type': 'api'},
-        requireAuth: sessionInfo != null,
+      // Fetch home data from Project-R API
+      final homeResponse = await httpService.getProjectR(
+        '/home',
+        session: sessionInfo,
       );
 
-      // Fetch continue watching data (requires auth)
+      // Fetch continue watching from BFF (requires auth + anisurgeToken)
       http.Response? continueWatchingResponse;
-      if (sessionInfo != null) {
-        // Use correct endpoint path: /api/continue-watching/home (not /api/continue-watching-home)
-        continueWatchingResponse = await httpService
-            .get('/api/continue-watching/home', requireAuth: true);
+      if (sessionInfo != null && sessionInfo.hasAnisurgeToken) {
+        try {
+          continueWatchingResponse = await httpService.getBff(
+            '/watch/continue',
+            queryParams: {'latestPerAnime': 'true', 'limit': '20'},
+            session: sessionInfo,
+          );
+        } catch (e) {
+          // Continue watching is optional
+        }
       }
 
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
-        // SvelteKit returns { success: true, data: {...} }
-        final homeData = responseData['data'] ?? responseData;
 
-        // Parse home data - adjust field names based on SvelteKit response
-        final topAired = homeData['topAired'] ?? homeData['top_airing'] ?? [];
-        final latestEps =
-            homeData['latestEps'] ?? homeData['latest_episodes'] ?? [];
-        final lastUpdated =
-            homeData['lastUpdated'] ?? homeData['last_updated'] ?? [];
-        final topUpcomingData =
-            homeData['topUpcoming'] ?? homeData['top_upcoming'] ?? [];
+        // Project-R /home returns camelCase: latestAired, newOnSite, trending, upcoming
+        final latestAired = responseData['latestAired'] ?? [];
+        final newOnSite = responseData['newOnSite'] ?? [];
+        final upcoming = responseData['upcoming'] ?? [];
+        final trending = responseData['trending'] ?? [];
 
+        // Parse continue watching from BFF response
+        // BFF returns: { data: [{ animeId, continueId, episodeId, currentTime, duration, anime: { animeId, title } }], total: N }
         List<ContinueWatchingItem> continueWatchingList = [];
         if (continueWatchingResponse != null &&
             continueWatchingResponse.statusCode == 200) {
           try {
-            final continueWatchingData =
-                json.decode(continueWatchingResponse.body);
-            // Backend returns array directly when successful, or error object on failure
-            if (continueWatchingData is List) {
-              continueWatchingList = continueWatchingData
-                  .map((item) => ContinueWatchingItem.fromJson(item))
+            final cwData = json.decode(continueWatchingResponse.body);
+            final cwList = cwData['data'] ?? [];
+            if (cwList is List) {
+              continueWatchingList = cwList
+                  .map((item) => ContinueWatchingItem.fromBffJson(item))
                   .toList();
-            } else if (continueWatchingData is Map) {
-              // Check if it's an error response
-              if (continueWatchingData['success'] == false ||
-                  continueWatchingData['message'] != null) {
-                // print('Continue watching error: ${continueWatchingData['message']}');
-              } else if (continueWatchingData['data'] != null) {
-                // Handle wrapped response if backend changes format
-                continueWatchingList = (continueWatchingData['data'] as List)
-                    .map((item) => ContinueWatchingItem.fromJson(item))
-                    .toList();
-              }
             }
           } catch (e) {
-            // print('Error parsing continue watching data: $e');
+            // Ignore parse errors
           }
-        } else if (continueWatchingResponse != null) {
-          // print('Continue watching request failed: status ${continueWatchingResponse.statusCode}, body: ${continueWatchingResponse.body}');
         }
 
         setState(() {
-          // For carousel (topAired), use the carousel data which is already sorted by rank
-          // The carousel items come from a separate carousel collection and are ordered correctly
-          topAiring = (topAired as List)
-              .map((item) => AnimeItem.fromJson(item))
-              .toList();
-          // Preserve the order from the API (already sorted by carousel rank)
-
-          latestEpisodes = (latestEps as List)
-              .map((item) => AnimeItem.fromJson(item))
+          topAiring = (trending as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
-          newOnSite = (lastUpdated as List)
-              .map((item) => AnimeItem.fromJson(item))
+          latestEpisodes = (latestAired as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
-          topUpcoming = (topUpcomingData as List)
-              .map((item) => AnimeItem.fromJson(item))
+          newOnSite = (newOnSite as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
+              .toList();
+
+          topUpcoming = (upcoming as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
           continueWatching = continueWatchingList;
-
-          ctotal = continueWatching.length;
+          ctotal = continueWatchingList.length;
           isLoading = false;
         });
 
         // Fetch AI recommendations after main content is loaded
         _fetchAiRecommendations();
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      // print('Error fetching data: $e');
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
