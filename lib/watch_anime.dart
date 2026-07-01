@@ -1664,7 +1664,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
       final streamResponse = await httpService.fetchStreamSources(
         anilistId: anilistId,
         episodeNumber: episodeNum,
-        server: serverParam,
+        source: serverParam,
       );
 
       if (streamResponse.statusCode == 200) {
@@ -1722,7 +1722,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
             // For now, fall through to open the M3U8 URL if available
           }
           
-          await _playVideoUrl(m3u8Url, subtitles: streamSubtitles as List, resumePosition: resumePosition);
+          await _loadVideo(m3u8Url);
         } else {
           throw Exception('No video URL found');
         }
@@ -1733,168 +1733,6 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
       setState(() {
         isLoadingVideo = false;
       });
-    }
-  }
-                  if (chapter is Map && chapter.containsKey('title')) {
-                    final title = chapter['title'].toString().toLowerCase();
-                    if (title == 'intro') {
-                      _introStart = (chapter['start_time'] as num?)?.toDouble();
-                      _introEnd = (chapter['end_time'] as num?)?.toDouble();
-                    } else if (title == 'credits') {
-                      _outroStart = (chapter['start_time'] as num?)?.toDouble();
-                      _outroEnd = (chapter['end_time'] as num?)?.toDouble();
-                    }
-                  }
-                }
-              }
-
-              if (sources != null && sources.isNotEmpty) {
-                // pahe format with multiple quality options
-                for (var source in sources) {
-                  _availableQualities.add({
-                    'url': source['url'],
-                    'quality': source['quality'],
-                  });
-                }
-                // Use first quality by default
-                m3u8Url = sources[0]['url'];
-                _currentQuality = sources[0]['quality'];
-              } else {
-                if (extractedQualities.isNotEmpty) {
-                  _availableQualities = [
-                    {'quality': 'Auto', 'url': m3u8Url},
-                    ...extractedQualities
-                  ];
-                  _currentQuality = 'Auto';
-                } else {
-                  _availableQualities = [
-                    {'quality': 'Auto', 'url': m3u8Url}
-                  ];
-                  _currentQuality = 'Auto';
-                }
-              }
-            });
-
-            // Set mpv properties before loading media
-            if (Platform.isLinux ||
-                Platform.isWindows ||
-                Platform.isMacOS ||
-                Platform.isAndroid ||
-                Platform.isIOS) {
-              try {
-                await (_player.platform as dynamic)
-                    .setProperty('sub-ass', 'yes');
-                await (_player.platform as dynamic)
-                    .setProperty('embeddedfonts', 'yes');
-                await (_player.platform as dynamic)
-                    .setProperty('sub-ass-override', 'scale');
-              } catch (e) {
-                // print('Error setting mpv properties: $e');
-              }
-            }
-
-            // Load fonts BEFORE initializing the video controller
-            // so libass can find them when the subtitle track is loaded
-            if (fonts != null && fonts.isNotEmpty) {
-              await _loadFonts(fonts);
-            }
-
-            // Use saved position from initial API response
-            Duration? savedDuration;
-            if (_savedWatchPosition != null && _savedWatchPosition! > 0) {
-              savedDuration = Duration(seconds: _savedWatchPosition!);
-            }
-
-            // Use video_player with fvp backend (universal for all platforms)
-            // Dispose previous controller if exists
-            _fvpVideoController?.dispose();
-
-            _fvpVideoController = vp.VideoPlayerController.networkUrl(
-              Uri.parse(m3u8Url),
-            );
-
-            await _fvpVideoController!.initialize();
-
-            // Enable ASS subtitle rendering with libass
-            try {
-              _fvpVideoController!.setProperty('subtitle', '1');
-
-              // Set fonts directory on the controller now that it's initialized
-              final tempDir = await getTemporaryDirectory();
-              final fontsDir = Directory('${tempDir.path}/subtitle_fonts');
-              if (await fontsDir.exists()) {
-                _fvpVideoController!
-                    .setProperty('subtitle.fonts.dir', fontsDir.path);
-                debugPrint(
-                    'Set subtitle.fonts.dir on controller: ${fontsDir.path}');
-              }
-            } catch (e) {
-              debugPrint('Error setting subtitle properties: $e');
-            }
-
-            _fvpVideoController!.play();
-
-            // Perform explicit check to ensure we don't auto-advance
-            _fvpVideoController!.addListener(_onVideoPositionChanged);
-
-            // Seek to position: prioritize resumePosition (server switch) over savedDuration (watch history)
-            final seekPosition = resumePosition ?? savedDuration;
-            if (seekPosition != null && seekPosition.inSeconds > 0) {
-              await _fvpVideoController!.seekTo(seekPosition);
-            }
-
-            setState(() {
-              _fvpVideoInitialized = true;
-            });
-
-            // Load default subtitle
-            if (subtitles != null) {
-              for (final sub in subtitles) {
-                if (sub['is_default'] == true) {
-                  try {
-                    final subUrl = sub['url'];
-
-                    // Apply subtitle delay if needed
-                    if (_fvpVideoController != null) {
-                      final effectiveUrl = await _getDelayedSubtitleUrl(subUrl);
-                      _fvpVideoController!.setExternalSubtitle(effectiveUrl);
-                      setState(() {
-                        _currentSubtitle = sub;
-                      });
-                    }
-                  } catch (e) {
-                    debugPrint('Error setting subtitle: $e');
-                  }
-                  break; // Set only the default one
-                }
-              }
-            }
-          } else {
-            throw Exception('Failed to get direct link data');
-          }
-        } else {
-          throw Exception('Server returned success=false');
-        }
-      } else {
-        throw Exception('Failed to fetch video data: ${response.statusCode}');
-      }
-
-      // Apply subtitle settings
-      await _applySubtitleSettings();
-
-      setState(() {
-        isLoadingVideo = false;
-      });
-    } catch (e) {
-      // print('Error loading video: $e');
-      setState(() {
-        isLoadingVideo = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading video: $e')),
-        );
-      }
     }
   }
 

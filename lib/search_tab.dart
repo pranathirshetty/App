@@ -152,55 +152,33 @@ class _SearchTabState extends State<SearchTab> {
       final response =
           await httpService.getProjectR('/search', queryParams: queryParams);
 
+      final data = json.decode(response.body);
+
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
         // Project-R /search returns { results: [...], total, limit, offset }
         final results = data['results'] ?? [];
         if (mounted) {
-            setState(() {
-              if (loadMore) {
-                final existingIds =
-                    _searchResults.map((r) => r['anime_id'] ?? r['id']).toSet();
-                final newResults = results
-                    .where((r) => !existingIds.contains(r['anime_id'] ?? r['id']))
-                    .toList();
-                _searchResults.addAll(newResults);
-              } else {
-                _searchResults = results;
-              }
-              _isLoading = false;
-              _isLoadingMore = false;
-              // Offset-based pagination: increment offset by limit (default 20)
-              if (results.isNotEmpty && (results.length >= 20)) {
-                _currentPage += 20;
-              }
-            });
-          }
-        } else if (data['error'] != null) {
-          // Handle error response
-          if (mounted) {
-            setState(() {
-              _searchResults = [];
-              _isLoading = false;
-              _isLoadingMore = false;
-            });
-          }
-        } else {
-          throw Exception('Unexpected response format');
-        }
-      } else if (response.statusCode == 400) {
-        // Bad request - usually empty query
-        // final data = json.decode(response.body);
-        // print('Search error: ${data['error'] ?? 'Bad request'}');
-        if (mounted) {
           setState(() {
-            _searchResults = [];
+            if (loadMore) {
+              final existingIds =
+                  _searchResults.map((r) => r['anime_id'] ?? r['id']).toSet();
+              final newResults = results
+                  .where((r) => !existingIds.contains(r['anime_id'] ?? r['id']))
+                  .toList();
+              _searchResults.addAll(newResults);
+            } else {
+              _searchResults = results;
+            }
             _isLoading = false;
             _isLoadingMore = false;
+            // Offset-based pagination
+            if (results.isNotEmpty && (results.length >= 20)) {
+              _currentPage += 20;
+            }
           });
         }
-      } else if (response.statusCode == 404) {
-        // No results found
+      } else if (data['error'] != null) {
+        // Handle error response
         if (mounted) {
           setState(() {
             _searchResults = [];
@@ -209,10 +187,7 @@ class _SearchTabState extends State<SearchTab> {
           });
         }
       } else {
-        final errorBody =
-            response.body.isNotEmpty ? json.decode(response.body) : {};
-        throw Exception(
-            'Failed to load search results: ${response.statusCode} - ${errorBody['error'] ?? errorBody['message'] ?? 'Unknown error'}');
+        throw Exception('Unexpected search response: ${response.statusCode}');
       }
     } catch (e) {
       // print('Error during search: $e');

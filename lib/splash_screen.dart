@@ -93,8 +93,6 @@ class _SplashScreenState extends State<SplashScreen> {
           } else {
             _nextScreen = const AuthScreen();
           }
-        } else if (authService.isSessionExpired(sessionInfo)) {
-          _nextScreen = const AuthScreen();
         } else {
           _nextScreen = const AuthScreen();
         }

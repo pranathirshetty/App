@@ -14,7 +14,6 @@ import 'anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'settings_tab.dart';
 import 'watch_list_tab.dart' hide AnimeItem;
-import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/services/ai_service.dart';
@@ -84,45 +83,32 @@ class _HomeScreenState extends State<HomeScreen> {
         session: sessionInfo,
       );
 
-      // Fetch continue watching from BFF (requires auth + anisurgeToken)
-      http.Response? continueWatchingResponse;
-      if (sessionInfo != null && sessionInfo.hasAnisurgeToken) {
-        try {
-          continueWatchingResponse = await httpService.getBff(
-            '/watch/continue',
-            queryParams: {'latestPerAnime': 'true', 'limit': '20'},
-            session: sessionInfo,
-          );
-        } catch (e) {
-          // Continue watching is optional
-        }
-      }
-
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
 
-        // Project-R /home returns camelCase: latestAired, newOnSite, trending, upcoming
         final latestAired = responseData['latestAired'] ?? [];
-        final newOnSite = responseData['newOnSite'] ?? [];
+        final newOnSiteRaw = responseData['newOnSite'] ?? [];
         final upcoming = responseData['upcoming'] ?? [];
         final trending = responseData['trending'] ?? [];
 
-        // Parse continue watching from BFF response
-        // BFF returns: { data: [{ animeId, continueId, episodeId, currentTime, duration, anime: { animeId, title } }], total: N }
+        // Fetch Continue Watching from BFF
         List<ContinueWatchingItem> continueWatchingList = [];
-        if (continueWatchingResponse != null &&
-            continueWatchingResponse.statusCode == 200) {
-          try {
-            final cwData = json.decode(continueWatchingResponse.body);
-            final cwList = cwData['data'] ?? [];
-            if (cwList is List) {
-              continueWatchingList = cwList
-                  .map((item) => ContinueWatchingItem.fromBffJson(item))
+        try {
+          final sessionInfo = await authService.getStoredSession();
+          if (sessionInfo != null) {
+            final continueResponse =
+                await httpService.getBff('/watch/continue', session: sessionInfo);
+            if (continueResponse.statusCode == 200) {
+              final continueData = json.decode(continueResponse.body);
+              final continueItems = continueData['data'] ?? [];
+              continueWatchingList = (continueItems as List)
+                  .map((item) =>
+                      ContinueWatchingItem.fromBffJson(item))
                   .toList();
             }
-          } catch (e) {
-            // Ignore parse errors
           }
+        } catch (e) {
+          // Continue watching is optional
         }
 
         setState(() {
@@ -134,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
-          newOnSite = (newOnSite as List)
+          newOnSite = (newOnSiteRaw as List)
               .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
@@ -300,8 +286,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: item.title,
                   episodeNumber: item.episode,
                   currentTime: item.progress,
-                  totalDuration: item.duration,
-                  link: item.link,
+                  totalDuration: item.duration.toString(),
+                  link: item.slug,
                 ),
               );
             },
@@ -623,13 +609,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isDesktop = screenWidth > 800;
 
                           final imageUrl = isDesktop
-                              ? (item.bannerUrl ??
-                                  (item.imageUrl.isNotEmpty
-                                      ? item.imageUrl
+                              ? (item.banner ??
+                                  (item.image.isNotEmpty
+                                      ? item.image
                                       : ''))
-                              : (item.imageUrl.isNotEmpty
-                                  ? item.imageUrl
-                                  : (item.bannerUrl ?? ''));
+                              : (item.image.isNotEmpty
+                                  ? item.image
+                                  : (item.banner ?? ''));
 
                           return GestureDetector(
                             onTap: () {
@@ -791,9 +777,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                               _buildTag('16+'),
                                               const SizedBox(width: 8),
                                               _buildTag(
-                                                '${item.type}'
-                                                '${item.subbedCount > 0 ? ' | SUB' : ''}'
-                                                '${item.dubbedCount > 0 ? ' | DUB' : ''}',
+                                                '${item.format}'
+                                                '${item.subbed > 0 ? ' | SUB' : ''}'
+                                                '${item.dubbed > 0 ? ' | DUB' : ''}',
                                               ),
                                             ],
                                           ),
@@ -828,7 +814,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Row(
                                             children: [
                                               _buildMetaTag(
-                                                  item.type, Icons.movie),
+                                                  item.format, Icons.movie),
                                               const SizedBox(width: 12),
                                               _buildMetaTag(
                                                   '${item.epCount} Episodes',
@@ -1617,14 +1603,14 @@ class _AnimeCardState extends State<AnimeCard> {
                       spacing: 4,
                       runSpacing: 4,
                       children: [
-                        _buildTag(widget.item.type),
+                        _buildTag(widget.item.format),
                         _buildTag(
                           '${widget.item.epCount}',
                           icon: _buildSvgIcon(_episodesSvg,
                               color: Colors.yellow[400]!),
                         ),
                         _buildTag(
-                          '${widget.item.dubbedCount}',
+                          '${widget.item.dubbed}',
                           icon: _buildSvgIcon(_audioSvg,
                               color: Colors.blue[400]!),
                         ),

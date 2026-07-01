@@ -170,6 +170,38 @@ class HttpService {
     return await http.get(finalUri, headers: headers);
   }
 
+  @Deprecated('Use postBff instead')
+  Future<http.Response> post(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requireAuth = false,
+  }) async {
+    const oldBaseUrl = 'https://anime.anisurge.qzz.io';
+    final uri = Uri.parse('$oldBaseUrl$endpoint');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (requireAuth) {
+      final cookies = await _getOldCookies();
+      if (cookies != null) headers['Cookie'] = cookies;
+    }
+    return await http.post(uri, headers: headers, body: body != null ? jsonEncode(body) : null);
+  }
+
+  @Deprecated('Use postBff instead')
+  Future<http.Response> put(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requireAuth = false,
+  }) async {
+    const oldBaseUrl = 'https://anime.anisurge.qzz.io';
+    final uri = Uri.parse('$oldBaseUrl$endpoint');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (requireAuth) {
+      final cookies = await _getOldCookies();
+      if (cookies != null) headers['Cookie'] = cookies;
+    }
+    return await http.put(uri, headers: headers, body: body != null ? jsonEncode(body) : null);
+  }
+
   Future<String?> _getOldCookies() async {
     try {
       final storedData = await storage.read(key: 'session_info');

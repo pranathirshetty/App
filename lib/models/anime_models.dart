@@ -320,7 +320,7 @@ class AnimeDetails {
     List<String> studios = [];
     final studiosRaw = json['studios'];
     if (studiosRaw is List) {
-      studios = studiosRaw.map((s) {
+      studios = studiosRaw.map<String>((s) {
         if (s is Map<String, dynamic>) return s['name'] ?? s.toString();
         return s.toString();
       }).toList();
@@ -374,7 +374,7 @@ class AnimeDetails {
       seasonYear: json['season_year'] ?? json['year'],
       season: json['season'],
       genres: List<String>.from(json['genres'] ?? []),
-      tags: List<String>.from((json['tags'] as List?)?.map((t) => t is Map ? t['name']?.toString() ?? t.toString() : t.toString()).toList() ?? []),
+      tags: (json['tags'] as List?)?.map<String>((t) => t is Map ? t['name']?.toString() ?? t.toString() : t.toString()).toList() ?? [],
       studios: studios,
       averageScore: json['average_score'] ?? json['mean_score'],
       malScore: (json['mal_score'] ?? json['malScore'])?.toDouble(),
