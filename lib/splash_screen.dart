@@ -88,7 +88,12 @@ class _SplashScreenState extends State<SplashScreen> {
           useBff: true,
         );
         if (response.statusCode == 200) {
-          _nextScreen = const HomeScreen();
+          final data = jsonDecode(response.body);
+          if (data['success'] != false) {
+            _nextScreen = const HomeScreen();
+          } else {
+            _nextScreen = const AuthScreen();
+          }
         } else {
           _nextScreen = const AuthScreen();
         }

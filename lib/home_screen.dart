@@ -14,7 +14,6 @@ import 'anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'settings_tab.dart';
 import 'watch_list_tab.dart' hide AnimeItem;
-import 'package:http/http.dart' as http;
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/services/ai_service.dart';
@@ -78,52 +77,68 @@ class _HomeScreenState extends State<HomeScreen> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
 
-      // Fetch home data from Project-R /home endpoint
-      final homeResponse = await httpService.get(
+      // Fetch home data from Project-R API
+      final homeResponse = await httpService.getProjectR(
         '/home',
-        requireAuth: sessionInfo != null,
+        session: sessionInfo,
       );
-
-      // Fetch continue watching data from BFF (requires auth)
-      http.Response? continueWatchingResponse;
-      if (sessionInfo?.anisurgeToken != null) {
-        continueWatchingResponse = await httpService.get(
-          '/v1/watch/continue',
-          queryParams: {'limit': '20', 'latestPerAnime': 'true'},
-          requireAuth: true,
-          useBff: true,
-        );
-      }
 
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
-        final homeData = HomeData.fromJson(responseData);
+        // Project-R /home returns snake_case: latest_aired, new_on_site, trending, upcoming
+        final latestAired = responseData['latest_aired'] ?? [];
+        final newOnSiteRaw = responseData['new_on_site'] ?? [];
+        final upcoming = responseData['upcoming'] ?? [];
+        final trending = responseData['trending'] ?? [];
 
+        // Fetch Continue Watching from BFF
         List<ContinueWatchingItem> continueWatchingList = [];
-        if (continueWatchingResponse != null &&
-            continueWatchingResponse.statusCode == 200) {
-          try {
-            final cwData = json.decode(continueWatchingResponse.body);
-            continueWatchingList = ContinueWatchingResponse.fromJson(cwData).data;
-          } catch (_) {}
+        try {
+          final sessionInfo = await authService.getStoredSession();
+          if (sessionInfo != null) {
+            final continueResponse =
+                await httpService.getBff('/watch/continue', session: sessionInfo);
+            if (continueResponse.statusCode == 200) {
+              final continueData = json.decode(continueResponse.body);
+              final continueItems = continueData['data'] ?? [];
+              continueWatchingList = (continueItems as List)
+                  .map((item) =>
+                      ContinueWatchingItem.fromBffJson(item))
+                  .toList();
+            }
+          }
+        } catch (e) {
+          // Continue watching is optional
         }
 
         setState(() {
-          topAiring = homeData.latestAired;
-          latestEpisodes = homeData.latestAired;
-          newOnSite = homeData.newOnSite;
-          topUpcoming = homeData.upcoming;
+          topAiring = (trending as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
+              .toList();
+
+          latestEpisodes = (latestAired as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
+              .toList();
+
+          newOnSite = (newOnSite as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
+              .toList();
+
+          topUpcoming = (upcoming as List)
+              .map((item) => AnimeItem.fromProjectRJson(item))
+              .toList();
+
           continueWatching = continueWatchingList;
-          ctotal = continueWatching.length;
+          ctotal = continueWatchingList.length;
           isLoading = false;
         });
 
         _fetchAiRecommendations();
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
@@ -266,12 +281,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   right: index == continueWatching.length - 1 ? 16 : 8,
                 ),
                 child: ContinueWatchingCard(
-                  imageUrl: item.imageUrl,
-                  title: item.displayTitle,
-                  episodeNumber: item.displayEpisode,
-                  currentTime: item.progress.toString(),
+                  imageUrl: item.thumbnail,
+                  title: item.title,
+                  episodeNumber: item.episode,
+                  currentTime: item.progress,
                   totalDuration: item.duration.toString(),
-                  link: item.animeId,
+                  link: item.slug,
                 ),
               );
             },
@@ -593,13 +608,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isDesktop = screenWidth > 800;
 
                           final imageUrl = isDesktop
-                              ? (item.bannerUrl ??
-                                  (item.imageUrl.isNotEmpty
-                                      ? item.imageUrl
+                              ? (item.banner ??
+                                  (item.image.isNotEmpty
+                                      ? item.image
                                       : ''))
-                              : (item.imageUrl.isNotEmpty
-                                  ? item.imageUrl
-                                  : (item.bannerUrl ?? ''));
+                              : (item.image.isNotEmpty
+                                  ? item.image
+                                  : (item.banner ?? ''));
 
                           return GestureDetector(
                             onTap: () {
@@ -761,7 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               _buildTag('16+'),
                                               const SizedBox(width: 8),
                                               _buildTag(
-                                                '${item.type}'
+                                                '${item.format}'
                                                 '${item.subbed > 0 ? ' | SUB' : ''}'
                                                 '${item.dubbed > 0 ? ' | DUB' : ''}',
                                               ),
@@ -798,7 +813,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Row(
                                             children: [
                                               _buildMetaTag(
-                                                  item.type ?? item.format, Icons.movie),
+                                                  item.format, Icons.movie),
                                               const SizedBox(width: 12),
                                               _buildMetaTag(
                                                   '${item.epCount} Episodes',
@@ -1587,7 +1602,7 @@ class _AnimeCardState extends State<AnimeCard> {
                       spacing: 4,
                       runSpacing: 4,
                       children: [
-                        _buildTag(widget.item.type ?? widget.item.format),
+                        _buildTag(widget.item.format),
                         _buildTag(
                           '${widget.item.epCount}',
                           icon: _buildSvgIcon(_episodesSvg,

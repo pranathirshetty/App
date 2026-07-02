@@ -76,21 +76,19 @@ class _AppHeaderState extends State<AppHeader> {
 
   Future<void> fetchUserAvatar() async {
     try {
-      final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        final response =
-            await httpService.get('/v1/me', requireAuth: true, useBff: true);
+      if (sessionInfo != null && sessionInfo.hasAnisurgeToken) {
+        // Get profile from BFF which returns avatarUrl
+        final httpService = HttpService();
+        final response = await httpService.getBff('/me', session: sessionInfo);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['user'] != null) {
-            final userData = data['user'];
-            if (mounted) {
-              setState(() {
-                userAvatarUrl = userData['customPfpUrl'] ?? userData['avatarUrl'] ?? userData['avatar'];
-              });
-            }
+          final userData = data['user'];
+          if (mounted && userData != null) {
+            setState(() {
+              userAvatarUrl = userData['customPfpUrl'] ?? userData['avatarUrl'];
+            });
           }
         }
       }

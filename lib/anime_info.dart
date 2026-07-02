@@ -161,17 +161,17 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   Future<AnimeDetails> fetchAnimeDetails(String id) async {
     final httpService = HttpService();
     final sessionInfo = await authService.getStoredSession();
+    final slug = id; // Project-R uses slug from anime_id
 
     try {
-      final response = await httpService.get(
-        '/anime/$id',
-        queryParams: {'include_episodes': 'true'},
-        requireAuth: sessionInfo != null,
+      final response = await httpService.getProjectR(
+        '/anime/$slug',
+        session: sessionInfo,
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final details = AnimeDetails.fromJson({'data': data});
+        final details = AnimeDetails.fromJson({'data': data['data'] ?? data});
 
         setState(() {
           _inWatchlist = details.inWatchlist;
@@ -190,64 +190,33 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   }
 
   Future<void> fetchNotificationCount() async {
-    try {
-      final httpService = HttpService();
-      final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        final response = await httpService.get('/api/notifications/count',
-            requireAuth: true);
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['success'] ?? true) {
-            setState(() {
-              notificationCount =
-                  data['total']?.toString() ?? data['count']?.toString() ?? '0';
-            });
-          }
-        }
-      }
-    } catch (e) {
-      // print('Error fetching notification count: $e');
-    }
+    // Notification count requires the old SvelteKit API — skip for now
+    setState(() => notificationCount = '0');
   }
 
   Future<void> fetchEpisodeData() async {
     setState(() => isLoadingEpisodes = true);
 
+    final sessionInfo = await authService.getStoredSession();
     final httpService = HttpService();
     final sessionInfo = await authService.getStoredSession();
 
     try {
-      final response = await httpService.get(
-        '/anime/${widget.animeId}',
-        queryParams: {'include_episodes': 'true'},
-        requireAuth: sessionInfo != null,
+      // Fetch episodes from Project-R API: GET /anime/:slug/episodes
+      final slug = widget.animeId;
+      final response = await httpService.getProjectR(
+        '/anime/$slug/episodes',
+        session: sessionInfo,
       );
 
       if (response.statusCode == 200) {
-        final raw = json.decode(response.body);
-        final episodes = raw['episodes'] ?? raw['data']?['episodes'] ?? [];
+        final data = json.decode(response.body);
+        // Response: { data: [episode_items], total, limit, offset }
+        final episodes = data['data'] ?? [];
         setState(() {
-          episodeData = {'data': episodes is List ? episodes : []};
+          episodeData = data;
           isLoadingEpisodes = false;
         });
-        if (episodes is List && episodes.isNotEmpty) {
-          final ep = episodes.first;
-          final epNum = ep['number'] ?? ep['episode_number'] ?? 1;
-          final watchResponse = await httpService.get(
-            '/watch/${widget.animeId}',
-            queryParams: {'ep': epNum.toString()},
-            requireAuth: sessionInfo != null,
-          );
-          if (watchResponse.statusCode == 200) {
-            final watchData = json.decode(watchResponse.body);
-            final anilistId = watchData['anilist_id'] ?? watchData['anilistId'] ?? watchData['anime']?['anilist_id'];
-            if (anilistId != null) {
-              fetchThumbnails(anilistId is int ? anilistId : int.tryParse(anilistId.toString()) ?? 0);
-            }
-          }
-        }
       } else {
         setState(() => isLoadingEpisodes = false);
       }
@@ -324,30 +293,20 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     };
 
     try {
-      final folder = newStatus == 'Remove' ? 'REMOVE' : (folderMap[newStatus] ?? newStatus.toUpperCase().replaceAll(' ', '_'));
-      final body = <String, dynamic>{
-        'animeId': anime.id,
-        'folder': folder,
-      };
-      if (anime.anilistId != null) body['anilistId'] = anime.anilistId;
-      if (anime.anilistId != null) {
-        try {
-          final malId = _anilistToMalId(anime.anilistId!);
-          if (malId != null) body['malId'] = malId;
-        } catch (_) {}
-      }
-
-      final response = await httpService.post(
-        '/v1/watchlist',
-        body: body,
-        requireAuth: true,
-        useBff: true,
+      // Update watchlist via BFF: POST /v1/watchlist { animeId, folder }
+      final response = await httpService.postBff(
+        '/watchlist',
+        body: {
+          'animeId': widget.animeId,
+          'folder': newStatus,
+        },
+        session: sessionInfo,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          _inWatchlist = newStatus != 'Remove';
-          _folder = newStatus != 'Remove' ? folder : null;
+          _inWatchlist = newStatus != 'Remove' && newStatus != 'REMOVE';
+          _folder = _inWatchlist ? newStatus : null;
           _isUpdatingWatchlist = false;
         });
       } else {

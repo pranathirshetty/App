@@ -246,7 +246,8 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   Future<String?> _getUserId() async {
-    return 'guest';
+    final sessionInfo = await authService.getStoredSession();
+    return sessionInfo?.externalUserId;
   }
 
   Future<void> _shareAnime() async {
@@ -276,37 +277,29 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   void fetchDefaultEpisodeNumber() async {
-    final String url = 'https://anime.anisurge.qzz.io/watch/${widget.id}';
-    final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
+    final httpService = HttpService();
 
     try {
-      if (sessionInfo == null) {
-        throw Exception('No session information found.');
-      }
-
-      final httpService = HttpService();
-      final response = await httpService.get(
-          url.replaceFirst('https://anime.anisurge.qzz.io', ''),
-          requireAuth: true);
+      // Get anime details from Project-R to find episode count
+      final response = await httpService.getProjectR(
+        '/anime/${widget.id}',
+        session: sessionInfo,
+      );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        if (data.containsKey('anime_info') &&
-            data['anime_info'].containsKey('ep')) {
-          int defaultEpisode = data['anime_info']['ep'];
-
-          setState(() {
-            _currentEpisodeNumber = defaultEpisode;
-          });
-
-          initializeScreen(defaultEpisode);
-        }
+        final data = json.decode(response.body)['data'] ?? json.decode(response.body);
+        final defaultEpisode = data['last_episode'] ?? 1;
+        setState(() {
+          _currentEpisodeNumber = defaultEpisode;
+        });
+        initializeScreen(defaultEpisode);
       } else {
-        throw Exception('Failed to fetch default episode number');
+        // Fallback to episode 1
+        initializeScreen(1);
       }
     } catch (e) {
-      // print('Error fetching default episode: $e');
+      initializeScreen(1);
     }
   }
 
@@ -383,11 +376,9 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
       if (duration <= 0) return;
 
       final httpService = HttpService();
-      print(
-          'Saving progress: Anime: ${widget.id}, Ep: $_selectedEpisodeId, Time: $position / $duration');
-
-      await httpService.post(
-        '/v1/watch/progress',
+      // Save progress via BFF: POST /v1/watch/progress { animeId, episodeId, currentTime, duration, server, language }
+      await httpService.postBff(
+        '/watch/progress',
         body: {
           'animeId': widget.id,
           'episodeId': _selectedEpisodeId,
@@ -396,8 +387,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
           'server': _currentServer,
           'language': 'sub',
         },
-        requireAuth: true,
-        useBff: true,
+        session: sessionInfo,
       );
     } catch (e) {
       // print('Error saving progress: $e');
@@ -693,31 +683,27 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   Future<void> _updateWatchlistStatus(String newStatus) async {
-    final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
 
     if (sessionInfo == null) return;
 
     try {
       final httpService = HttpService();
-      // Use the correct endpoint and field names that match SvelteKit backend
-      final response = await httpService.post(
-        '/api/anime/watchlist',
+      // Update watchlist via BFF: POST /v1/watchlist { animeId, folder }
+      final response = await httpService.postBff(
+        '/watchlist',
         body: {
-          'animeId': widget.id, // Backend expects camelCase
-          'folder': newStatus, // Backend expects 'folder' not 'status'
+          'animeId': widget.id,
+          'folder': newStatus,
         },
-        requireAuth: true,
+        session: sessionInfo,
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          animeData['anime_info']['inWatchlist'] = newStatus != 'Remove';
-          animeData['anime_info']['folder'] =
-              newStatus != 'Remove' ? newStatus : null;
+          animeData['anime_info']['inWatchlist'] = newStatus != 'Remove' && newStatus != 'REMOVE';
+          animeData['anime_info']['folder'] = (newStatus != 'Remove' && newStatus != 'REMOVE') ? newStatus : null;
         });
-      } else {
-        // print('Failed to update watchlist. Status code: ${response.statusCode}');
       }
     } catch (e) {
       // print('Error updating watchlist: $e');
@@ -804,21 +790,26 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
     final httpService = HttpService();
     final sessionInfo = await authService.getStoredSession();
     try {
-      final response = await httpService.get(
+      // Get anime details from Project-R
+      final response = await httpService.getProjectR(
         '/anime/${widget.id}',
-        requireAuth: sessionInfo != null,
+        session: sessionInfo,
       );
 
       if (response.statusCode == 200) {
+        final raw = json.decode(response.body);
+        final data = raw['data'] ?? raw;
         setState(() {
-          animeData = {'anime_info': json.decode(response.body)};
+          animeData = {'anime_info': data};
           isLoading = false;
         });
       } else {
         throw Exception('Failed to load anime data');
       }
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -1619,250 +1610,110 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
 
     try {
       final httpService = HttpService();
-      final anilistId = episodeData['anime_info']?['anilist'];
+
+      // We need the anilistId — fetch anime details if not already available
+      int? anilistId;
+
+      // Try to get anilistId from animeData or episodeData
+      if (episodeData['anime_info']?['anilist_id'] != null) {
+        anilistId = episodeData['anime_info']['anilist_id'] as int;
+      } else if (episodeData['anime_info']?['anilistId'] != null) {
+        anilistId = episodeData['anime_info']['anilistId'] as int;
+      } else if (animeData['anime_info']?['anilist_id'] != null) {
+        anilistId = animeData['anime_info']['anilist_id'] as int;
+      } else if (animeData['anime_info']?['anilistId'] != null) {
+        anilistId = animeData['anime_info']['anilistId'] as int;
+      }
+
+      if (anilistId == null) {
+        // Fallback: fetch anime details from Project-R
+        final detailsResponse = await httpService.getProjectR('/anime/${widget.id}');
+        if (detailsResponse.statusCode == 200) {
+          final data = json.decode(detailsResponse.body)['data'] ?? json.decode(detailsResponse.body);
+          anilistId = data['anilist_id'] ?? data['anilistId'];
+        }
+      }
 
       if (anilistId == null) {
         throw Exception('Anilist ID not found');
       }
 
       final serverParam = server ?? _currentServer;
-      final endpoint = '/$anilistId/$_currentEpisodeNumber/$serverParam';
+      final episodeNum = _currentEpisodeNumber ?? 1;
 
-      final response = await httpService.get(endpoint);
+      // Use batch_scrape to get stream sources
+      final streamResponse = await httpService.fetchStreamSources(
+        anilistId: anilistId,
+        episodeNumber: episodeNum,
+        source: serverParam,
+      );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      if (streamResponse.statusCode == 200) {
+        final batchData = json.decode(streamResponse.body);
+        // batch_scrape returns { sub: { streams: [...], subtitles: '...' }, dub: { ... } }
+        final langData = batchData['sub'] ?? batchData['dub'] ?? batchData;
+        final streamsList = langData['streams'] ?? [];
+        
+        if (streamsList.isEmpty) {
+          throw Exception('No streams available');
+        }
 
-        if (data['success'] == true) {
-          // Handle different server response structures
-          Map<String, dynamic>? directLinkData;
-
-          if (data.containsKey('directLink') && data['directLink'] != null) {
-            // zen/zen2 format
-            final directLink = data['directLink'];
-            if (directLink is Map && directLink.containsKey('data')) {
-              directLinkData = directLink['data'];
-            }
-          } else if (data.containsKey('data') && data['data'] != null) {
-            // pahe/hiya/allmanga format
-            directLinkData = data['data'];
+        // Find matching server or use first available
+        Map<String, dynamic>? selectedStream;
+        for (final s in streamsList) {
+          if (selectedStream == null) selectedStream = s;
+          // Try to find the requested server
+          if (s['url']?.contains(serverParam) == true) {
+            selectedStream = s;
+            break;
           }
+        }
 
-          if (directLinkData != null && directLinkData['m3u8_url'] != null) {
-            String m3u8Url = directLinkData['m3u8_url'];
-            final subtitles = directLinkData['subtitles'] as List<dynamic>?;
-            final fonts = directLinkData['fonts'] as List<dynamic>?;
-            final sources = directLinkData['sources'] as List<dynamic>?;
+        if (selectedStream == null) {
+          throw Exception('No stream found for server: $serverParam');
+        }
 
-            // Clear current subtitle track when changing servers
-            try {
-              await _player.setSubtitleTrack(SubtitleTrack.no());
-            } catch (e) {
-              // Ignore errors when clearing
-            }
+        final String m3u8Url = selectedStream['url'] ?? '';
+        final streamSubtitles = selectedStream['subtitles'] as List? ?? [];
+        final streamHeaders = selectedStream['headers'] as Map<String, dynamic>?;
+        final embedUrl = selectedStream['embedUrl'] as String?;
 
-            // Extract qualities from m3u8 if sources are not provided
-            List<Map<String, String>> extractedQualities = [];
-            if (sources == null || sources.isEmpty) {
-              extractedQualities = await _extractQualitiesFromM3u8(m3u8Url);
-            }
+        // Extract qualities from m3u8 if sources are not provided
+        List<Map<String, String>> extractedQualities = [];
 
-            setState(() {
-              _currentServer = serverParam;
-              _availableSubtitles = subtitles ?? [];
-              _currentSubtitle = null;
-              _availableQualities = [];
+        setState(() {
+          _currentServer = serverParam;
+          _availableSubtitles = (streamSubtitles is List) ? streamSubtitles : [];
+          _currentSubtitle = null;
+          _availableQualities = [];
 
-              // Reset skip timings
-              _introStart = null;
-              _introEnd = null;
-              _outroStart = null;
-              _outroEnd = null;
+          // Reset skip timings
+          _introStart = null;
+          _introEnd = null;
+          _outroStart = null;
+          _outroEnd = null;
 
-              // Safe reference for closure
-              final safeData = directLinkData!;
+          isLoadingVideo = false;
+        });
 
-              // Extract skip timings if available
-              if (safeData.containsKey('intro') && safeData['intro'] != null) {
-                final intro = safeData['intro'];
-                if (intro['start'] != null && intro['end'] != null) {
-                  _introStart = (intro['start'] as num).toDouble();
-                  _introEnd = (intro['end'] as num).toDouble();
-                }
-              }
-              if (safeData.containsKey('outro') && safeData['outro'] != null) {
-                final outro = safeData['outro'];
-                if (outro['start'] != null && outro['end'] != null) {
-                  _outroStart = (outro['start'] as num).toDouble();
-                  _outroEnd = (outro['end'] as num).toDouble();
-                }
-              }
-
-              // Check for chapters (Zen/Zen2 format)
-              if (safeData.containsKey('chapters') &&
-                  safeData['chapters'] is List) {
-                final chapters = safeData['chapters'] as List;
-                for (var chapter in chapters) {
-                  if (chapter is Map && chapter.containsKey('title')) {
-                    final title = chapter['title'].toString().toLowerCase();
-                    if (title == 'intro') {
-                      _introStart = (chapter['start_time'] as num?)?.toDouble();
-                      _introEnd = (chapter['end_time'] as num?)?.toDouble();
-                    } else if (title == 'credits') {
-                      _outroStart = (chapter['start_time'] as num?)?.toDouble();
-                      _outroEnd = (chapter['end_time'] as num?)?.toDouble();
-                    }
-                  }
-                }
-              }
-
-              if (sources != null && sources.isNotEmpty) {
-                // pahe format with multiple quality options
-                for (var source in sources) {
-                  _availableQualities.add({
-                    'url': source['url'],
-                    'quality': source['quality'],
-                  });
-                }
-                // Use first quality by default
-                m3u8Url = sources[0]['url'];
-                _currentQuality = sources[0]['quality'];
-              } else {
-                if (extractedQualities.isNotEmpty) {
-                  _availableQualities = [
-                    {'quality': 'Auto', 'url': m3u8Url},
-                    ...extractedQualities
-                  ];
-                  _currentQuality = 'Auto';
-                } else {
-                  _availableQualities = [
-                    {'quality': 'Auto', 'url': m3u8Url}
-                  ];
-                  _currentQuality = 'Auto';
-                }
-              }
-            });
-
-            // Set mpv properties before loading media
-            if (Platform.isLinux ||
-                Platform.isWindows ||
-                Platform.isMacOS ||
-                Platform.isAndroid ||
-                Platform.isIOS) {
-              try {
-                await (_player.platform as dynamic)
-                    .setProperty('sub-ass', 'yes');
-                await (_player.platform as dynamic)
-                    .setProperty('embeddedfonts', 'yes');
-                await (_player.platform as dynamic)
-                    .setProperty('sub-ass-override', 'scale');
-              } catch (e) {
-                // print('Error setting mpv properties: $e');
-              }
-            }
-
-            // Load fonts BEFORE initializing the video controller
-            // so libass can find them when the subtitle track is loaded
-            if (fonts != null && fonts.isNotEmpty) {
-              await _loadFonts(fonts);
-            }
-
-            // Use saved position from initial API response
-            Duration? savedDuration;
-            if (_savedWatchPosition != null && _savedWatchPosition! > 0) {
-              savedDuration = Duration(seconds: _savedWatchPosition!);
-            }
-
-            // Use video_player with fvp backend (universal for all platforms)
-            // Dispose previous controller if exists
-            _fvpVideoController?.dispose();
-
-            _fvpVideoController = vp.VideoPlayerController.networkUrl(
-              Uri.parse(m3u8Url),
-            );
-
-            await _fvpVideoController!.initialize();
-
-            // Enable ASS subtitle rendering with libass
-            try {
-              _fvpVideoController!.setProperty('subtitle', '1');
-
-              // Set fonts directory on the controller now that it's initialized
-              final tempDir = await getTemporaryDirectory();
-              final fontsDir = Directory('${tempDir.path}/subtitle_fonts');
-              if (await fontsDir.exists()) {
-                _fvpVideoController!
-                    .setProperty('subtitle.fonts.dir', fontsDir.path);
-                debugPrint(
-                    'Set subtitle.fonts.dir on controller: ${fontsDir.path}');
-              }
-            } catch (e) {
-              debugPrint('Error setting subtitle properties: $e');
-            }
-
-            _fvpVideoController!.play();
-
-            // Perform explicit check to ensure we don't auto-advance
-            _fvpVideoController!.addListener(_onVideoPositionChanged);
-
-            // Seek to position: prioritize resumePosition (server switch) over savedDuration (watch history)
-            final seekPosition = resumePosition ?? savedDuration;
-            if (seekPosition != null && seekPosition.inSeconds > 0) {
-              await _fvpVideoController!.seekTo(seekPosition);
-            }
-
-            setState(() {
-              _fvpVideoInitialized = true;
-            });
-
-            // Load default subtitle
-            if (subtitles != null) {
-              for (final sub in subtitles) {
-                if (sub['is_default'] == true) {
-                  try {
-                    final subUrl = sub['url'];
-
-                    // Apply subtitle delay if needed
-                    if (_fvpVideoController != null) {
-                      final effectiveUrl = await _getDelayedSubtitleUrl(subUrl);
-                      _fvpVideoController!.setExternalSubtitle(effectiveUrl);
-                      setState(() {
-                        _currentSubtitle = sub;
-                      });
-                    }
-                  } catch (e) {
-                    debugPrint('Error setting subtitle: $e');
-                  }
-                  break; // Set only the default one
-                }
-              }
-            }
-          } else {
-            throw Exception('Failed to get direct link data');
+        if (m3u8Url.isNotEmpty) {
+          // Determine if we need to use the fvp player or the in-app WebView player for embed
+          if (embedUrl != null && embedUrl.isNotEmpty) {
+            // This server requires an embed player (WebView)
+            // For now, fall through to open the M3U8 URL if available
           }
+          
+          await _loadVideo(m3u8Url);
         } else {
-          throw Exception('Server returned success=false');
+          throw Exception('No video URL found');
         }
       } else {
-        throw Exception('Failed to fetch video data: ${response.statusCode}');
+        throw Exception('Failed to fetch streaming sources');
       }
-
-      // Apply subtitle settings
-      await _applySubtitleSettings();
-
-      setState(() {
-        isLoadingVideo = false;
-      });
     } catch (e) {
-      // print('Error loading video: $e');
       setState(() {
         isLoadingVideo = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading video: $e')),
-        );
-      }
     }
   }
 

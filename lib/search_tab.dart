@@ -91,7 +91,7 @@ class _SearchTabState extends State<SearchTab> {
       final httpService = HttpService();
       final queryParams = <String, String>{
         'limit': '20',
-        'offset': _currentOffset.toString(),
+        'offset': _currentPage.toString(),
       };
 
       if (searchQuery.isNotEmpty) {
@@ -116,32 +116,48 @@ class _SearchTabState extends State<SearchTab> {
         queryParams['sort'] = widget.initialSort!;
       }
 
-      final response = await httpService.get('/search', queryParams: queryParams);
+      print('Search Query Params: $queryParams');
+
+      // Search doesn't require authentication
+      final response =
+          await httpService.getProjectR('/search', queryParams: queryParams);
+
+      final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final searchResponse = SearchResponse.fromJson(data);
+        // Project-R /search returns { results: [...], total, limit, offset }
+        final results = data['results'] ?? [];
         if (mounted) {
           setState(() {
             if (loadMore) {
-              _searchResults.addAll(searchResponse.results);
+              final existingIds =
+                  _searchResults.map((r) => r['anime_id'] ?? r['id']).toSet();
+              final newResults = results
+                  .where((r) => !existingIds.contains(r['anime_id'] ?? r['id']))
+                  .toList();
+              _searchResults.addAll(newResults);
             } else {
-              _searchResults = searchResponse.results;
+              _searchResults = results;
             }
-            _currentOffset = searchResponse.offset + searchResponse.limit;
-            _hasMore = searchResponse.hasMore;
+            _isLoading = false;
+            _isLoadingMore = false;
+            // Offset-based pagination
+            if (results.isNotEmpty && (results.length >= 20)) {
+              _currentPage += 20;
+            }
+          });
+        }
+      } else if (data['error'] != null) {
+        // Handle error response
+        if (mounted) {
+          setState(() {
+            _searchResults = [];
             _isLoading = false;
             _isLoadingMore = false;
           });
         }
       } else {
-        if (mounted) {
-          setState(() {
-            if (!loadMore) _searchResults = [];
-            _isLoading = false;
-            _isLoadingMore = false;
-          });
-        }
+        throw Exception('Unexpected search response: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
@@ -526,8 +542,35 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  Widget _buildAnimeCard(AnimeItem anime) {
-    return AnimeCard(item: anime);
+  Widget _buildAnimeCard(Map<String, dynamic> anime) {
+    // Project-R /search returns:
+    // { anime_id, title: { english, romaji, native }, cover_image: { extra_large, large, medium }, format, episodes, subbed, dubbed, ... }
+    String title = '';
+    final titleField = anime['title'];
+    if (titleField is Map<String, dynamic>) {
+      title = titleField['english'] ?? titleField['romaji'] ?? titleField['native'] ?? 'Unknown';
+    } else if (titleField is String) {
+      title = titleField;
+    }
+
+    String imageUrl = '';
+    final coverImage = anime['cover_image'];
+    if (coverImage is Map<String, dynamic>) {
+      imageUrl = coverImage['extra_large'] ?? coverImage['large'] ?? coverImage['medium'] ?? '';
+    } else {
+      imageUrl = anime['cover'] ?? '';
+    }
+
+    return AnimeCard(
+      item: AnimeItem(
+        id: anime['anime_id'] ?? anime['id'] ?? '',
+        title: title,
+        episodeCount: anime['episodes'] ?? anime['episodes_total'] ?? 0,
+        audioLanguages: anime['dubbed'] ?? 0,
+        imageUrl: imageUrl,
+        type: anime['format'] ?? anime['type'] ?? 'Unknown',
+      ),
+    );
   }
 }
 
