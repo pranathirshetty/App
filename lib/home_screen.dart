@@ -7,13 +7,13 @@ import 'dart:convert';
 import 'package:kuudere/history_tab.dart';
 import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/watch_anime.dart';
+import 'search_tab.dart';
 import 'schedule_tab.dart';
-import 'search_tab.dart' hide AnimeItem;
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'anime_info.dart';
 import 'package:kuudere/services/auth_service.dart';
 import 'settings_tab.dart';
-import 'watch_list_tab.dart' hide AnimeItem;
+import 'watch_list_tab.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/widgets/app_header.dart';
 import 'package:kuudere/services/ai_service.dart';
@@ -87,14 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final responseData = json.decode(homeResponse.body);
         // Project-R /home returns snake_case: latest_aired, new_on_site, trending, upcoming
         final latestAired = responseData['latest_aired'] ?? [];
-        final newOnSiteRaw = responseData['new_on_site'] ?? [];
         final upcoming = responseData['upcoming'] ?? [];
         final trending = responseData['trending'] ?? [];
 
         // Fetch Continue Watching from BFF
         List<ContinueWatchingItem> continueWatchingList = [];
         try {
-          final sessionInfo = await authService.getStoredSession();
           if (sessionInfo != null) {
             final continueResponse =
                 await httpService.getBff('/watch/continue', session: sessionInfo);
@@ -103,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final continueItems = continueData['data'] ?? [];
               continueWatchingList = (continueItems as List)
                   .map((item) =>
-                      ContinueWatchingItem.fromBffJson(item))
+                      ContinueWatchingItem.fromJson(item))
                   .toList();
             }
           }
@@ -281,12 +279,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   right: index == continueWatching.length - 1 ? 16 : 8,
                 ),
                 child: ContinueWatchingCard(
-                  imageUrl: item.thumbnail,
-                  title: item.title,
-                  episodeNumber: item.episode,
-                  currentTime: item.progress,
+                  imageUrl: item.imageUrl,
+                  title: item.displayTitle,
+                  episodeNumber: item.displayEpisode,
+                  currentTime: item.progress.toString(),
                   totalDuration: item.duration.toString(),
-                  link: item.slug,
+                  link: item.animeId,
                 ),
               );
             },
@@ -608,13 +606,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isDesktop = screenWidth > 800;
 
                           final imageUrl = isDesktop
-                              ? (item.banner ??
-                                  (item.image.isNotEmpty
-                                      ? item.image
-                                      : ''))
-                              : (item.image.isNotEmpty
-                                  ? item.image
-                                  : (item.banner ?? ''));
+                              ? (item.bannerUrl ??
+                                  (item.imageUrl.isNotEmpty
+                                      ? item.imageUrl
+                                      : item.banner ?? ''))
+                              : (item.imageUrl.isNotEmpty
+                                  ? item.imageUrl
+                                  : (item.bannerUrl ?? item.banner ?? ''));
 
                           return GestureDetector(
                             onTap: () {

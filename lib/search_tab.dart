@@ -91,7 +91,7 @@ class _SearchTabState extends State<SearchTab> {
       final httpService = HttpService();
       final queryParams = <String, String>{
         'limit': '20',
-        'offset': _currentPage.toString(),
+        'offset': _currentOffset.toString(),
       };
 
       if (searchQuery.isNotEmpty) {
@@ -131,19 +131,22 @@ class _SearchTabState extends State<SearchTab> {
           setState(() {
             if (loadMore) {
               final existingIds =
-                  _searchResults.map((r) => r['anime_id'] ?? r['id']).toSet();
-              final newResults = results
+                  _searchResults.map((r) => r.animeId).toSet();
+              final newResults = (results as List)
                   .where((r) => !existingIds.contains(r['anime_id'] ?? r['id']))
+                  .map((r) => AnimeItem.fromProjectRJson(r))
                   .toList();
               _searchResults.addAll(newResults);
             } else {
-              _searchResults = results;
+              _searchResults = (results as List)
+                  .map((r) => AnimeItem.fromProjectRJson(r))
+                  .toList();
             }
             _isLoading = false;
             _isLoadingMore = false;
             // Offset-based pagination
             if (results.isNotEmpty && (results.length >= 20)) {
-              _currentPage += 20;
+              _currentOffset += 20;
             }
           });
         }
@@ -542,34 +545,9 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  Widget _buildAnimeCard(Map<String, dynamic> anime) {
-    // Project-R /search returns:
-    // { anime_id, title: { english, romaji, native }, cover_image: { extra_large, large, medium }, format, episodes, subbed, dubbed, ... }
-    String title = '';
-    final titleField = anime['title'];
-    if (titleField is Map<String, dynamic>) {
-      title = titleField['english'] ?? titleField['romaji'] ?? titleField['native'] ?? 'Unknown';
-    } else if (titleField is String) {
-      title = titleField;
-    }
-
-    String imageUrl = '';
-    final coverImage = anime['cover_image'];
-    if (coverImage is Map<String, dynamic>) {
-      imageUrl = coverImage['extra_large'] ?? coverImage['large'] ?? coverImage['medium'] ?? '';
-    } else {
-      imageUrl = anime['cover'] ?? '';
-    }
-
+  Widget _buildAnimeCard(AnimeItem anime) {
     return AnimeCard(
-      item: AnimeItem(
-        id: anime['anime_id'] ?? anime['id'] ?? '',
-        title: title,
-        episodeCount: anime['episodes'] ?? anime['episodes_total'] ?? 0,
-        audioLanguages: anime['dubbed'] ?? 0,
-        imageUrl: imageUrl,
-        type: anime['format'] ?? anime['type'] ?? 'Unknown',
-      ),
+      item: anime,
     );
   }
 }
@@ -661,7 +639,7 @@ class AnimeCard extends StatelessWidget {
                   children: [
                     _buildTag(item.type ?? item.format),
                     _buildTag(
-                      '${item.epCount ?? 0}',
+                      '${item.epCount}',
                       icon: _buildSvgIcon(_episodesSvg, color: Colors.yellow),
                     ),
                     _buildTag(
@@ -690,7 +668,7 @@ class AnimeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Episodes ${item.epCount ?? 0}',
+                      'Episodes ${item.epCount}',
                       style: TextStyle(color: Colors.grey[300], fontSize: 12),
                     ),
                   ],
@@ -748,9 +726,9 @@ const String _episodesSvg = '''
   <line x1="17" y1="2" x2="17" y2="22"></line>
   <line x1="2" y1="12" x2="22" y2="12"></line>
   <line x1="2" y1="7" x2="7" y2="7"></line>
-  <line x1="2" y1="17" x2="7" y2="17"></line>
-  <line x1="17" y1="17" x2="22" y2="17"></line>
   <line x1="17" y1="7" x2="22" y2="7"></line>
+  <line x1="17" y1="17" x2="22" y2="17"></line>
+  <line x1="2" y1="17" x2="7" y2="17"></line>
 </svg>
 ''';
 

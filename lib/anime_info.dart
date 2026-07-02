@@ -199,7 +199,6 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
     final sessionInfo = await authService.getStoredSession();
     final httpService = HttpService();
-    final sessionInfo = await authService.getStoredSession();
 
     try {
       // Fetch episodes from Project-R API: GET /anime/:slug/episodes
@@ -280,10 +279,9 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       AnimeDetails anime, String newStatus) async {
     final sessionInfo = await authService.getStoredSession();
     if (sessionInfo?.anisurgeToken == null) return;
+    final httpService = HttpService();
 
     setState(() => _isUpdatingWatchlist = true);
-
-    final httpService = HttpService();
     final folderMap = {
       'Watching': 'WATCHING',
       'On Hold': 'PAUSED',
@@ -300,7 +298,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
           'animeId': widget.animeId,
           'folder': newStatus,
         },
-        session: sessionInfo,
+        session: sessionInfo!,
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
