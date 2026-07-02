@@ -85,9 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
-
-        final latestAired = responseData['latestAired'] ?? [];
-        final newOnSiteRaw = responseData['newOnSite'] ?? [];
+        // Project-R /home returns snake_case: latest_aired, new_on_site, trending, upcoming
+        final latestAired = responseData['latest_aired'] ?? [];
+        final newOnSiteRaw = responseData['new_on_site'] ?? [];
         final upcoming = responseData['upcoming'] ?? [];
         final trending = responseData['trending'] ?? [];
 
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
-          newOnSite = (newOnSiteRaw as List)
+          newOnSite = (newOnSite as List)
               .map((item) => AnimeItem.fromProjectRJson(item))
               .toList();
 
