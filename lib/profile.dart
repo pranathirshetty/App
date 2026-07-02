@@ -75,7 +75,7 @@ class _ProfileEditPageState extends State<ProfileEditPage>
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
         final response =
-            await httpService.get('/api/user/current', requireAuth: true);
+            await httpService.get('/v1/me', requireAuth: true, useBff: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -83,9 +83,8 @@ class _ProfileEditPageState extends State<ProfileEditPage>
           setState(() {
             _emailController.text = userData['email'] ?? '';
             _usernameController.text = userData['username'] ?? '';
-            // Use createdAt from backend (now included in /api/user/current response)
-            _joinedDate = userData['createdAt'] ?? userData['joined'] ?? '';
-            _isVerified = userData['verified'] ?? false;
+            _joinedDate = userData['joinDate'] ?? userData['createdAt'] ?? '';
+            _isVerified = userData['emailVerified'] ?? userData['verified'] ?? false;
             isLoading = false;
           });
         } else {

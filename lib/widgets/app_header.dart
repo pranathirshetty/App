@@ -59,19 +59,13 @@ class _AppHeaderState extends State<AppHeader> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
-        final response = await httpService.get('/api/notifications/count',
-            requireAuth: true);
+        final response = await httpService.get('/v1/me', useBff: true, requireAuth: true);
 
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['success'] ?? true) {
-            if (mounted) {
-              setState(() {
-                notificationCount = data['total']?.toString() ??
-                    data['count']?.toString() ??
-                    '0';
-              });
-            }
+          if (mounted) {
+            setState(() {
+              notificationCount = '0';
+            });
           }
         }
       }
@@ -86,15 +80,15 @@ class _AppHeaderState extends State<AppHeader> {
       final sessionInfo = await authService.getStoredSession();
       if (sessionInfo != null) {
         final response =
-            await httpService.get('/api/user/current', requireAuth: true);
+            await httpService.get('/v1/me', requireAuth: true, useBff: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['success'] == true && data['user'] != null) {
+          if (data['user'] != null) {
             final userData = data['user'];
             if (mounted) {
               setState(() {
-                userAvatarUrl = userData['avatar'];
+                userAvatarUrl = userData['customPfpUrl'] ?? userData['avatarUrl'] ?? userData['avatar'];
               });
             }
           }

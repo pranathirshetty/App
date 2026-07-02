@@ -9,6 +9,7 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'package:kuudere/services/http_service.dart';
 import 'package:kuudere/theme/app_theme.dart';
+import 'package:kuudere/models/anime_models.dart';
 
 class WatchListTab extends StatefulWidget {
   const WatchListTab({super.key});
@@ -17,8 +18,7 @@ class WatchListTab extends StatefulWidget {
   State<WatchListTab> createState() => _WatchListTabState();
 }
 
-class _WatchListTabState extends State<WatchListTab>
-    with TickerProviderStateMixin {
+class _WatchListTabState extends State<WatchListTab> {
   final authService = AuthService();
   String selectedFilter = 'All';
   bool isPublic = true;
@@ -31,7 +31,7 @@ class _WatchListTabState extends State<WatchListTab>
     'Completed'
   ];
 
-  List<AnimeItem> watchList = [];
+  List<WatchlistEntry> watchList = [];
   int currentPage = 1;
   int totalPages = 1;
   bool isLoading = false;
@@ -81,35 +81,30 @@ class _WatchListTabState extends State<WatchListTab>
       }
 
       final queryParams = <String, String>{
-        'page': page.toString(),
-        'perPage': '18', // Match backend default
+        'limit': '18',
+        'offset': ((page - 1) * 18).toString(),
       };
       if (selectedFilter != 'All') {
-        queryParams['folder'] =
-            selectedFilter; // Backend expects 'folder' not 'status'
+        queryParams['folder'] = selectedFilter.toUpperCase().replaceAll(' ', '_');
       }
 
       final response = await httpService.get(
-        '/api/anime/watchlist', // Use correct endpoint that matches SvelteKit backend
+        '/v1/watchlist',
         queryParams: queryParams,
         requireAuth: true,
+        useBff: true,
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final items = data['data'] ?? data['watchlist'] ?? [];
+        final resp = WatchlistResponse.fromJson(data);
         setState(() {
           if (page == 1) {
-            watchList = (items as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList();
+            watchList = resp.data;
           } else {
-            watchList.addAll((items as List)
-                .map((item) => AnimeItem.fromJson(item))
-                .toList());
+            watchList.addAll(resp.data);
           }
-          currentPage = data['current_page'] ?? data['currentPage'] ?? page;
-          totalPages = data['total_pages'] ?? data['totalPages'] ?? 1;
+          totalPages = (resp.total / 18).ceil();
           isLoading = false;
         });
       } else {
@@ -281,107 +276,63 @@ class _WatchListTabState extends State<WatchListTab>
   }
 
   void updateAnimeStatus(String animeId, String newStatus) {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
-    // Make API call to update status
     _updateAnimeStatusAPI(animeId, newStatus).then((_) {
       if (mounted) {
         setState(() {
           if (newStatus == 'Remove') {
-            // Remove the anime from the list with animation
-            final index = watchList.indexWhere((anime) => anime.id == animeId);
-            if (index != -1) {
-              _removeAnimeWithAnimation(index);
-            }
+            final index = watchList.indexWhere((a) => a.id == animeId);
+            if (index != -1) watchList.removeAt(index);
           } else {
-            // Update the status of the anime in the list
-            final index = watchList.indexWhere((anime) => anime.id == animeId);
+            final folder = newStatus.toUpperCase().replaceAll(' ', '_');
+            final index = watchList.indexWhere((a) => a.id == animeId);
             if (index != -1) {
-              watchList[index] = watchList[index].copyWith(status: newStatus);
+              final entry = watchList[index];
+              watchList[index] = WatchlistEntry(
+                anime: entry.anime,
+                folder: folder == 'PLAN_TO_WATCH' ? 'PLANNING' : folder,
+              );
             }
-            // If the current filter doesn't match the new status, remove the item from the list
-            if (selectedFilter != 'All' && selectedFilter != newStatus) {
-              _removeAnimeWithAnimation(index);
+            if (selectedFilter != 'All') {
+              final filterFolder = selectedFilter.toUpperCase().replaceAll(' ', '_');
+              if (filterFolder != folder) {
+                watchList.removeAt(index);
+              }
             }
           }
           isLoading = false;
         });
       }
-    }).catchError((error) {
-      // print('Error updating anime status: $error');
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+    }).catchError((_) {
+      if (mounted) setState(() => isLoading = false);
     });
   }
 
   Future<void> _updateAnimeStatusAPI(String animeId, String newStatus) async {
     try {
       final httpService = HttpService();
-      final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        // Use the correct endpoint and field names that match SvelteKit backend
-        final response = await httpService.post(
-          '/api/anime/watchlist',
-          body: {
-            'animeId': animeId, // Backend expects camelCase
-            'folder': selectedFilter, // Backend expects 'folder' not 'status'
-          },
-          requireAuth: true,
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception('Failed to update anime status');
-        }
+      final folder = newStatus == 'Remove'
+          ? 'REMOVE'
+          : newStatus.toUpperCase().replaceAll(' ', '_');
+      final response = await httpService.post(
+        '/v1/watchlist',
+        body: {'animeId': animeId, 'folder': folder == 'PLAN_TO_WATCH' ? 'PLANNING' : folder},
+        requireAuth: true,
+        useBff: true,
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to update anime status');
       }
     } catch (e) {
-      // print('Error updating anime status: $e');
       rethrow;
     }
   }
 
-  void _removeAnimeWithAnimation(int index) {
-    AnimationController controller = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    Animation<double> animation = CurvedAnimation(
-      parent: controller,
-      curve: Curves.easeInOut,
-    );
-
-    animation.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        setState(() {
-          watchList.removeAt(index);
-          // Trigger a rebuild of the grid to fill the space
-          _rebuildGrid();
-        });
-        controller.dispose();
-      }
-    });
-
-    setState(() {
-      watchList[index] =
-          watchList[index].copyWith(animationController: controller);
-    });
-
-    controller.forward();
-  }
-
-  void _rebuildGrid() {
-    // This empty setState will trigger a rebuild of the grid
-    setState(() {});
-  }
 }
 
 class AnimeCard extends StatelessWidget {
-  final AnimeItem item;
+  final WatchlistEntry item;
   final Function(String, String) onStatusUpdate;
 
   const AnimeCard({
@@ -392,21 +343,7 @@ class AnimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return item.animationController != null
-        ? SizeTransition(
-            sizeFactor: CurvedAnimation(
-              parent: item.animationController!,
-              curve: Curves.easeInOut,
-            ),
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: item.animationController!,
-                curve: Curves.easeInOut,
-              ),
-              child: _buildAnimeCard(context),
-            ),
-          )
-        : _buildAnimeCard(context);
+    return _buildAnimeCard(context);
   }
 
   Widget _buildAnimeCard(BuildContext context) {
@@ -435,10 +372,7 @@ class AnimeCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                item.image,
-                fit: BoxFit.cover,
-              ),
+              Image.network(item.image, fit: BoxFit.cover),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -468,8 +402,7 @@ class AnimeCard extends StatelessWidget {
                           _buildTag(item.type),
                           _buildTag(
                             '${item.subbed}',
-                            icon: _buildSvgIcon(_episodesSvg,
-                                color: Colors.yellow),
+                            icon: _buildSvgIcon(_episodesSvg, color: Colors.yellow),
                           ),
                           _buildTag(
                             '${item.dubbed}',
@@ -478,7 +411,7 @@ class AnimeCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     _buildMoreOptionsButton(context),
                   ],
                 ),
@@ -492,7 +425,7 @@ class AnimeCard extends StatelessWidget {
                   children: [
                     Text(
                       item.title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -500,13 +433,10 @@ class AnimeCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
                       '${item.status} • ${item.duration}',
-                      style: TextStyle(
-                        color: Colors.grey[300],
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey[300], fontSize: 12),
                     ),
                   ],
                 ),
@@ -520,20 +450,14 @@ class AnimeCard extends StatelessWidget {
 
   Widget _buildMoreOptionsButton(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        _showMoreOptionsMenu(context);
-      },
+      onTap: () => _showMoreOptionsMenu(context),
       child: Container(
-        padding: EdgeInsets.all(4),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.5),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          Icons.more_vert,
-          color: Colors.white,
-          size: 20,
-        ),
+        child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
       ),
     );
   }
@@ -545,8 +469,7 @@ class AnimeCard extends StatelessWidget {
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(Offset.zero),
-            ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -555,12 +478,12 @@ class AnimeCard extends StatelessWidget {
       context: context,
       position: position,
       items: [
-        _buildPopupMenuItem('Watching', item.status == 'Watching'),
-        _buildPopupMenuItem('On Hold', item.status == 'On Hold'),
-        _buildPopupMenuItem('Plan To Watch', item.status == 'Plan To Watch'),
-        _buildPopupMenuItem('Dropped', item.status == 'Dropped'),
-        _buildPopupMenuItem('Completed', item.status == 'Completed'),
-        _buildPopupMenuItem('Remove', false),
+        _buildPopupMenuItem('Watching', item.status == 'WATCHING'),
+        _buildPopupMenuItem('On Hold', item.status == 'PAUSED'),
+        _buildPopupMenuItem('Plan To Watch', item.status == 'PLANNING'),
+        _buildPopupMenuItem('Dropped', item.status == 'DROPPED'),
+        _buildPopupMenuItem('Completed', item.status == 'COMPLETED'),
+        const PopupMenuItem<String>(value: 'Remove', child: Text('Remove')),
       ],
     ).then((String? selectedValue) {
       if (selectedValue != null) {
@@ -576,8 +499,8 @@ class AnimeCard extends StatelessWidget {
         children: [
           Text(value),
           if (isSelected) ...[
-            SizedBox(width: 8),
-            Icon(Icons.check, color: Colors.green, size: 18),
+            const SizedBox(width: 8),
+            const Icon(Icons.check, color: Colors.green, size: 18),
           ],
         ],
       ),
@@ -586,7 +509,7 @@ class AnimeCard extends StatelessWidget {
 
   Widget _buildTag(String text, {Widget? icon}) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
@@ -596,11 +519,11 @@ class AnimeCard extends StatelessWidget {
         children: [
           if (icon != null) ...[
             icon,
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
           ],
           Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.w500,
@@ -617,71 +540,6 @@ class AnimeCard extends StatelessWidget {
       width: 12,
       height: 12,
       colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-    );
-  }
-}
-
-class AnimeItem {
-  final String id;
-  final String title;
-  final int total;
-  final int dubbed;
-  final int subbed;
-  final String image;
-  final String type;
-  final String status;
-  final String duration;
-  final String url;
-  final AnimationController? animationController;
-
-  AnimeItem({
-    required this.id,
-    required this.title,
-    required this.total,
-    required this.dubbed,
-    required this.subbed,
-    required this.image,
-    required this.type,
-    required this.status,
-    required this.duration,
-    required this.url,
-    this.animationController,
-  });
-
-  factory AnimeItem.fromJson(Map<String, dynamic> json) {
-    // Handle null values from backend - use folder as status, map backend fields to model
-    return AnimeItem(
-      id: json['id'] ?? json['mainId'] ?? '',
-      title: json['english'] ?? json['romaji'] ?? json['title'] ?? 'Unknown',
-      total: json['epCount'] ?? json['subbed'] ?? json['total'] ?? 0,
-      dubbed: json['dubbedCount'] ?? json['dubbed'] ?? 0,
-      subbed: json['subbedCount'] ?? json['subbed'] ?? 0,
-      image: json['cover'] ?? json['image'] ?? '',
-      type: json['type'] ?? 'Unknown',
-      status: json['folder'] ??
-          json['status'] ??
-          'Plan To Watch', // Use folder from backend
-      duration: json['duration']?.toString() ?? '0',
-      url: '/watch/${json['id'] ?? json['mainId'] ?? ''}',
-    );
-  }
-
-  AnimeItem copyWith({
-    String? status,
-    AnimationController? animationController,
-  }) {
-    return AnimeItem(
-      id: id,
-      title: title,
-      total: total,
-      dubbed: dubbed,
-      subbed: subbed,
-      image: image,
-      type: type,
-      status: status ?? this.status,
-      duration: duration,
-      url: url,
-      animationController: animationController ?? this.animationController,
     );
   }
 }

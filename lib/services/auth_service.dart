@@ -4,81 +4,57 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/session_model.dart';
 
 class AuthService {
-  static const String baseUrl = 'https://anime.anisurge.qzz.io';
+  static const String bffBaseUrl = 'https://db.anisurge.qzz.io';
   final storage = const FlutterSecureStorage();
 
-  Future<SessionInfo?> login(String email, String password) async {
+  Future<SessionInfo> login(String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/login'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        Uri.parse('$bffBaseUrl/v1/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'identifier': email, 'password': password}),
       );
-
+      final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success']) {
-          // Map SvelteKit session format to Flutter format
-          final sessionData = data['session'];
-          final sessionInfo = SessionInfo(
-            userId: sessionData['userId'],
-            session: sessionData['sessionSecret'] ??
-                sessionData['session'], // Support both formats
-            expire: sessionData['expire'],
-            sessionId: sessionData['sessionId'],
-          );
-          await storage.write(
-              key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
-          return sessionInfo;
-        }
+        final session = SessionInfo(
+          token: data['projectRToken'] ?? '',
+          anisurgeToken: data['anisurgeToken'],
+        );
+        await storage.write(
+            key: 'session_info', value: jsonEncode(session.toJson()));
+        return session;
       }
-      throw Exception(jsonDecode(response.body)['message']);
+      throw Exception(data['error'] ?? data['message'] ?? 'Login failed');
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<SessionInfo?> register(
+  Future<SessionInfo> register(
       String email, String password, String username) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/register'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        Uri.parse('$bffBaseUrl/v1/auth/signup'),
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(
-            {'email': email, 'password': password, 'username': username}),
+            {'username': username, 'email': email, 'password': password}),
       );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success']) {
-          // Map SvelteKit session format to Flutter format
-          final sessionData = data['session'];
-          final sessionInfo = SessionInfo(
-            userId: sessionData['userId'],
-            session: sessionData['sessionSecret'] ??
-                sessionData['session'], // Support both formats
-            expire: sessionData['expire'],
-            sessionId: sessionData['sessionId'],
-          );
-          await storage.write(
-              key: 'session_info', value: jsonEncode(sessionInfo.toJson()));
-          return sessionInfo;
-        }
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final session = SessionInfo(
+          token: data['projectRToken'] ?? '',
+          anisurgeToken: data['anisurgeToken'],
+        );
+        await storage.write(
+            key: 'session_info', value: jsonEncode(session.toJson()));
+        return session;
       }
-      throw Exception(jsonDecode(response.body)['message']);
+      throw Exception(data['error'] ?? data['message'] ?? 'Registration failed');
     } catch (e) {
       rethrow;
     }
   }
 
-  // Add method to get stored session info
   Future<SessionInfo?> getStoredSession() async {
     try {
       final storedData = await storage.read(key: 'session_info');
@@ -86,14 +62,31 @@ class AuthService {
         return SessionInfo.fromJson(jsonDecode(storedData));
       }
       return null;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  // Add method to check if session is expired
   bool isSessionExpired(SessionInfo session) {
-    final expireDate = DateTime.parse(session.expire);
-    return DateTime.now().isAfter(expireDate);
+    return false;
+  }
+
+  Future<void> logout() async {
+    try {
+      final storedData = await storage.read(key: 'session_info');
+      if (storedData != null) {
+        final session = SessionInfo.fromJson(jsonDecode(storedData));
+        if (session.anisurgeToken != null) {
+          await http.post(
+            Uri.parse('$bffBaseUrl/v1/auth/logout'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.anisurgeToken}',
+            },
+          );
+        }
+      }
+    } catch (_) {}
+    await storage.delete(key: 'session_info');
   }
 }

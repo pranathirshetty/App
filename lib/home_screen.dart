@@ -78,98 +78,49 @@ class _HomeScreenState extends State<HomeScreen> {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
 
-      // Fetch home data (no auth required for public data, but auth needed for user-specific data)
-      // Use /?type=api to get the same data as the SvelteKit frontend
-      // Pass cookies when user is logged in to get user-specific data (continue watching count, etc.)
+      // Fetch home data from Project-R /home endpoint
       final homeResponse = await httpService.get(
-        '/',
-        queryParams: {'type': 'api'},
+        '/home',
         requireAuth: sessionInfo != null,
       );
 
-      // Fetch continue watching data (requires auth)
+      // Fetch continue watching data from BFF (requires auth)
       http.Response? continueWatchingResponse;
-      if (sessionInfo != null) {
-        // Use correct endpoint path: /api/continue-watching/home (not /api/continue-watching-home)
-        continueWatchingResponse = await httpService
-            .get('/api/continue-watching/home', requireAuth: true);
+      if (sessionInfo?.anisurgeToken != null) {
+        continueWatchingResponse = await httpService.get(
+          '/v1/watch/continue',
+          queryParams: {'limit': '20', 'latestPerAnime': 'true'},
+          requireAuth: true,
+          useBff: true,
+        );
       }
 
       if (homeResponse.statusCode == 200) {
         final responseData = json.decode(homeResponse.body);
-        // SvelteKit returns { success: true, data: {...} }
-        final homeData = responseData['data'] ?? responseData;
-
-        // Parse home data - adjust field names based on SvelteKit response
-        final topAired = homeData['topAired'] ?? homeData['top_airing'] ?? [];
-        final latestEps =
-            homeData['latestEps'] ?? homeData['latest_episodes'] ?? [];
-        final lastUpdated =
-            homeData['lastUpdated'] ?? homeData['last_updated'] ?? [];
-        final topUpcomingData =
-            homeData['topUpcoming'] ?? homeData['top_upcoming'] ?? [];
+        final homeData = HomeData.fromJson(responseData);
 
         List<ContinueWatchingItem> continueWatchingList = [];
         if (continueWatchingResponse != null &&
             continueWatchingResponse.statusCode == 200) {
           try {
-            final continueWatchingData =
-                json.decode(continueWatchingResponse.body);
-            // Backend returns array directly when successful, or error object on failure
-            if (continueWatchingData is List) {
-              continueWatchingList = continueWatchingData
-                  .map((item) => ContinueWatchingItem.fromJson(item))
-                  .toList();
-            } else if (continueWatchingData is Map) {
-              // Check if it's an error response
-              if (continueWatchingData['success'] == false ||
-                  continueWatchingData['message'] != null) {
-                // print('Continue watching error: ${continueWatchingData['message']}');
-              } else if (continueWatchingData['data'] != null) {
-                // Handle wrapped response if backend changes format
-                continueWatchingList = (continueWatchingData['data'] as List)
-                    .map((item) => ContinueWatchingItem.fromJson(item))
-                    .toList();
-              }
-            }
-          } catch (e) {
-            // print('Error parsing continue watching data: $e');
-          }
-        } else if (continueWatchingResponse != null) {
-          // print('Continue watching request failed: status ${continueWatchingResponse.statusCode}, body: ${continueWatchingResponse.body}');
+            final cwData = json.decode(continueWatchingResponse.body);
+            continueWatchingList = ContinueWatchingResponse.fromJson(cwData).data;
+          } catch (_) {}
         }
 
         setState(() {
-          // For carousel (topAired), use the carousel data which is already sorted by rank
-          // The carousel items come from a separate carousel collection and are ordered correctly
-          topAiring = (topAired as List)
-              .map((item) => AnimeItem.fromJson(item))
-              .toList();
-          // Preserve the order from the API (already sorted by carousel rank)
-
-          latestEpisodes = (latestEps as List)
-              .map((item) => AnimeItem.fromJson(item))
-              .toList();
-
-          newOnSite = (lastUpdated as List)
-              .map((item) => AnimeItem.fromJson(item))
-              .toList();
-
-          topUpcoming = (topUpcomingData as List)
-              .map((item) => AnimeItem.fromJson(item))
-              .toList();
-
+          topAiring = homeData.latestAired;
+          latestEpisodes = homeData.latestAired;
+          newOnSite = homeData.newOnSite;
+          topUpcoming = homeData.upcoming;
           continueWatching = continueWatchingList;
-
           ctotal = continueWatching.length;
           isLoading = false;
         });
 
-        // Fetch AI recommendations after main content is loaded
         _fetchAiRecommendations();
       }
     } catch (e) {
-      // print('Error fetching data: $e');
       setState(() {
         isLoading = false;
       });
@@ -193,20 +144,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // 1. Add Continue Watching titles
       for (var item in continueWatching.take(20)) {
-        history['Continue Watching']!.add("${item.title} (Ep ${item.episode})");
+        history['Continue Watching']!.add("${item.displayTitle} (Ep ${item.displayEpisode})");
       }
 
       // 2. Fetch Watchlist titles
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
 
-      if (sessionInfo != null) {
+      if (sessionInfo?.anisurgeToken != null) {
         try {
-          // Fetch first page of watchlist, limit 50 to get a good mix
           final response = await httpService.get(
-            '/api/anime/watchlist',
-            queryParams: {'page': '1', 'perPage': '50'},
+            '/v1/watchlist',
+            queryParams: {'limit': '50'},
             requireAuth: true,
+            useBff: true,
           );
 
           if (response.statusCode == 200) {
@@ -315,12 +266,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   right: index == continueWatching.length - 1 ? 16 : 8,
                 ),
                 child: ContinueWatchingCard(
-                  imageUrl: item.thumbnail,
-                  title: item.title,
-                  episodeNumber: item.episode,
-                  currentTime: item.progress,
-                  totalDuration: item.duration,
-                  link: item.link,
+                  imageUrl: item.imageUrl,
+                  title: item.displayTitle,
+                  episodeNumber: item.displayEpisode,
+                  currentTime: item.progress.toString(),
+                  totalDuration: item.duration.toString(),
+                  link: item.animeId,
                 ),
               );
             },
@@ -579,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        item.title,
+                        item.displayTitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -811,8 +762,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                               const SizedBox(width: 8),
                                               _buildTag(
                                                 '${item.type}'
-                                                '${item.subbedCount > 0 ? ' | SUB' : ''}'
-                                                '${item.dubbedCount > 0 ? ' | DUB' : ''}',
+                                                '${item.subbed > 0 ? ' | SUB' : ''}'
+                                                '${item.dubbed > 0 ? ' | DUB' : ''}',
                                               ),
                                             ],
                                           ),
@@ -825,7 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ? screenWidth * 0.45
                                               : null,
                                           child: Text(
-                                            item.title,
+                                            item.displayTitle,
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: isDesktop ? 56 : 28,
@@ -847,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Row(
                                             children: [
                                               _buildMetaTag(
-                                                  item.type, Icons.movie),
+                                                  item.type ?? item.format, Icons.movie),
                                               const SizedBox(width: 12),
                                               _buildMetaTag(
                                                   '${item.epCount} Episodes',
@@ -1636,14 +1587,14 @@ class _AnimeCardState extends State<AnimeCard> {
                       spacing: 4,
                       runSpacing: 4,
                       children: [
-                        _buildTag(widget.item.type),
+                        _buildTag(widget.item.type ?? widget.item.format),
                         _buildTag(
                           '${widget.item.epCount}',
                           icon: _buildSvgIcon(_episodesSvg,
                               color: Colors.yellow[400]!),
                         ),
                         _buildTag(
-                          '${widget.item.dubbedCount}',
+                          '${widget.item.dubbed}',
                           icon: _buildSvgIcon(_audioSvg,
                               color: Colors.blue[400]!),
                         ),
@@ -1658,7 +1609,7 @@ class _AnimeCardState extends State<AnimeCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.item.title,
+                          widget.item.displayTitle,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,

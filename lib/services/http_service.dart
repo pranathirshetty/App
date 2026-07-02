@@ -4,112 +4,111 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/session_model.dart';
 
 class HttpService {
-  static const String baseUrl = 'https://anime.anisurge.qzz.io';
+  static const String projectRBaseUrl = 'https://api.reanime.to/api/v1';
+  static const String bffBaseUrl = 'https://db.anisurge.qzz.io';
   final storage = const FlutterSecureStorage();
 
-  // Get cookies string from stored session
-  Future<String?> _getCookies() async {
+  Future<SessionInfo?> _getSession() async {
     try {
       final storedData = await storage.read(key: 'session_info');
       if (storedData != null) {
-        final sessionInfo = SessionInfo.fromJson(jsonDecode(storedData));
-        // Format cookies as: session_id=xxx; session_secret=xxx; user_id=xxx
-        return 'session_id=${sessionInfo.sessionId}; session_secret=${sessionInfo.session}; user_id=${sessionInfo.userId}';
+        return SessionInfo.fromJson(jsonDecode(storedData));
       }
       return null;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  // Make GET request with optional authentication
+  String _resolveBaseUrl(String endpoint, {bool useBff = false}) {
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+      return endpoint;
+    }
+    final base = useBff ? bffBaseUrl : projectRBaseUrl;
+    return '$base$endpoint';
+  }
+
+  Future<Map<String, String>> _buildHeaders({
+    bool requireAuth = false,
+    bool anisurgeAuth = false,
+  }) async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (requireAuth) {
+      final session = await _getSession();
+      if (session != null) {
+        final token = anisurgeAuth
+            ? (session.anisurgeToken ?? session.token)
+            : session.token;
+        if (token.isNotEmpty) {
+          headers['Authorization'] = 'Bearer $token';
+        }
+      }
+    }
+    return headers;
+  }
+
   Future<http.Response> get(
     String endpoint, {
     Map<String, String>? queryParams,
     bool requireAuth = false,
+    bool useBff = false,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
+    final url = _resolveBaseUrl(endpoint, useBff: useBff);
+    final uri = Uri.parse(url);
     final finalUri =
         queryParams != null ? uri.replace(queryParameters: queryParams) : uri;
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-
-    if (requireAuth) {
-      final cookies = await _getCookies();
-      if (cookies != null) {
-        headers['Cookie'] = cookies;
-      }
-    }
-
+    final headers = await _buildHeaders(
+      requireAuth: requireAuth,
+      anisurgeAuth: useBff,
+    );
     return await http.get(finalUri, headers: headers);
   }
 
-  // Make POST request with optional authentication
   Future<http.Response> post(
     String endpoint, {
     Map<String, dynamic>? body,
     bool requireAuth = false,
+    bool useBff = false,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-
-    if (requireAuth) {
-      final cookies = await _getCookies();
-      if (cookies != null) {
-        headers['Cookie'] = cookies;
-      }
-    }
-
+    final url = _resolveBaseUrl(endpoint, useBff: useBff);
+    final uri = Uri.parse(url);
+    final headers = await _buildHeaders(
+      requireAuth: requireAuth,
+      anisurgeAuth: useBff,
+    );
     final requestBody = body != null ? jsonEncode(body) : null;
     return await http.post(uri, headers: headers, body: requestBody);
   }
 
-  // Make PUT request with optional authentication
   Future<http.Response> put(
     String endpoint, {
     Map<String, dynamic>? body,
     bool requireAuth = false,
+    bool useBff = false,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-
-    if (requireAuth) {
-      final cookies = await _getCookies();
-      if (cookies != null) {
-        headers['Cookie'] = cookies;
-      }
-    }
-
+    final url = _resolveBaseUrl(endpoint, useBff: useBff);
+    final uri = Uri.parse(url);
+    final headers = await _buildHeaders(
+      requireAuth: requireAuth,
+      anisurgeAuth: useBff,
+    );
     final requestBody = body != null ? jsonEncode(body) : null;
     return await http.put(uri, headers: headers, body: requestBody);
   }
 
-  // Make DELETE request with optional authentication
   Future<http.Response> delete(
     String endpoint, {
     bool requireAuth = false,
+    bool useBff = false,
   }) async {
-    final uri = Uri.parse('$baseUrl$endpoint');
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-
-    if (requireAuth) {
-      final cookies = await _getCookies();
-      if (cookies != null) {
-        headers['Cookie'] = cookies;
-      }
-    }
-
+    final url = _resolveBaseUrl(endpoint, useBff: useBff);
+    final uri = Uri.parse(url);
+    final headers = await _buildHeaders(
+      requireAuth: requireAuth,
+      anisurgeAuth: useBff,
+    );
     return await http.delete(uri, headers: headers);
   }
 }

@@ -12,6 +12,7 @@ import 'anime_info.dart';
 import 'dart:ui';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:kuudere/widgets/custom_dropdown.dart';
+import 'package:kuudere/models/anime_models.dart';
 
 class ScheduleTab extends StatefulWidget {
   const ScheduleTab({super.key});
@@ -25,7 +26,6 @@ class _ScheduleTabState extends State<ScheduleTab> {
   final RealtimeService _realtimeService = RealtimeService();
   final authService = AuthService();
 
-  // Static cache to persist data across tab switches
   static Map<String, List<AnimeSchedule>>? _cachedRawSchedule;
   static DateTime? _lastCacheTime;
   static String? _lastCacheTimezone;
@@ -44,7 +44,6 @@ class _ScheduleTabState extends State<ScheduleTab> {
 
     Map<String, List<AnimeSchedule>> rawSchedule;
 
-    // Check if cache is valid (same timezone, less than 24 hours old)
     if (_cachedRawSchedule != null &&
         _lastCacheTime != null &&
         _lastCacheTimezone == currentTimeZone &&
@@ -53,118 +52,84 @@ class _ScheduleTabState extends State<ScheduleTab> {
       rawSchedule = _cachedRawSchedule!;
     } else {
       try {
-        // 1. Fetch Schedule from API
         final response = await httpService.get(
-          '/api/schedule',
-          queryParams: {'timezone': currentTimeZone},
-          requireAuth: sessionInfo != null,
+          '/schedule',
+          queryParams: {'tz': currentTimeZone},
         );
 
         if (response.statusCode == 200) {
-          final Map<String, dynamic> jsonData = json.decode(response.body);
-          final Map<String, List<AnimeSchedule>> scheduleData = {};
-
-          final data = jsonData['data'] ?? jsonData;
-          if (data is Map) {
-            data.forEach((date, animeList) {
-              scheduleData[date] = (animeList as List)
-                  .map((anime) => AnimeSchedule.fromJson(anime))
+          final jsonData = json.decode(response.body);
+          final apiResponse = ScheduleApiResponse.fromJson(jsonData);
+          final scheduleData = <String, List<AnimeSchedule>>{};
+          for (final day in apiResponse.schedule) {
+            if (day.episodes.isNotEmpty) {
+              scheduleData[day.date] = day.episodes
+                  .map((e) => AnimeSchedule(data: e))
                   .toList();
-            });
+            }
           }
-
-          // Update Cache
           rawSchedule = scheduleData;
           _cachedRawSchedule = scheduleData;
           _lastCacheTime = DateTime.now();
           _lastCacheTimezone = currentTimeZone;
         } else {
-          throw Exception(
-              'Failed to load schedule data (Status: ${response.statusCode})');
+          throw Exception('Failed to load schedule (Status: ${response.statusCode})');
         }
       } catch (e) {
         throw Exception('Error fetching data: $e');
       }
     }
 
-    // 2. Fetch Watchlist Map (if logged in) & Merge
-    // We always do this to ensure the "Add to List" buttons are up-to-date
-    // even if the schedule itself is cached.
-    if (sessionInfo != null) {
+    if (sessionInfo?.anisurgeToken != null) {
       try {
         final watchlistMap = await _fetchWatchlistMap();
-
-        // Create a new map to avoid modifying the cached rawSchedule directly
-        final Map<String, List<AnimeSchedule>> mergedSchedule = {};
-
+        final mergedSchedule = <String, List<AnimeSchedule>>{};
         rawSchedule.forEach((date, animeList) {
           mergedSchedule[date] = animeList.map((anime) {
-            if (watchlistMap.containsKey(anime.id)) {
-              return anime.copyWith(
-                inWatchlist: true,
-                folder: watchlistMap[anime.id],
-              );
+            final slug = anime.id;
+            if (watchlistMap.containsKey(slug)) {
+              return anime;
             }
             return anime;
           }).toList();
         });
-
         return mergedSchedule;
-      } catch (e) {
-        // If watchlist fetch fails, just return raw schedule
+      } catch (_) {
         return rawSchedule;
       }
     }
-
     return rawSchedule;
   }
 
   Future<Map<String, String>> _fetchWatchlistMap() async {
     final httpService = HttpService();
     final Map<String, String> watchlistMap = {};
-    int page = 1;
-    bool hasMore = true;
-    const int maxPages = 5; // Limit to 5 pages to prevent slow loading
+    int offset = 0;
+    const int limit = 100;
 
-    while (hasMore && page <= maxPages) {
+    while (true) {
       try {
         final response = await httpService.get(
-          '/api/anime/watchlist',
-          queryParams: {
-            'page': page.toString(),
-            'perPage': '50'
-          }, // Fetch 50 at a time
+          '/v1/watchlist',
+          queryParams: {'limit': limit.toString(), 'offset': offset.toString()},
           requireAuth: true,
+          useBff: true,
         );
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final items = data['data'] ?? data['watchlist'] ?? [];
-
-          if (items.isEmpty) {
-            hasMore = false;
-            break;
+        if (response.statusCode != 200) break;
+        final data = json.decode(response.body);
+        final items = data['data'] ?? [];
+        if (items.isEmpty) break;
+        for (var item in items) {
+          final animeData = item['anime'] ?? item;
+          final id = animeData['anime_id'] ?? animeData['id'] ?? '';
+          final folder = item['folder'] ?? '';
+          if (id.isNotEmpty && folder.isNotEmpty) {
+            watchlistMap[id] = folder;
           }
-
-          for (var item in items) {
-            final id = item['id'] ?? item['mainId'];
-            final folder = item['folder'] ?? item['status'];
-            if (id != null && folder != null) {
-              watchlistMap[id.toString()] = folder.toString();
-            }
-          }
-
-          final totalPages = data['total_pages'] ?? data['totalPages'] ?? 1;
-          if (page >= totalPages) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
         }
-      } catch (e) {
-        hasMore = false;
+        offset += limit;
+      } catch (_) {
+        break;
       }
     }
     return watchlistMap;
@@ -370,13 +335,15 @@ class _AnimeScheduleCardState extends State<AnimeScheduleCard> {
     final httpService = HttpService();
 
     try {
+      final folder = newStatus == 'Remove' ? 'REMOVE' : newStatus.toUpperCase().replaceAll(' ', '_');
       final response = await httpService.post(
-        '/api/anime/watchlist',
+        '/v1/watchlist',
         body: {
           'animeId': widget.anime.id,
-          'folder': newStatus,
+          'folder': folder,
         },
         requireAuth: true,
+        useBff: true,
       );
 
       if (response.statusCode == 200) {
@@ -701,88 +668,55 @@ class _AnimeScheduleCardState extends State<AnimeScheduleCard> {
 }
 
 class AnimeSchedule {
-  final String id;
-  final String title;
-  final int episode;
-  final String time;
-  final String? description;
-  final String? cover;
-  final String? banner;
-  final int? epCount;
-  final String? status;
-  final List<String>? genres;
-  final int? year;
-  final String? type;
+  final ScheduleAnime data;
   final bool inWatchlist;
   final String? folder;
 
   AnimeSchedule({
-    required this.id,
-    required this.title,
-    required this.episode,
-    required this.time,
-    this.description,
-    this.cover,
-    this.banner,
-    this.epCount,
-    this.status,
-    this.genres,
-    this.year,
-    this.type,
+    ScheduleAnime? data,
     this.inWatchlist = false,
     this.folder,
-  });
+  }) : data = data ?? ScheduleAnime();
 
   factory AnimeSchedule.fromJson(Map<String, dynamic> json) {
     return AnimeSchedule(
-      id: json['id'] ?? '',
-      title: json['title'] ?? 'Unknown',
-      episode: json['episode'] ?? 0,
-      time: json['time'] ?? '00:00',
-      description: json['description'],
-      cover: json['cover'],
-      banner: json['banner'],
-      epCount: json['epCount'],
-      status: json['status'],
-      genres: json['genres'] != null ? List<String>.from(json['genres']) : null,
-      year: json['year'],
-      type: json['type'],
+      data: ScheduleAnime.fromJson(json),
       inWatchlist: json['in_watchlist'] ?? false,
       folder: json['folder'],
     );
   }
 
   AnimeSchedule copyWith({
-    String? id,
-    String? title,
-    int? episode,
-    String? time,
-    String? description,
-    String? cover,
-    String? banner,
-    int? epCount,
-    String? status,
-    List<String>? genres,
-    int? year,
-    String? type,
     bool? inWatchlist,
     String? folder,
   }) {
     return AnimeSchedule(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      episode: episode ?? this.episode,
-      time: time ?? this.time,
-      description: description ?? this.description,
-      cover: cover ?? this.cover,
-      banner: banner ?? this.banner,
-      epCount: epCount ?? this.epCount,
-      status: status ?? this.status,
-      genres: genres ?? this.genres,
-      year: year ?? this.year,
-      type: type ?? this.type,
+      data: data,
       inWatchlist: inWatchlist ?? this.inWatchlist,
       folder: folder ?? this.folder,
     );
+  }
+
+  String get id => data.activeSlug;
+  String get title => data.displayTitle;
+  int get episode => data.episodeNumber;
+  String get time => _formatTime(data.episodeDate);
+  String? get description => data.description.isNotEmpty ? data.description : null;
+  String? get cover => data.imageUrl.isNotEmpty ? data.imageUrl : null;
+  String? get banner => data.bannerUrl;
+  int? get epCount => data.episodesTotal > 0 ? data.episodesTotal : data.epCount;
+  String? get status => data.status.isNotEmpty ? data.status : null;
+  List<String>? get genres => data.genres.isNotEmpty ? data.genres : null;
+  int? get year => data.seasonYear > 0 ? data.seasonYear : data.year;
+  String? get type => data.type ?? (data.format.isNotEmpty ? data.format : null);
+
+  static String _formatTime(String episodeDate) {
+    if (episodeDate.isEmpty) return '00:00';
+    try {
+      final dt = DateTime.parse(episodeDate);
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return episodeDate.length >= 5 ? episodeDate.substring(11, 16) : '00:00';
+    }
   }
 }

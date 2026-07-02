@@ -7,6 +7,7 @@ import 'package:kuudere/services/realtime_service.dart';
 import 'package:kuudere/services/http_service.dart';
 import 'dart:ui';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:kuudere/models/anime_models.dart';
 
 class SearchTab extends StatefulWidget {
   final String? initialGenre;
@@ -26,13 +27,13 @@ class SearchTab extends StatefulWidget {
 
 class _SearchTabState extends State<SearchTab> {
   final TextEditingController _searchController = TextEditingController();
-  List<Map<String, dynamic>> _searchResults = [];
+  List<AnimeItem> _searchResults = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
-  int _currentPage = 1;
+  int _currentOffset = 0;
+  bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
 
-  // Filter states
   final List<String> _selectedGenres = [];
   final List<String> _selectedSeasons = [];
   final List<String> _selectedYears = [];
@@ -75,10 +76,11 @@ class _SearchTabState extends State<SearchTab> {
     if (!loadMore) {
       setState(() {
         _isLoading = true;
-        _currentPage = 1;
+        _currentOffset = 0;
+        _hasMore = true;
       });
     } else {
-      if (_isLoadingMore) return;
+      if (_isLoadingMore || !_hasMore) return;
       setState(() {
         _isLoadingMore = true;
       });
@@ -86,144 +88,62 @@ class _SearchTabState extends State<SearchTab> {
 
     try {
       final searchQuery = _searchController.text.trim();
-
       final httpService = HttpService();
-
-      // Build query parameters for /search?format=api endpoint
-      // This uses the same search page that has proper pagination
-      // Allow empty keyword - backend will return all results (or filtered results)
       final queryParams = <String, String>{
-        'page': _currentPage.toString(),
-        'format':
-            'api', // Request JSON response (use 'format' instead of 'type' to avoid conflict with filter 'type')
+        'limit': '20',
+        'offset': _currentOffset.toString(),
       };
 
-      // Only add keyword if it's not empty
       if (searchQuery.isNotEmpty) {
-        queryParams['keyword'] = searchQuery;
+        queryParams['q'] = searchQuery;
       }
-
-      // Add filters if selected
-      // Note: type=api is removed in hooks.server.ts before processing filters
       if (_selectedGenres.isNotEmpty) {
-        queryParams['genres'] = _selectedGenres.join(',');
+        queryParams['genre'] = _selectedGenres.join(',');
       }
       if (_selectedSeasons.isNotEmpty) {
-        // Season filter expects single value, take first selected
         queryParams['season'] = _selectedSeasons.first;
       }
       if (_selectedYears.isNotEmpty) {
-        // Year filter expects single number, take first selected
         queryParams['year'] = _selectedYears.first;
       }
       if (_selectedTypes.isNotEmpty) {
-        // Type filter expects single value, take first selected
-        // This will be processed after hooks.server.ts removes type=api
-        queryParams['type'] = _selectedTypes.first;
+        queryParams['format'] = _selectedTypes.first;
       }
       if (_selectedStatuses.isNotEmpty) {
-        // Status filter expects single value
-        // SvelteKit uses: 'Finished', 'Releasing', 'Not Yet Released', 'Cancelled'
-        // Backend converts to uppercase with .toUpperCase(), but "Not Yet Released" needs special handling
-        String status = _selectedStatuses.first;
-        // Map "Not Yet Released" to underscore format before backend uppercases it
-        if (status == 'Not Yet Released') {
-          status = 'NOT_YET_RELEASED'; // Database uses underscore format
-        }
-        // Backend will uppercase other values: 'Finished' -> 'FINISHED', 'Releasing' -> 'RELEASING', etc.
-        queryParams['status'] = status;
+        queryParams['status'] = _selectedStatuses.first;
       }
-      if (_selectedLanguages.isNotEmpty) {
-        // Language filter expects single value, take first selected
-        queryParams['language'] = _selectedLanguages.first;
-      }
-      if (_selectedRatings.isNotEmpty) {
-        // Rating filter expects single value, take first selected
-        queryParams['rating'] = _selectedRatings.first;
-      }
-
-      // Add sort parameter if provided
       if (widget.initialSort != null) {
         queryParams['sort'] = widget.initialSort!;
       }
 
-      print('Search Query Params: $queryParams');
-
-      // Search doesn't require authentication
-      final response =
-          await httpService.get('/search', queryParams: queryParams);
+      final response = await httpService.get('/search', queryParams: queryParams);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // /search?type=api returns { success: true, animeData: [...], total: number, totalPages: number, currentPage: number }
-        if (data['success'] == true && data['animeData'] != null) {
-          final results =
-              List<Map<String, dynamic>>.from(data['animeData'] ?? []);
-          if (mounted) {
-            setState(() {
-              if (loadMore) {
-                // Only add new results that aren't already in the list (prevent duplicates)
-                final existingIds =
-                    _searchResults.map((r) => r['id'] ?? r['mainId']).toSet();
-                final newResults = results
-                    .where((r) => !existingIds.contains(r['id'] ?? r['mainId']))
-                    .toList();
-                _searchResults.addAll(newResults);
-              } else {
-                _searchResults = results;
-                _currentPage = 1;
-              }
-              _isLoading = false;
-              _isLoadingMore = false;
-              // Update pagination info from backend
-              _currentPage =
-                  data['currentPage'] ?? data['page'] ?? _currentPage;
-              // Only increment page if we got results and there are more
-              if (results.isNotEmpty && (data['hasMore'] ?? false)) {
-                _currentPage++;
-              }
-            });
-          }
-        } else if (data['error'] != null) {
-          // Handle error response
-          if (mounted) {
-            setState(() {
-              _searchResults = [];
-              _isLoading = false;
-              _isLoadingMore = false;
-            });
-          }
-        } else {
-          throw Exception('Unexpected response format');
-        }
-      } else if (response.statusCode == 400) {
-        // Bad request - usually empty query
-        // final data = json.decode(response.body);
-        // print('Search error: ${data['error'] ?? 'Bad request'}');
+        final searchResponse = SearchResponse.fromJson(data);
         if (mounted) {
           setState(() {
-            _searchResults = [];
-            _isLoading = false;
-            _isLoadingMore = false;
-          });
-        }
-      } else if (response.statusCode == 404) {
-        // No results found
-        if (mounted) {
-          setState(() {
-            _searchResults = [];
+            if (loadMore) {
+              _searchResults.addAll(searchResponse.results);
+            } else {
+              _searchResults = searchResponse.results;
+            }
+            _currentOffset = searchResponse.offset + searchResponse.limit;
+            _hasMore = searchResponse.hasMore;
             _isLoading = false;
             _isLoadingMore = false;
           });
         }
       } else {
-        final errorBody =
-            response.body.isNotEmpty ? json.decode(response.body) : {};
-        throw Exception(
-            'Failed to load search results: ${response.statusCode} - ${errorBody['error'] ?? errorBody['message'] ?? 'Unknown error'}');
+        if (mounted) {
+          setState(() {
+            if (!loadMore) _searchResults = [];
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+        }
       }
     } catch (e) {
-      // print('Error during search: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -606,20 +526,8 @@ class _SearchTabState extends State<SearchTab> {
     );
   }
 
-  Widget _buildAnimeCard(Map<String, dynamic> anime) {
-    // /search?type=api returns full anime documents with fields like:
-    // { id, mainId, english, romaji, native, type, year, epCount, subbedCount, dubbedCount, cover, ... }
-    return AnimeCard(
-      item: AnimeItem(
-        id: anime['id'] ?? anime['mainId'] ?? '',
-        title:
-            anime['english'] ?? anime['romaji'] ?? anime['native'] ?? 'Unknown',
-        episodeCount: anime['epCount'] ?? 0,
-        audioLanguages: anime['dubbedCount'] ?? 0,
-        imageUrl: anime['cover'] ?? '/placeholder.svg',
-        type: anime['type'] ?? 'Unknown',
-      ),
-    );
+  Widget _buildAnimeCard(AnimeItem anime) {
+    return AnimeCard(item: anime);
   }
 }
 
@@ -686,10 +594,7 @@ class AnimeCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                item.imageUrl,
-                fit: BoxFit.cover,
-              ),
+              Image.network(item.imageUrl, fit: BoxFit.cover),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -711,13 +616,13 @@ class AnimeCard extends StatelessWidget {
                   spacing: 4,
                   runSpacing: 4,
                   children: [
-                    _buildTag(item.type),
+                    _buildTag(item.type ?? item.format),
                     _buildTag(
-                      '${item.episodeCount}',
+                      '${item.epCount ?? 0}',
                       icon: _buildSvgIcon(_episodesSvg, color: Colors.yellow),
                     ),
                     _buildTag(
-                      '${item.audioLanguages}',
+                      '${item.dubbed}',
                       icon: _buildSvgIcon(_audioSvg, color: Colors.blue),
                     ),
                   ],
@@ -731,8 +636,8 @@ class AnimeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.title,
-                      style: TextStyle(
+                      item.displayTitle,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -740,13 +645,10 @@ class AnimeCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Episodes ${item.episodeCount}',
-                      style: TextStyle(
-                        color: Colors.grey[300],
-                        fontSize: 12,
-                      ),
+                      'Episodes ${item.epCount ?? 0}',
+                      style: TextStyle(color: Colors.grey[300], fontSize: 12),
                     ),
                   ],
                 ),
@@ -760,7 +662,7 @@ class AnimeCard extends StatelessWidget {
 
   Widget _buildTag(String text, {Widget? icon}) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
@@ -770,11 +672,11 @@ class AnimeCard extends StatelessWidget {
         children: [
           if (icon != null) ...[
             icon,
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
           ],
           Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.w500,
@@ -793,24 +695,6 @@ class AnimeCard extends StatelessWidget {
       colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
     );
   }
-}
-
-class AnimeItem {
-  final String title;
-  final String id;
-  final int episodeCount;
-  final int audioLanguages;
-  final String imageUrl;
-  final String type;
-
-  AnimeItem({
-    required this.title,
-    required this.id,
-    required this.episodeCount,
-    required this.audioLanguages,
-    required this.imageUrl,
-    required this.type,
-  });
 }
 
 // SVG strings for icons

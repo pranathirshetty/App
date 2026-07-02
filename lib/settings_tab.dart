@@ -49,9 +49,9 @@ class _SettingsTabState extends State<SettingsTab> {
     try {
       final httpService = HttpService();
       final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
+      if (sessionInfo?.anisurgeToken != null) {
         final response =
-            await httpService.get('/api/user/current', requireAuth: true);
+            await httpService.get('/v1/me', requireAuth: true, useBff: true);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -59,10 +59,9 @@ class _SettingsTabState extends State<SettingsTab> {
           setState(() {
             username = userData['username'] ?? '';
             email = userData['email'] ?? '';
-            // Use createdAt from backend (now included in /api/user/current response)
-            joinedDate = userData['createdAt'] ?? userData['joined'] ?? '';
-            isVerified = userData['verified'] ?? false;
-            userAvatarUrl = userData['avatar'];
+            joinedDate = userData['joinDate'] ?? userData['createdAt'] ?? '';
+            isVerified = userData['emailVerified'] ?? userData['verified'] ?? false;
+            userAvatarUrl = userData['customPfpUrl'] ?? userData['avatarUrl'] ?? userData['avatar'];
             isLoading = false;
           });
         } else {
@@ -70,10 +69,7 @@ class _SettingsTabState extends State<SettingsTab> {
         }
       }
     } catch (e) {
-      // print('Error fetching profile data: $e');
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
@@ -83,41 +79,17 @@ class _SettingsTabState extends State<SettingsTab> {
     });
 
     try {
-      final httpService = HttpService();
-      final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        final response = await httpService.post(
-          '/api/auth/logout',
-          requireAuth: true,
-        );
-
-        if (response.statusCode == 200) {
-          // Clear secure storage
-          await storage.deleteAll();
-
-          // Navigate to AuthScreen
-          if (mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => AuthScreen()),
-              (Route<dynamic> route) => false,
-            );
-          }
-        } else {
-          throw Exception('Failed to logout');
-        }
-      }
-    } catch (e) {
-      // print('Error logging out: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to logout. Please try again.')),
-        );
-      }
-    } finally {
-      setState(() {
-        isLoggingOut = false;
-      });
+      await authService.logout();
+    } catch (_) {}
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthScreen()),
+        (Route<dynamic> route) => false,
+      );
     }
+    setState(() {
+      isLoggingOut = false;
+    });
   }
 
   Widget _buildProfileSection() {

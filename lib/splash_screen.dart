@@ -81,20 +81,14 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkSession() async {
     try {
       final sessionInfo = await authService.getStoredSession();
-      if (sessionInfo != null) {
-        // Check session using new SvelteKit endpoint with cookie-based auth
-        final response =
-            await httpService.get('/api/user/current', requireAuth: true);
-
+      if (sessionInfo != null && sessionInfo.anisurgeToken != null) {
+        final response = await httpService.get(
+          '/v1/me',
+          requireAuth: true,
+          useBff: true,
+        );
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data['success'] != false) {
-            _nextScreen = const HomeScreen();
-          } else {
-            _nextScreen = const AuthScreen();
-          }
-        } else if (authService.isSessionExpired(sessionInfo)) {
-          _nextScreen = const AuthScreen();
+          _nextScreen = const HomeScreen();
         } else {
           _nextScreen = const AuthScreen();
         }
@@ -105,7 +99,6 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint('Session check error: $e');
       _nextScreen = const AuthScreen();
     }
-
     _tryNavigate();
   }
 

@@ -11,6 +11,7 @@ import 'package:kuudere/widgets/app_header.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:kuudere/widgets/custom_dropdown.dart';
 import 'search_tab.dart';
+import 'package:kuudere/models/anime_models.dart';
 
 class AnimeDetails {
   final String id;
@@ -39,6 +40,7 @@ class AnimeDetails {
   final String views;
   final String likes;
   final String? folder;
+  final int? anilistId;
 
   AnimeDetails({
     required this.id,
@@ -67,44 +69,43 @@ class AnimeDetails {
     required this.views,
     required this.likes,
     this.folder,
+    this.anilistId,
   });
 
   factory AnimeDetails.fromJson(Map<String, dynamic> json) {
-    final data = json['data'];
-
-    if (data == null) {
-      throw Exception("Invalid data: 'data' field is null");
-    }
+    final raw = json['data'] ?? json;
+    final title = raw['title'] is Map ? raw['title'] : <String, dynamic>{};
+    final cover = raw['cover_image'] is Map ? raw['cover_image'] : <String, dynamic>{};
+    final startDate = raw['start_date'] is Map ? raw['start_date'] : null;
 
     return AnimeDetails(
-      id: data['id'] ?? '',
-      english: data['english'] ?? 'Unknown',
-      romaji: data['romaji'] ?? 'Unknown',
-      native: data['native'] ?? 'Unknown',
-      ageRating: data['ageRating'] ?? 'Unknown',
-      malScore: (data['malScore'] != null) ? data['malScore'].toDouble() : null,
-      averageScore: data['averageScore'] ?? 0,
-      duration: data['duration'] ?? 0,
-      genres: data['genres'] != null ? List<String>.from(data['genres']) : [],
-      cover: data['cover'] ?? '',
-      banner: data['banner'] ?? '',
-      season: data['season'] ?? 'Unknown',
-      startDate: data['startDate'] ?? 'Unknown',
-      status: data['status'] ?? 'Unknown',
-      synonyms:
-          data['synonyms'] != null ? List<String>.from(data['synonyms']) : [],
-      studios:
-          data['studios'] != null ? List<String>.from(data['studios']) : [],
-      type: data['type'] ?? 'Unknown',
-      year: data['year'] ?? 0,
-      epCount: data['epCount'] ?? 0,
-      subbedCount: data['subbedCount'] ?? 0,
-      dubbedCount: data['dubbedCount'] ?? 0,
-      description: data['description'] ?? 'No description available.',
-      inWatchlist: data['in_watchlist'] ?? false,
-      views: data['views'] ?? '0',
-      likes: data['likes'] ?? '0',
-      folder: data['folder'],
+      id: raw['anime_id'] ?? raw['id'] ?? '',
+      english: title['english'] ?? raw['english'] ?? 'Unknown',
+      romaji: title['romaji'] ?? raw['romaji'] ?? 'Unknown',
+      native: title['native'] ?? raw['native'] ?? 'Unknown',
+      ageRating: raw['ageRating'] ?? raw['age_rating'] ?? 'Unknown',
+      malScore: (raw['mal_score'] ?? raw['malScore'])?.toDouble(),
+      averageScore: raw['average_score'] ?? raw['averageScore'] ?? 0,
+      duration: raw['duration'] ?? 0,
+      genres: raw['genres'] != null ? List<String>.from(raw['genres']) : [],
+      cover: cover['extra_large'] ?? cover['extraLarge'] ?? cover['large'] ?? raw['cover'] ?? '',
+      banner: raw['banner_image'] ?? raw['banner'] ?? '',
+      season: raw['season'] ?? 'Unknown',
+      startDate: startDate != null ? '${startDate['year']}-${startDate['month']?.toString().padLeft(2, '0')}' : (raw['startDate'] ?? 'Unknown'),
+      status: raw['status'] ?? 'Unknown',
+      synonyms: raw['synonyms'] != null ? List<String>.from(raw['synonyms']) : [],
+      studios: raw['studios'] != null ? (raw['studios'] as List).map<String>((s) => s is Map ? (s['name'] ?? '') as String : s.toString()).where((n) => n.isNotEmpty).toList() : [],
+      type: raw['type'] ?? raw['format'] ?? 'Unknown',
+      year: raw['season_year'] ?? raw['year'] ?? 0,
+      epCount: raw['episodes_total'] ?? raw['epCount'] ?? 0,
+      subbedCount: raw['subbed'] ?? raw['subbedCount'] ?? 0,
+      dubbedCount: raw['dubbed'] ?? raw['dubbedCount'] ?? 0,
+      description: raw['description'] ?? 'No description available.',
+      inWatchlist: raw['watchlist'] != null,
+      views: raw['views']?.toString() ?? '0',
+      likes: raw['likes']?.toString() ?? '0',
+      folder: raw['folder'],
+      anilistId: raw['anilist_id'] ?? raw['anilistId'],
     );
   }
 }
@@ -162,38 +163,28 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
     final sessionInfo = await authService.getStoredSession();
 
     try {
-      // Anime info can be fetched without auth, but user-specific data (like watchlist status) requires auth
-      // Use /anime/[id]?type=api to get the same data as the SvelteKit frontend
-      // Pass cookies when user is logged in to get user-specific data (watchlist status, likes, etc.)
       final response = await httpService.get(
         '/anime/$id',
-        queryParams: {'type': 'api'},
+        queryParams: {'include_episodes': 'true'},
         requireAuth: sessionInfo != null,
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final AnimeDetails details;
-        // SvelteKit might return data directly or wrapped
-        if (data['data'] != null) {
-          details = AnimeDetails.fromJson(data);
-        } else {
-          details = AnimeDetails.fromJson({'data': data});
-        }
+        final details = AnimeDetails.fromJson({'data': data});
 
-        // Initialize watchlist state from fetched data
         setState(() {
           _inWatchlist = details.inWatchlist;
           _folder = details.folder;
         });
 
+        _checkWatchlistStatus(id);
+
         return details;
       } else {
-        throw Exception(
-            'Failed to load anime details. Status code: ${response.statusCode}');
+        throw Exception('Failed to load anime details. Status code: ${response.statusCode}');
       }
     } catch (e) {
-      // print('Error fetching anime details: $e');
       throw Exception('Failed to load anime details: $e');
     }
   }
@@ -222,42 +213,46 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
   }
 
   Future<void> fetchEpisodeData() async {
-    setState(() {
-      isLoadingEpisodes = true;
-    });
+    setState(() => isLoadingEpisodes = true);
 
-    final authService = AuthService();
-    final sessionInfo = await authService.getStoredSession();
     final httpService = HttpService();
+    final sessionInfo = await authService.getStoredSession();
 
     try {
-      // Fetch episode 1 to get the list of all episodes
       final response = await httpService.get(
-        '/api/watch/${widget.animeId}/1',
+        '/anime/${widget.animeId}',
+        queryParams: {'include_episodes': 'true'},
         requireAuth: sessionInfo != null,
       );
 
       if (response.statusCode == 200) {
+        final raw = json.decode(response.body);
+        final episodes = raw['episodes'] ?? raw['data']?['episodes'] ?? [];
         setState(() {
-          final data = json.decode(response.body);
-          episodeData = data;
-          // print("Episode Data Response: ${response.body}"); // Log the response
+          episodeData = {'data': episodes is List ? episodes : []};
           isLoadingEpisodes = false;
-
-          if (data['anime_info'] != null &&
-              data['anime_info']['anilist'] != null) {
-            fetchThumbnails(data['anime_info']['anilist']);
+        });
+        if (episodes is List && episodes.isNotEmpty) {
+          final ep = episodes.first;
+          final epNum = ep['number'] ?? ep['episode_number'] ?? 1;
+          final watchResponse = await httpService.get(
+            '/watch/${widget.animeId}',
+            queryParams: {'ep': epNum.toString()},
+            requireAuth: sessionInfo != null,
+          );
+          if (watchResponse.statusCode == 200) {
+            final watchData = json.decode(watchResponse.body);
+            final anilistId = watchData['anilist_id'] ?? watchData['anilistId'] ?? watchData['anime']?['anilist_id'];
+            if (anilistId != null) {
+              fetchThumbnails(anilistId is int ? anilistId : int.tryParse(anilistId.toString()) ?? 0);
+            }
           }
-        });
+        }
       } else {
-        setState(() {
-          isLoadingEpisodes = false;
-        });
+        setState(() => isLoadingEpisodes = false);
       }
     } catch (e) {
-      setState(() {
-        isLoadingEpisodes = false;
-      });
+      setState(() => isLoadingEpisodes = false);
     }
   }
 
@@ -289,66 +284,120 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
 
   List<dynamic> _getFilteredEpisodes(List<dynamic> episodes) {
     return episodes.where((episode) {
-      final number = episode['number'] as int;
-      final title = (episode['titles'][0] as String).toLowerCase();
-      final numberInRange = number >= _currentPageStart &&
-          number < _currentPageStart + _episodesPerPage;
+      final number = episode['number'];
+      if (number == null) return false;
+      final n = number is int ? number : int.tryParse(number.toString()) ?? 0;
+      final title = (episode['title'] ?? episode['titles']?[0] ?? '').toString().toLowerCase();
+      final numberInRange = n >= _currentPageStart &&
+          n < _currentPageStart + _episodesPerPage;
 
       if (_searchQuery.isEmpty) return numberInRange;
 
-      final matchesNumber = number.toString().contains(_searchQuery);
+      final matchesNumber = n.toString().contains(_searchQuery);
       final matchesTitle = title.contains(_searchQuery);
 
       return numberInRange && (matchesNumber || matchesTitle);
     }).toList()
-      ..sort((a, b) => (a['number'] as int).compareTo(b['number'] as int));
+      ..sort((a, b) {
+        final na = a['number'];
+        final nb = b['number'];
+        final naInt = na is int ? na : int.tryParse(na?.toString() ?? '0') ?? 0;
+        final nbInt = nb is int ? nb : int.tryParse(nb?.toString() ?? '0') ?? 0;
+        return naInt.compareTo(nbInt);
+      });
   }
 
   Future<void> _updateWatchlistStatus(
       AnimeDetails anime, String newStatus) async {
-    final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
+    if (sessionInfo?.anisurgeToken == null) return;
 
-    if (sessionInfo == null) {
-      return;
-    }
-
-    // Show loading in button
-    setState(() {
-      _isUpdatingWatchlist = true;
-    });
+    setState(() => _isUpdatingWatchlist = true);
 
     final httpService = HttpService();
+    final folderMap = {
+      'Watching': 'WATCHING',
+      'On Hold': 'PAUSED',
+      'Plan To Watch': 'PLANNING',
+      'Dropped': 'DROPPED',
+      'Completed': 'COMPLETED',
+    };
 
     try {
-      // Use the correct endpoint and field names that match SvelteKit backend
+      final folder = newStatus == 'Remove' ? 'REMOVE' : (folderMap[newStatus] ?? newStatus.toUpperCase().replaceAll(' ', '_'));
+      final body = <String, dynamic>{
+        'animeId': anime.id,
+        'folder': folder,
+      };
+      if (anime.anilistId != null) body['anilistId'] = anime.anilistId;
+      if (anime.anilistId != null) {
+        try {
+          final malId = _anilistToMalId(anime.anilistId!);
+          if (malId != null) body['malId'] = malId;
+        } catch (_) {}
+      }
+
       final response = await httpService.post(
-        '/api/anime/watchlist',
-        body: {
-          'animeId': anime.id, // Backend expects camelCase
-          'folder': newStatus, // Backend expects 'folder' not 'status'
-        },
+        '/v1/watchlist',
+        body: body,
         requireAuth: true,
+        useBff: true,
       );
 
-      if (response.statusCode == 200) {
-        // Only update the watchlist state variables, not the entire Future
-        // This prevents the whole page from reloading
+      if (response.statusCode == 200 || response.statusCode == 201) {
         setState(() {
           _inWatchlist = newStatus != 'Remove';
-          _folder = newStatus != 'Remove' ? newStatus : null;
+          _folder = newStatus != 'Remove' ? folder : null;
           _isUpdatingWatchlist = false;
         });
       } else {
-        setState(() {
-          _isUpdatingWatchlist = false;
-        });
+        setState(() => _isUpdatingWatchlist = false);
       }
     } catch (e) {
-      // print('Error updating watchlist: $e');
-      setState(() {
-        _isUpdatingWatchlist = false;
-      });
+      setState(() => _isUpdatingWatchlist = false);
+    }
+  }
+
+  Future<void> _checkWatchlistStatus(String animeId) async {
+    try {
+      final session = await authService.getStoredSession();
+      if (session?.anisurgeToken == null) return;
+      final httpService = HttpService();
+      final response = await httpService.get(
+        '/v1/watchlist',
+        queryParams: {'anime_id': animeId, 'limit': '1'},
+        requireAuth: true,
+        useBff: true,
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final items = data['data'] ?? [];
+        if (items.isNotEmpty && items[0]['folder'] != null) {
+          setState(() {
+            _inWatchlist = true;
+            _folder = items[0]['folder'];
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  String? _mapFolderToDisplay(String folder) {
+    return switch (folder.toUpperCase()) {
+      'WATCHING' => 'Watching',
+      'PAUSED' => 'On Hold',
+      'PLANNING' => 'Plan To Watch',
+      'DROPPED' => 'Dropped',
+      'COMPLETED' => 'Completed',
+      _ => folder,
+    };
+  }
+
+  int? _anilistToMalId(int anilistId) {
+    try {
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -362,9 +411,9 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       'Remove'
     ];
 
-    // Use state variables instead of anime properties for real-time updates
+    final displayFolder = _folder != null ? _mapFolderToDisplay(_folder!) : null;
     return CustomDropdown<String>(
-      value: _folder,
+      value: displayFolder,
       items: options,
       itemBuilder: (value) => value,
       onChanged: (value) {
@@ -479,7 +528,8 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
       );
     }
 
-    final episodes = episodeData['all_episodes'] ?? [];
+    final rawEpisodes = episodeData['data'] ?? episodeData['episodes'] ?? episodeData['all_episodes'] ?? [];
+    final episodes = rawEpisodes is List ? rawEpisodes : (rawEpisodes is Map ? rawEpisodes['data'] ?? [] : []);
     if (episodes.isEmpty) {
       return const Center(
         child: Text(
@@ -613,7 +663,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                 final episode = filteredEpisodes[index];
 
                 return Container(
-                  key: ValueKey(episode['number']),
+                  key: ValueKey('${episode['number']}'),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: Colors.grey[900],
@@ -628,16 +678,16 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                         color: Colors.black,
                         borderRadius: BorderRadius.circular(4),
                         image: _thumbnails
-                                .containsKey(episode['number'].toString())
+                                .containsKey('${episode['number']}')
                             ? DecorationImage(
                                 image: NetworkImage(
-                                    _thumbnails[episode['number'].toString()]!),
+                                    _thumbnails['${episode['number']}']!),
                                 fit: BoxFit.cover,
                               )
-                            : null,
+                              : null,
                       ),
                       child:
-                          _thumbnails.containsKey(episode['number'].toString())
+                          _thumbnails.containsKey('${episode['number']}')
                               ? Container(
                                   color: Colors.black.withValues(alpha: 0.3),
                                   child: const Center(
@@ -664,7 +714,7 @@ class _AnimeInfoScreenState extends State<AnimeInfoScreen> {
                       ),
                     ),
                     subtitle: Text(
-                      episode['titles'][0] ?? '',
+                      episode['title'] ?? episode['titles']?[0] ?? '',
                       style: TextStyle(color: Colors.grey[400], fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

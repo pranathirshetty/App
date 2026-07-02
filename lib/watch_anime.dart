@@ -246,9 +246,7 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   Future<String?> _getUserId() async {
-    final sessionInfo = await authService.getStoredSession();
-    return sessionInfo
-        ?.userId; // Adjust this if your session object has a different structure
+    return 'guest';
   }
 
   Future<void> _shareAnime() async {
@@ -389,17 +387,17 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
           'Saving progress: Anime: ${widget.id}, Ep: $_selectedEpisodeId, Time: $position / $duration');
 
       await httpService.post(
-        '/api/save-progress',
+        '/v1/watch/progress',
         body: {
           'animeId': widget.id,
           'episodeId': _selectedEpisodeId,
           'currentTime': position,
           'duration': duration,
           'server': _currentServer,
-          'language':
-              'sub', // Defaulting to sub for now, can be dynamic if needed
+          'language': 'sub',
         },
         requireAuth: true,
+        useBff: true,
       );
     } catch (e) {
       // print('Error saving progress: $e');
@@ -753,43 +751,24 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
     try {
       final httpService = HttpService();
       final response = await httpService.get(
-        '/api/watch/${widget.id}/$episodeNumber',
+        '/watch/${widget.id}',
+        queryParams: {'ep': episodeNumber.toString()},
         requireAuth: sessionInfo != null,
       );
 
       if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         setState(() {
-          episodeData = json.decode(response.body);
+          episodeData = data;
           isLoadingEpisodes = false;
-          _currentEpisodeNumber =
-              episodeNumber; // Update _currentEpisodeNumber here
-
-          if (episodeData['anime_info'] != null &&
-              episodeData['anime_info']['anilist'] != null) {
-            fetchThumbnails(episodeData['anime_info']['anilist']);
+          _currentEpisodeNumber = episodeNumber;
+          final anilistId = data['anilist_id'] ?? data['anilistId'] ?? data['anime']?['anilist_id'];
+          if (anilistId != null) {
+            fetchThumbnails(anilistId is int ? anilistId : int.tryParse(anilistId.toString()) ?? 0);
           }
-
-          if (episodeData['all_episodes'] != null) {
-            // Store episode ID for tracking
-            final episodes = episodeData['all_episodes'] as List<dynamic>;
-            final currentEpisode = episodes.firstWhere(
-              (episode) => episode['number'] == episodeNumber,
-              orElse: () => null,
-            );
-
-            _selectedEpisodeId =
-                currentEpisode?['id'] ?? episodeData['episode_id'];
-          }
-
-          // Store continue watching position from API (will be used by fvp player)
-          if (episodeData['current'] != null && episodeData['current'] != 0) {
-            _savedWatchPosition = episodeData['current'] as int;
-          } else {
-            _savedWatchPosition = null;
-          }
+          _selectedEpisodeId = null;
+          _savedWatchPosition = null;
         });
-
-        // Scroll to the selected episode
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToCurrentEpisode(episodeNumber);
         });
@@ -822,33 +801,24 @@ class _WatchAnimeScreenState extends State<WatchAnimeScreen>
   }
 
   Future<void> fetchAnimeData(String? nid) async {
-    final String url = nid != null
-        ? 'https://anime.anisurge.qzz.io/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}?nid=$nid' // Use _currentEpisodeNumber
-        : 'https://anime.anisurge.qzz.io/watch/${widget.id}/${_currentEpisodeNumber ?? widget.episodeNumber}'; // Use _currentEpisodeNumber
-
     final httpService = HttpService();
-    final authService = AuthService();
     final sessionInfo = await authService.getStoredSession();
     try {
-      final endpoint = url.replaceFirst('https://anime.anisurge.qzz.io', '');
       final response = await httpService.get(
-        endpoint,
+        '/anime/${widget.id}',
         requireAuth: sessionInfo != null,
       );
 
       if (response.statusCode == 200) {
         setState(() {
-          animeData = json.decode(response.body);
+          animeData = {'anime_info': json.decode(response.body)};
           isLoading = false;
         });
       } else {
         throw Exception('Failed to load anime data');
       }
     } catch (e) {
-      // print('Error: $e');
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
