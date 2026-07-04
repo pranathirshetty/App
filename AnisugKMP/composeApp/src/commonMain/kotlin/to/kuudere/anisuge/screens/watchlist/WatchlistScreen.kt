@@ -464,7 +464,7 @@ fun WatchlistScreen(
                 }
 
                 // Lists content
-                val gridColumns = if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
+                val gridColumns = if (isDesktop) GridCells.Adaptive(minSize = 160.dp) else if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
                 val listState = rememberLazyGridState()
 
                 val endReached by remember {

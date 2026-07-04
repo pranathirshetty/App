@@ -394,6 +394,7 @@ private fun Sidebar(
         modifier = modifier
             .fillMaxHeight()
             .background(BG)
+            .verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 24.dp)
     ) {
         // No overall header as per user request
@@ -747,11 +748,12 @@ private fun MobileSettingsDetail(
     val navItem = navItems.find { it.tab == tab }
     val uriHandler = LocalUriHandler.current
 
+    val isShopTab = tab is SettingsTab.Shop
+    val scrollState = remember(tab) { androidx.compose.foundation.ScrollState(0) }
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BG)
-            .verticalScroll(rememberScrollState())
     ) {
         // Header with back
         Row(
@@ -779,6 +781,10 @@ private fun MobileSettingsDetail(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
+                .then(
+                    if (!isShopTab) Modifier.verticalScroll(scrollState) else Modifier
+                )
                 .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 16.dp)
         ) {
