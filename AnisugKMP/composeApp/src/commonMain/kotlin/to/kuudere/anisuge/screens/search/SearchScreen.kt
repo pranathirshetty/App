@@ -72,7 +72,7 @@ fun SearchScreen(
     ) { _ ->
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val isSmall = maxWidth < 800.dp
-            val columns = if (isDesktop) GridCells.Adaptive(minSize = 160.dp) else if (isSmall) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 160.dp)
+            val columns = if (maxWidth > 600.dp) GridCells.Adaptive(minSize = 160.dp) else GridCells.Fixed(3)
             val hPadding = if (isSmall) 12.dp else 24.dp
             val itemSpacing = if (isSmall) 12.dp else 16.dp
             val showOffline = state.isOffline && state.results.isEmpty()

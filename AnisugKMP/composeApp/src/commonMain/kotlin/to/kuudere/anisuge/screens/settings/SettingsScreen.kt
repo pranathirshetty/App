@@ -748,7 +748,7 @@ private fun MobileSettingsDetail(
     val navItem = navItems.find { it.tab == tab }
     val uriHandler = LocalUriHandler.current
 
-    val isShopTab = tab is SettingsTab.Shop
+
     val scrollState = remember(tab) { androidx.compose.foundation.ScrollState(0) }
     Column(
         modifier = Modifier
@@ -783,7 +783,7 @@ private fun MobileSettingsDetail(
                 .fillMaxWidth()
                 .weight(1f)
                 .then(
-                    if (!isShopTab) Modifier.verticalScroll(scrollState) else Modifier
+                    Modifier.verticalScroll(scrollState)
                 )
                 .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 16.dp)

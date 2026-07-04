@@ -1,6 +1,5 @@
 package to.kuudere.anisuge.screens.update
 import to.kuudere.anisuge.screens.update.UpdateState
-import to.kuudere.anisuge.screens.aichat.AiChatMarkdownText
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
