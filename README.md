@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="composeApp/src/commonMain/composeResources/drawable/logo.png" width="128" height="128" alt="Anisurge Logo">
+  <img src="assets/adaptive-icon.png" width="128" height="128" alt="Anisurge Logo">
 </p>
 
 <h1 align="center">Anisurge</h1>
